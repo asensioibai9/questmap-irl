@@ -1,0 +1,12 @@
+# Xcode
+*.xcodeproj/
+!*.xcodeproj/project.pbxproj
+xcuserdata/
+DerivedData/
+*.xcuserstate
+.build/
+*.ipa
+*.dSYM.zip
+
+# macOS
+.DS_Store

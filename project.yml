@@ -1,0 +1,58 @@
+# Definición del proyecto Xcode para XcodeGen (https://github.com/yonaskolb/XcodeGen).
+# En un Mac: `brew install xcodegen && xcodegen generate` → crea QuestMapIRL.xcodeproj.
+name: QuestMapIRL
+options:
+  bundleIdPrefix: com.questmapirl
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: es
+  xcodeVersion: "15.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    MARKETING_VERSION: 1.0.0
+    CURRENT_PROJECT_VERSION: 1
+    TARGETED_DEVICE_FAMILY: "1"          # iPhone; iPad como mejora posterior
+
+targets:
+  QuestMapIRL:
+    type: application
+    platform: iOS
+    sources:
+      - path: QuestMapIRL
+        excludes:
+          - "Tests/**"
+          - "**/*.md"
+          - "Resources/Info.plist"
+          - "Resources/Info.plist.snippet.xml"
+    info:
+      path: QuestMapIRL/Resources/Info.plist
+    entitlements:
+      path: QuestMapIRL/Resources/QuestMapIRL.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.questmapirl.app
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        CODE_SIGN_STYLE: Automatic
+        # Rellenar con tu Team ID de Apple Developer para ejecutar en dispositivo real.
+        DEVELOPMENT_TEAM: ""
+        ENABLE_PREVIEWS: YES
+    scheme:
+      testTargets:
+        - QuestMapIRLTests
+      storeKitConfiguration: QuestMapIRL/Resources/Products.storekit
+
+  QuestMapIRLTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: QuestMapIRL/Tests
+    dependencies:
+      - target: QuestMapIRL
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.questmapirl.app.tests
+        GENERATE_INFOPLIST_FILE: YES
