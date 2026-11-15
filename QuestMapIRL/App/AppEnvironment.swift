@@ -9,12 +9,19 @@ final class AppEnvironment {
     let speech: SpeechService
     let store: StoreService
 
-    init(
-        locationService: LocationServiceProtocol = LocationService(),
-        routeService: RouteServiceProtocol = RouteService(),
-        speech: SpeechService = SpeechService(),
-        store: StoreService = StoreService()
-    ) {
+    /// Servicios reales de producción.
+    init() {
+        self.locationService = LocationService()
+        self.routeService = RouteService()
+        self.speech = SpeechService()
+        self.store = StoreService()
+    }
+
+    /// Inyección explícita para previews y tests.
+    init(locationService: LocationServiceProtocol,
+         routeService: RouteServiceProtocol,
+         speech: SpeechService,
+         store: StoreService) {
         self.locationService = locationService
         self.routeService = routeService
         self.speech = speech
