@@ -4,7 +4,8 @@ import CoreLocation
 
 final class FogGridTests: XCTestCase {
     func testSameCellForNearbyPoints() {
-        let a = FogGrid.key(latitude: 40.4000, longitude: -3.7000)
+        // Ambos puntos caen dentro de la misma celda (sin cruzar un múltiplo de 1/500 grado).
+        let a = FogGrid.key(latitude: 40.4001, longitude: -3.7001)
         let b = FogGrid.key(latitude: 40.4005, longitude: -3.7005)
         XCTAssertEqual(a, b)
     }
