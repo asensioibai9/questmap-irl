@@ -148,7 +148,7 @@ struct HomeView: View {
             }
             .onMapCameraChange(frequency: .onEnd) { _ in
                 // Si el usuario arrastra el mapa, dejamos de seguirle hasta que recentre.
-                if case .userLocation = viewModel.cameraPosition {} else { viewModel.isFollowing = false }
+                if viewModel.cameraPosition.positionedByUser { viewModel.isFollowing = false }
             }
             .simultaneousGesture(
                 LongPressGesture(minimumDuration: 0.5)
