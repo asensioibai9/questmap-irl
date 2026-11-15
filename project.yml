@@ -27,23 +27,23 @@ targets:
           - "Tests/**"
           - "**/*.md"
           - "Resources/Info.plist"
-          - "Resources/Info.plist.snippet.xml"
-    info:
-      path: QuestMapIRL/Resources/Info.plist
     entitlements:
       path: QuestMapIRL/Resources/QuestMapIRL.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.questmapirl.app
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        # IMPORTANTE: usamos nuestro propio Info.plist (permisos, modos de fondo,
+        # launch screen). No usar la clave `info:` de XcodeGen, que lo regeneraría vacío.
+        INFOPLIST_FILE: QuestMapIRL/Resources/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_STYLE: Automatic
         # Rellenar con tu Team ID de Apple Developer para ejecutar en dispositivo real.
         DEVELOPMENT_TEAM: ""
         ENABLE_PREVIEWS: YES
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: ""
     scheme:
       testTargets:
         - QuestMapIRLTests
-      storeKitConfiguration: QuestMapIRL/Resources/Products.storekit
 
   QuestMapIRLTests:
     type: bundle.unit-test

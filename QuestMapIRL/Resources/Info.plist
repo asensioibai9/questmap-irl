@@ -17,34 +17,63 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>QuestMap IRL usa tu ubicación para mostrarte el mapa y guiarte por la ruta.</string>
-    <key>UIBackgroundModes</key>
-    <array>
-        <string>location</string>
-        <string>audio</string>
-    </array>
+
+    <!-- Launch screen generado por el sistema: imprescindible para que la app
+         use la pantalla completa (sin esto iOS la ejecuta en modo compatibilidad
+         con bandas negras). -->
+    <key>UILaunchScreen</key>
+    <dict>
+        <key>UIColorName</key>
+        <string>LaunchBackground</string>
+    </dict>
+
     <key>UIApplicationSceneManifest</key>
     <dict>
         <key>UIApplicationSupportsMultipleScenes</key>
         <false/>
     </dict>
-    <key>UILaunchScreen</key>
-    <dict/>
+
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
     </array>
+    <key>UIRequiresFullScreen</key>
+    <true/>
+    <key>UIUserInterfaceStyle</key>
+    <string>Automatic</string>
+    <key>UIStatusBarStyle</key>
+    <string>UIStatusBarStyleDefault</string>
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <true/>
+
     <key>UIRequiredDeviceCapabilities</key>
     <array>
-        <string>armv7</string>
+        <string>arm64</string>
         <string>location-services</string>
+        <string>gps</string>
     </array>
+
+    <!-- Permisos -->
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>QuestMap IRL usa tu ubicación para mostrarte en el mapa, calcular rutas y guiarte paso a paso.</string>
+    <key>NSLocationTemporaryUsageDescriptionDictionary</key>
+    <dict>
+        <key>Navigation</key>
+        <string>Durante la navegación necesitamos la máxima precisión para indicarte los giros a tiempo.</string>
+    </dict>
+
+    <!-- Navegación con la pantalla bloqueada y voz -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>location</string>
+        <string>audio</string>
+    </array>
+
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
 </dict>

@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- In-App Purchase no necesita clave; se activa con la capability. -->
-    <!-- CarPlay (versión 1.1): añadir com.apple.developer.carplay-maps cuando Apple apruebe el entitlement. -->
+    <!-- La app es gratuita y sin compras: no hay entitlements de pago. -->
+    <!-- CarPlay (futuro): añadir com.apple.developer.carplay-maps cuando Apple lo apruebe. -->
 </dict>
 </plist>

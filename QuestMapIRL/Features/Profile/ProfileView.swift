@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// Perfil: nivel cosmético, estadísticas, niebla revelada y logros.
+/// Perfil: nivel cosmético, estadísticas, niebla revelada y logros. Todo gratuito.
 struct ProfileView: View {
     @Environment(\.mapTheme) private var theme
     @Query(sort: \TripRecord.startedAt, order: .reverse) private var trips: [TripRecord]
@@ -20,17 +20,27 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    levelCard
-                    statsGrid
-                    achievements
-                    if !trips.isEmpty { recentTrips }
+                if trips.isEmpty {
+                    ContentUnavailableView(
+                        "Aún no has viajado",
+                        systemImage: "map",
+                        description: Text("Completa tu primera ruta y aquí verás kilómetros, zonas reveladas y logros.")
+                    )
+                    .padding(.top, 60)
+                } else {
+                    VStack(spacing: 16) {
+                        levelCard
+                        statsGrid
+                        achievements
+                        recentTrips
+                    }
+                    .padding(16)
                 }
-                .padding(16)
             }
             .background(theme.background.ignoresSafeArea())
             .navigationTitle("Explorador")
         }
+        .tint(theme.accent)
     }
 
     private var levelCard: some View {
@@ -42,15 +52,16 @@ struct ProfileView: View {
                 .foregroundStyle(theme.accent)
             ProgressView(value: Double(xp % 500), total: 500).tint(theme.accent)
             Text("\(xp % 500) / 500 XP · nivel cosmético, sin ventajas en navegación")
-                .font(.caption).foregroundStyle(theme.textSecondary)
+                .font(.caption).foregroundStyle(theme.textSecondary).multilineTextAlignment(.center)
         }
         .padding(18)
         .frame(maxWidth: .infinity)
-        .background(theme.panel, in: .rect(cornerRadius: 20))
+        .background(theme.panel, in: RoundedRectangle(cornerRadius: theme.cornerRadius + 6, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: theme.cornerRadius + 6, style: .continuous).stroke(theme.panelBorder, lineWidth: 1))
     }
 
     private var statsGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
             stat("Kilómetros", String(format: "%.0f", stats.kilometers))
             stat("Rutas", "\(stats.routesCompleted)")
             stat("Lugares", "\(stats.uniqueDestinations)")
@@ -67,8 +78,9 @@ struct ProfileView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(14)
-        .background(theme.panel, in: .rect(cornerRadius: 16))
+        .background(theme.panel, in: RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous))
         .foregroundStyle(theme.textPrimary)
+        .accessibilityElement(children: .combine)
     }
 
     private var achievements: some View {
@@ -79,7 +91,7 @@ struct ProfileView: View {
                 HStack {
                     Image(systemName: unlocked ? "rosette" : "lock.fill")
                         .foregroundStyle(unlocked ? theme.accent : theme.textSecondary)
-                    VStack(alignment: .leading) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(achievement.title).font(.subheadline.weight(.semibold))
                         Text(achievement.detail).font(.caption).foregroundStyle(theme.textSecondary)
                     }
@@ -88,7 +100,9 @@ struct ProfileView: View {
                 }
                 .foregroundStyle(theme.textPrimary)
                 .padding(12)
-                .background(theme.panel.opacity(unlocked ? 1 : 0.6), in: .rect(cornerRadius: 14))
+                .background(theme.panel.opacity(unlocked ? 1 : 0.6), in: RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous))
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(achievement.title). \(unlocked ? "Conseguido" : "Bloqueado"). \(achievement.detail)")
             }
         }
     }
@@ -98,16 +112,16 @@ struct ProfileView: View {
             Text("Últimas rutas").font(.headline).foregroundStyle(theme.textPrimary)
             ForEach(trips.prefix(5)) { trip in
                 HStack {
-                    VStack(alignment: .leading) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(trip.destinationName).font(.subheadline.weight(.semibold))
                         Text(trip.startedAt, style: .date).font(.caption).foregroundStyle(theme.textSecondary)
                     }
                     Spacer()
-                    Text(String(format: "%.1f km", trip.distanceMeters / 1000)).font(.caption.monospacedDigit())
+                    Text(Formatters.distance(trip.distanceMeters, metric: true)).font(.caption.monospacedDigit())
                 }
                 .foregroundStyle(theme.textPrimary)
                 .padding(12)
-                .background(theme.panel, in: .rect(cornerRadius: 14))
+                .background(theme.panel, in: RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous))
             }
         }
     }
