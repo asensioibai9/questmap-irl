@@ -71,8 +71,13 @@ struct OverpassNearbyService: NearbySearchProviding {
             let key = "\(name)|\(String(format: "%.4f,%.4f", coordinate.latitude, coordinate.longitude))"
             guard seen.insert(key).inserted else { continue }
 
-            let street = [tags["addr:street"], tags["addr:housenumber"]].compactMap { $0 }.joined(separator: " ")
-            let subtitle = [street, tags["addr:city"]].filter { !$0.isEmpty }.joined(separator: ", ")
+            var streetParts: [String] = []
+            if let street = tags["addr:street"] { streetParts.append(street) }
+            if let number = tags["addr:housenumber"] { streetParts.append(number) }
+            var subtitleParts: [String] = []
+            if !streetParts.isEmpty { subtitleParts.append(streetParts.joined(separator: " ")) }
+            if let city = tags["addr:city"] { subtitleParts.append(city) }
+            let subtitle = subtitleParts.joined(separator: ", ")
             places.append(Place(id: "osm-\(type)-\(osmID)", name: name,
                                 subtitle: subtitle.isEmpty ? category.singular : subtitle,
                                 latitude: coordinate.latitude, longitude: coordinate.longitude))
