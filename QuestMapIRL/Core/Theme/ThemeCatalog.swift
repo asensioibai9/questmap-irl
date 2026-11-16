@@ -19,7 +19,7 @@ enum ThemeCatalog {
     // MARK: - Terminados
 
     static let ciudadNocturna = MapTheme(
-        id: .ciudadNocturna, name: "Ciudad nocturna",
+        id: .ciudadNocturna, name: MapStyleNames.name(for: .ciudadNocturna),
         tagline: "Asfalto oscuro, siluetas de edificios y una ruta que no se pierde.",
         isDark: true,
         background: Color(hex: 0x0B0D10),
@@ -41,7 +41,7 @@ enum ThemeCatalog {
     )
 
     static let minimalistaPro = MapTheme(
-        id: .minimalistaPro, name: "Minimalista Pro",
+        id: .minimalistaPro, name: MapStyleNames.name(for: .minimalistaPro),
         tagline: "Solo lo que necesitas para conducir de día.",
         isDark: false,
         background: Color(hex: 0xFFFFFF),
@@ -66,7 +66,7 @@ enum ThemeCatalog {
     // Los siguientes (fantasía, arcade) siguen sin cartografía: solo paleta de HUD.
 
     static let islaRoyale = MapTheme(
-        id: .islaRoyale, name: "Isla",
+        id: .islaRoyale, name: MapStyleNames.name(for: .islaRoyale),
         tagline: "Color saturado, costas y un marcador que se ve desde el cielo.",
         isDark: false,
         background: Color(hex: 0xE8F6FF), panel: Color(hex: 0xFFFFFF, opacity: 0.94),
@@ -86,7 +86,7 @@ enum ThemeCatalog {
     )
 
     static let mundoBloques = MapTheme(
-        id: .mundoBloques, name: "Mundo de bloques",
+        id: .mundoBloques, name: MapStyleNames.name(for: .mundoBloques),
         tagline: "Cuadrícula, paleta limitada y un camino de bloques brillantes.",
         isDark: false,
         background: Color(hex: 0x87CEEB), panel: Color(hex: 0x3B2A1E, opacity: 0.94),
@@ -108,7 +108,7 @@ enum ThemeCatalog {
     )
 
     static let mapaFantasia = MapTheme(
-        id: .mapaFantasia, name: "Mapa de fantasía",
+        id: .mapaFantasia, name: MapStyleNames.name(for: .mapaFantasia),
         tagline: "Pergamino, tinta y una ruta dorada hacia la aventura.",
         isDark: false,
         background: Color(hex: 0xEBDCB5), panel: Color(hex: 0xF6EBD0, opacity: 0.96),
@@ -129,7 +129,7 @@ enum ThemeCatalog {
     // MARK: - Fase 4 (referencias y límites en docs/18)
 
     static let salvajeOeste = MapTheme(
-        id: .salvajeOeste, name: "Mapa del salvaje oeste",
+        id: .salvajeOeste, name: MapStyleNames.name(for: .salvajeOeste),
         tagline: "Tinta fina sobre papel ocre: caminos, polvo y una ruta carmesí.",
         isDark: false,
         background: Color(hex: 0xE3D0A5), panel: Color(hex: 0xF1E2BD, opacity: 0.96),
@@ -148,7 +148,7 @@ enum ThemeCatalog {
     )
 
     static let ciudadCiber = MapTheme(
-        id: .ciudadCiber, name: "Ciudad ciber",
+        id: .ciudadCiber, name: MapStyleNames.name(for: .ciudadCiber),
         tagline: "Manzanas rojas, vías de cian y una ruta amarilla que no se pierde.",
         isDark: true,
         background: Color(hex: 0x0A0710), panel: Color(hex: 0x14090F, opacity: 0.95),
@@ -167,7 +167,7 @@ enum ThemeCatalog {
     )
 
     static let redUrbana = MapTheme(
-        id: .redUrbana, name: "Red urbana",
+        id: .redUrbana, name: MapStyleNames.name(for: .redUrbana),
         tagline: "Una ciudad clara y plana: calles blancas, agua azul y autopistas amarillas.",
         isDark: false,
         background: Color(hex: 0xF4F5F7), panel: Color(hex: 0xFFFFFF, opacity: 0.96),
@@ -186,7 +186,7 @@ enum ThemeCatalog {
     )
 
     static let rutasRally = MapTheme(
-        id: .rutasRally, name: "Rutas de rally",
+        id: .rutasRally, name: MapStyleNames.name(for: .rutasRally),
         tagline: "Terreno vivo, carreteras claras y caminos de tierra discontinuos.",
         isDark: true,
         background: Color(hex: 0x131A12), panel: Color(hex: 0x1D2619, opacity: 0.95),
@@ -205,7 +205,7 @@ enum ThemeCatalog {
     )
 
     static let retroArcade = MapTheme(
-        id: .retroArcade, name: "Retro arcade",
+        id: .retroArcade, name: MapStyleNames.name(for: .retroArcade),
         tagline: "Rejilla, neón y una ruta que late.",
         isDark: true,
         background: Color(hex: 0x12022B), panel: Color(hex: 0x1F0A47, opacity: 0.94),

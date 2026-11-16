@@ -88,17 +88,4 @@ final class Phase4StylesTests: XCTestCase {
         }
     }
 
-    func testVisibleNamesDoNotUseGameTitles() {
-        let banned = ["red dead", "cyberpunk", "skyrim", "watch dogs", "forza", "horizon", "gta", "fortnite", "minecraft"]
-        for theme in ThemeCatalog.all {
-            let text = (theme.name + " " + theme.tagline).lowercased()
-            for word in banned { XCTAssertFalse(text.contains(word), "\(theme.name) usa «\(word)»") }
-        }
-    }
-
-    func testPreviewsExistForEveryReadyTheme() {
-        for theme in ThemeCatalog.all where theme.isCartographyReady {
-            XCTAssertNotNil(theme.previewAsset, "\(theme.name) sin miniatura")
-        }
-    }
 }

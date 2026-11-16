@@ -2,41 +2,30 @@ import SwiftUI
 import SwiftData
 import CoreLocation
 
-extension MapTheme {
-    /// Imagen de previsualización del catálogo de recursos. Noir, Claro, Isla y Bloques: capturas del estilo; los demás: esquemas dibujados con su paleta (no son capturas).
-    var previewAsset: String? {
-        switch id {
-        case .ciudadNocturna: return "StylePreviewNoir"
-        case .minimalistaPro: return "StylePreviewLight"
-        case .islaRoyale: return "StylePreviewIsla"
-        case .mundoBloques: return "StylePreviewBloques"
-        case .salvajeOeste: return "StylePreviewOeste"
-        case .ciudadCiber: return "StylePreviewCiber"
-        case .mapaFantasia: return "StylePreviewFantasia"
-        case .redUrbana: return "StylePreviewRed"
-        case .rutasRally: return "StylePreviewRally"
-        default: return nil
-        }
-    }
-}
-
 // MARK: - Estilo de mapa
 
-/// Galería de estilos cartográficos. Cambiar de estilo no borra destino, ruta ni favoritos:
-/// el mapa vuelve a aplicar su estado tras cargar el nuevo estilo.
+/// Galería de estilos cartográficos con previsualizaciones REALES (snapshots del propio motor sobre cartografía real, con la
+/// misma configuración que el mapa principal). Cambiar de estilo no borra destino, ruta ni favoritos: el mapa vuelve a
+/// aplicar su estado tras cargar el nuevo estilo.
 struct MapStyleGalleryView: View {
     @Query private var settingsRows: [UserSettings]
     @Environment(\.modelContext) private var context
+    @State private var previews = StylePreviewStore.shared
 
     private var settings: UserSettings? { settingsRows.first }
+    private var themes: [MapTheme] { ThemeCatalog.all.filter(\.isCartographyReady) }
+    private var selectedID: MapThemeID { settings?.themeID ?? .ciudadNocturna }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                ForEach(ThemeCatalog.all.filter(\.isCartographyReady)) { candidate in
+                ForEach(themes) { candidate in
                     card(candidate)
                 }
-                Text("Todos los estilos dibujan las calles reales de tu ubicación. Aparecerán aquí los nuevos estilos cuando estén terminados.")
+                Text("Vistas previas generadas con el propio motor del mapa sobre cartografía real (\(StylePreviewSpec.placeCaption)), con la misma zona, encuadre y zoom en todos los estilos. La ruta, el destino y el marcador son de ejemplo.")
+                    .font(.footnote).foregroundStyle(AppColor.textSecondary)
+                    .padding(.horizontal, 4)
+                Text(MapStyleNames.disclaimer)
                     .font(.footnote).foregroundStyle(AppColor.textSecondary)
                     .padding(.horizontal, 4)
             }
@@ -45,54 +34,87 @@ struct MapStyleGalleryView: View {
         .background(AppColor.background.ignoresSafeArea())
         .navigationTitle("Estilo de mapa")
         .navigationBarTitleDisplayMode(.inline)
+        .task { previews.prepare(themes: themes, selected: selectedID) }
+    }
+
+    private func select(_ candidate: MapTheme) {
+        if let settings { settings.themeID = candidate.id } else {
+            context.insert(UserSettings(themeRawValue: candidate.id.rawValue))
+        }
+        // La selección se guarda al instante (no solo al cerrar la app).
+        PersistenceCommit.saveQuietly(context, operation: "map-style")
     }
 
     private func card(_ candidate: MapTheme) -> some View {
-        let selected = (settings?.themeID ?? .ciudadNocturna) == candidate.id
-        return Button {
-            if let settings { settings.themeID = candidate.id } else {
-                context.insert(UserSettings(themeRawValue: candidate.id.rawValue))
-            }
-        } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                ZStack(alignment: .topTrailing) {
-                    preview(candidate)
-                    if selected {
-                        Label("En uso", systemImage: "checkmark.circle.fill")
-                            .font(.caption.weight(.bold))
-                            .padding(.horizontal, 10).padding(.vertical, 6)
-                            .background(.black.opacity(0.7), in: Capsule())
-                            .foregroundStyle(.white)
-                            .padding(10)
+        let selected = selectedID == candidate.id
+        return ZStack(alignment: .topLeading) {
+            Button { select(candidate) } label: {
+                VStack(alignment: .leading, spacing: 0) {
+                    ZStack(alignment: .topTrailing) {
+                        preview(candidate)
+                        if selected {
+                            Label("En uso", systemImage: "checkmark.circle.fill")
+                                .font(.caption.weight(.bold))
+                                .padding(.horizontal, 10).padding(.vertical, 6)
+                                .background(.black.opacity(0.7), in: Capsule())
+                                .foregroundStyle(.white)
+                                .padding(10)
+                        }
                     }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(candidate.name).font(.headline).foregroundStyle(AppColor.textPrimary)
+                        Text(candidate.tagline).font(.subheadline).foregroundStyle(AppColor.textSecondary)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(candidate.name).font(.headline).foregroundStyle(AppColor.textPrimary)
-                    Text(candidate.tagline).font(.subheadline).foregroundStyle(AppColor.textSecondary)
-                        .multilineTextAlignment(.leading)
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppColor.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(selected ? candidate.accent : Color.clear, lineWidth: 3))
             }
-            .background(AppColor.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(selected ? candidate.accent : Color.clear, lineWidth: 3))
+            .buttonStyle(PressableStyle())
+            .accessibilityLabel("\(candidate.name). \(candidate.tagline)")
+            .accessibilityAddTraits(selected ? .isSelected : [])
+
+            if case .failed = previews.state(for: candidate.id) {
+                Button("Reintentar") { previews.retry(candidate, themes: themes, selected: selectedID) }
+                    .font(.caption.weight(.bold))
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(.black.opacity(0.75), in: Capsule())
+                    .foregroundStyle(.white)
+                    .padding(10)
+            }
         }
-        .buttonStyle(PressableStyle())
-        .accessibilityLabel("\(candidate.name). \(candidate.tagline)")
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     @ViewBuilder
     private func preview(_ candidate: MapTheme) -> some View {
         Group {
-            if let asset = candidate.previewAsset {
-                Image(asset).resizable().scaledToFill()
-            } else {
-                candidate.background
+            switch previews.state(for: candidate.id) {
+            case .ready(let image):
+                Image(uiImage: image).resizable().scaledToFill()
+            case .idle, .loading:
+                ZStack {
+                    AppColor.surfaceRaised
+                    VStack(spacing: 8) {
+                        ProgressView()
+                        Text("Generando vista previa…").font(.caption).foregroundStyle(AppColor.textSecondary)
+                    }
+                }
+            case .failed(let message):
+                ZStack {
+                    AppColor.surfaceRaised
+                    VStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle").foregroundStyle(AppColor.textSecondary)
+                        Text("Sin vista previa").font(.caption.weight(.semibold)).foregroundStyle(AppColor.textPrimary)
+                        Text(message).font(.caption2).foregroundStyle(AppColor.textSecondary)
+                            .multilineTextAlignment(.center).padding(.horizontal, 20)
+                    }
+                }
             }
         }
-        .frame(height: 170)
+        .aspectRatio(StylePreviewSpec.size.width / StylePreviewSpec.size.height, contentMode: .fit)
         .frame(maxWidth: .infinity)
         .clipShape(UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22, style: .continuous))
         .accessibilityHidden(true)
@@ -375,7 +397,7 @@ struct WhatsNewView: View {
 
     private let releases = [
         Release(id: "1.0", date: "Noviembre de 2026", items: [
-            "Mapa vectorial real a pantalla completa con dos estilos: Ciudad nocturna y Minimalista Pro.",
+            "Mapa vectorial real a pantalla completa con varios estilos de mapa.",
             "Rutas en coche y a pie con indicaciones de voz en español y recálculo si te desvías.",
             "Buscador con recientes, Casa, Trabajo y Guardados, y búsqueda de lugares cercanos por categoría.",
             "Avatar del mapa a elegir y minimapa durante la navegación.",
