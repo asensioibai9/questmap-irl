@@ -10,20 +10,39 @@ struct MinimapView: View {
 
     var body: some View {
         let style = theme.activeCartography
-        let shape = style.minimapShape == .circle
-            ? AnyShape(Circle())
-            : AnyShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        let faded = style.minimapShape == .fadedRectangle
+        let width = faded ? size * 1.5 : size
+        let shape = shape(for: style.minimapShape)
 
         QuestMapView(controller: controller, style: style, interactive: false)
-            .frame(width: size, height: size)
+            .frame(width: width, height: size)
             .clipShape(shape)
-            .overlay(shape.stroke(Color(hex: style.minimapBorderHex), lineWidth: 4))
-            .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
+            // Radar rectangular: el mapa se desvanece hacia los bordes en vez de acabar en un marco.
+            .mask {
+                if faded {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(.black).padding(7).blur(radius: 7)
+                } else {
+                    Rectangle()
+                }
+            }
+            .overlay {
+                if !faded { shape.stroke(Color(hex: style.minimapBorderHex), lineWidth: 4) }
+            }
+            .shadow(color: .black.opacity(faded ? 0 : 0.35), radius: 8, y: 3)
             .contentShape(shape)
             .onTapGesture(perform: onTap)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Minimapa")
             .accessibilityHint("Toca dos veces para abrir el mapa completo")
             .accessibilityAddTraits(.isButton)
+    }
+
+    private func shape(for kind: MinimapShape) -> AnyShape {
+        switch kind {
+        case .circle: AnyShape(Circle())
+        case .roundedSquare: AnyShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        case .fadedRectangle: AnyShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
     }
 }

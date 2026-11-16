@@ -34,6 +34,8 @@ enum POIKind: String, CaseIterable, Identifiable {
 enum MinimapShape: Equatable {
     case circle
     case roundedSquare
+    /// Rectángulo apaisado con los bordes desvanecidos (radar rectangular de estilo videojuego).
+    case fadedRectangle
 }
 
 /// Cómo se dibuja el MAPA REAL de este tema. El estilo vectorial vive en un JSON (capas, colores,

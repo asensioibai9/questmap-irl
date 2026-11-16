@@ -4,9 +4,10 @@ Archivo del estilo: `QuestMapIRL/Resources/style-ciudad-nocturna.json` (generado
 Nombre visible en la app: **Ciudad nocturna** (configurable en `ThemeCatalog`). No se presenta como oficial ni afiliado a ningún videojuego.
 
 ## Referencia visual utilizada
-- **Ninguna captura concreta.** No han llegado las imágenes de referencia. El estilo sigue la descripción escrita del encargo (terreno oscuro, edificios como siluetas, jerarquía de vías con contraste, agua separada, etiquetas sobre las calles, ruta que destaca sin borrar la ciudad) y el lenguaje general del minimapa urbano nocturno de GTA V.
-- **No se ha comparado con GTA V**, por lo que no se afirma que sea idéntico ni se puede medir la fidelidad.
-- Pendiente de fijar cuando haya capturas: si el objetivo es el minimapa de juego, el mapa completo o ambos, y la paleta exacta.
+- **Vistas en el navegador (16 nov 2026):** capa «Road» de gta-5-map.com (carreteras oscuras con contorno sobre gris claro, agua azul con degradado) y descripción del radar en la wiki de GTA (radar **rectangular**, escala de grises desde 2015, borde difuminado, vista cenital a pie e inclinada en vehículo, ruta GPS destacada). gtaweb.eu no se pudo inspeccionar (diálogos de consentimiento que reaparecían), así que **no se usó**.
+- **Capturas adjuntas (blanco y negro urbana): no llegaron** al chat; no se han visto. Se aplica su descripción escrita: terreno oscuro, edificios grises, carreteras claras, iconos contrastados, ruta visible.
+- **No se ha comparado píxel a píxel con GTA V**: no se afirma que sea idéntico.
+- Decisiones derivadas: paleta casi monocroma; minimapa rectangular apaisado con bordes desvanecidos (ya no circular); inclinación de cámara de 35° al navegar (la «perspectiva en vehículo»); ruta magenta, destino amarillo y flecha blanca para contrastar con el gris.
 
 ## Elementos reproducidos
 | Elemento | Cómo se resuelve |

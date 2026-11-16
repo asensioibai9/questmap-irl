@@ -33,9 +33,9 @@ enum ThemeCatalog {
         poiIcons: [.fuel: "fuelpump.fill", .food: "fork.knife", .parking: "parkingsign", .hospital: "cross.fill",
                    .police: "shield.lefthalf.filled", .shop: "bag.fill", .poi: "star.fill", .quest: "flag.fill"],
         cartography: CartographyStyle(
-            resourceName: "style-ciudad-nocturna", backgroundHex: 0x161B24, userArrowHex: 0x4CC9F0,
-            defaultZoom: 15.5, navigationZoom: 17, navigationPitch: 0,
-            minimapZoom: 16.5, minimapShape: .circle, minimapBorderHex: 0x07090D, attribution: attribution)
+            resourceName: "style-ciudad-nocturna", backgroundHex: 0x17191D, userArrowHex: 0xFFFFFF,
+            defaultZoom: 15.5, navigationZoom: 17, navigationPitch: 35,
+            minimapZoom: 16.5, minimapShape: .fadedRectangle, minimapBorderHex: 0x0A0B0D, attribution: attribution)
     )
 
     static let minimalistaPro = MapTheme(
