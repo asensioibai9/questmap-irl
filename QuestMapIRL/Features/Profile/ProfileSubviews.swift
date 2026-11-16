@@ -155,6 +155,7 @@ struct AvatarPickerView: View {
 /// Solo ajustes que cambian el comportamiento real de la app.
 struct NavigationSettingsView: View {
     @Query private var settingsRows: [UserSettings]
+    @Environment(\.modelContext) private var context
     @Environment(\.openURL) private var openURL
 
     let environment: AppEnvironment
@@ -251,6 +252,17 @@ struct NavigationSettingsView: View {
                 Text("Voz de navegación")
             } footer: {
                 Text("Las indicaciones se dicen en español con las voces instaladas en el iPhone. El volumen se aplica sobre el volumen del sistema. El botón de prueba suena aunque las indicaciones estén desactivadas.")
+            }
+
+            Section {
+                Toggle("Mostrar límite de velocidad", isOn: $settings.showSpeedLimit)
+                    .onChange(of: settings.showSpeedLimit) { _, _ in
+                        PersistenceCommit.saveQuietly(context, operation: "speed-limit-setting")
+                    }
+            } header: {
+                Text("Velocidad")
+            } footer: {
+                Text("El límite se obtiene de OpenStreetMap a través de un servicio público (Valhalla): al activarlo, la geometría de la ruta se envía a ese servicio. Solo aparece cuando hay dato fiable del tramo; puede estar incompleto o desactualizado y prevalece la señalización real. Desactivado, no se hace ninguna consulta.")
             }
 
             Section("Mapa") {
@@ -382,6 +394,8 @@ struct HelpView: View {
          "Se necesita tu ubicación. Si no la has permitido, puedes elegir una zona manualmente al abrir una categoría."),
         ("La voz no se oye",
          "Revisa en Perfil › Ajustes de navegación que las indicaciones de voz estén activadas, el volumen y el volumen del iPhone."),
+        ("¿De dónde sale el límite de velocidad?",
+         "De las etiquetas de velocidad máxima de OpenStreetMap, para el tramo de tu ruta. Solo se muestra cuando hay dato; si no, verás «–». La información puede estar incompleta o desactualizada y prevalece la señalización real. Es el límite para un turismo y no incluye límites variables ni condicionales."),
         ("¿Qué pasa si me desvío de la ruta?",
          "La app espera varias lecturas fiables de GPS fuera de la ruta y recalcula desde tu posición actual."),
     ]

@@ -38,7 +38,8 @@ struct NavigationOverlay: View {
                 hudBody
             } else {
                 Spacer(minLength: 0)
-                HStack {
+                HStack(alignment: .bottom) {
+                    SpeedLimitSign(display: viewModel.speedLimit, metric: useMetric)
                     Spacer()
                     sideButtons
                 }
@@ -100,6 +101,7 @@ struct NavigationOverlay: View {
             HStack(alignment: .bottom) {
                 MinimapView(controller: miniMap, size: 150) { display = .map }
                 Spacer()
+                SpeedLimitSign(display: viewModel.speedLimit, metric: useMetric)
             }
         }
     }

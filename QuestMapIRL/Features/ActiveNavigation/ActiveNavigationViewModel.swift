@@ -13,6 +13,8 @@ final class ActiveNavigationViewModel {
     private(set) var recalculationFailed = false
     private(set) var speedKmh: Double = 0
     private(set) var visitedKeys: Set<String> = []
+    /// Qué muestra la señal de límite (oculta, sin dato o la cifra de la ruta activa).
+    private(set) var speedLimit: SpeedLimitDisplay = .hidden
     var finished = false
 
     let destinationName: String
@@ -31,9 +33,15 @@ final class ActiveNavigationViewModel {
 
     private let routeService: RouteServiceProtocol
     private let speech: SpeechService
+    private let speedLimitService: SpeedLimitProviding?
+    private var showsSpeedLimit: Bool
+    private var speedProfile: SpeedLimitProfile?
+    private var speedTracker = SpeedLimitTracker()
+    private var speedLimitTask: Task<Void, Never>?
 
     init(route: Route, destinationName: String, destination: CLLocationCoordinate2D,
-         mode: RouteMode, routeService: RouteServiceProtocol, speech: SpeechService, useMetric: Bool) {
+         mode: RouteMode, routeService: RouteServiceProtocol, speech: SpeechService, useMetric: Bool,
+         speedLimitService: SpeedLimitProviding? = nil, showsSpeedLimit: Bool = false) {
         self.route = route
         self.destinationName = destinationName
         self.destination = destination
@@ -41,6 +49,8 @@ final class ActiveNavigationViewModel {
         self.routeService = routeService
         self.speech = speech
         self.useMetric = useMetric
+        self.speedLimitService = speedLimitService
+        self.showsSpeedLimit = showsSpeedLimit
         self.engine = Self.makeEngine(route)
     }
 
@@ -76,6 +86,7 @@ final class ActiveNavigationViewModel {
         // Si se inicia dos veces, el aviso de inicio suena solo una.
         guard !hasStarted else { return }
         hasStarted = true
+        refreshSpeedProfile()
         speech.announce("Empezamos la ruta hacia \(destinationName).")
     }
 
@@ -92,6 +103,7 @@ final class ActiveNavigationViewModel {
         visitedKeys.insert(FogGrid.key(for: location.coordinate))
 
         snapshot = engine.update(with: location.coordinate)
+        updateSpeedLimit(with: location)
         announceIfNeeded()
 
         if snapshot.hasArrived {
@@ -113,7 +125,45 @@ final class ActiveNavigationViewModel {
     /// Cancelar la navegación: se corta cualquier voz pendiente.
     func stop() {
         speech.stopImmediately()
+        speedLimitTask?.cancel()
         finished = true
+    }
+
+    // MARK: - Límite de velocidad
+
+    /// Activa o desactiva la señal al instante. Desactivada: no se hace ninguna consulta a ese servicio.
+    func setShowsSpeedLimit(_ enabled: Bool) {
+        showsSpeedLimit = enabled
+        if enabled {
+            refreshSpeedProfile()
+        } else {
+            speedLimitTask?.cancel()
+            speedTracker.reset()
+            speedLimit = .hidden
+        }
+    }
+
+    /// Una consulta por ruta (no por lectura GPS). Si falla, la señal queda oculta: nunca se inventa una cifra.
+    private func refreshSpeedProfile() {
+        guard showsSpeedLimit, let service = speedLimitService, speedProfile == nil, speedLimitTask == nil else { return }
+        let coordinates = route.coordinates
+        speedLimitTask = Task { [weak self] in
+            let profile = try? await service.profile(for: coordinates)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.speedProfile = profile
+                self.speedLimitTask = nil
+            }
+        }
+    }
+
+    private func updateSpeedLimit(with location: CLLocation) {
+        let progress = engine.totalMeters - snapshot.remainingMeters
+        speedLimit = speedTracker.update(enabled: showsSpeedLimit, profile: speedProfile, progressMeters: progress,
+                                         isOffRoute: offRouteCount > 0 || snapshot.isOffRoute,
+                                         accuracy: location.horizontalAccuracy,
+                                         age: -location.timestamp.timeIntervalSinceNow)
     }
 
     func summary() -> TripSummary {
@@ -161,6 +211,12 @@ final class ActiveNavigationViewModel {
             if let newRoute = try await routeService.routes(from: origin, to: destination, mode: mode).first {
                 route = newRoute
                 engine = Self.makeEngine(newRoute)
+                speedLimitTask?.cancel()
+                speedLimitTask = nil
+                speedProfile = nil
+                speedTracker.reset()
+                speedLimit = .hidden
+                refreshSpeedProfile()
                 announced = nil
                 offRouteCount = 0
             }

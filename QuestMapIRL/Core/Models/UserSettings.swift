@@ -18,6 +18,8 @@ final class UserSettings {
     var defaultModeRaw: String = RouteMode.driving.rawValue
     /// Vista con edificios 3D (solo en estilos que la admiten). Por defecto, vista cenital 2D.
     var view3D: Bool = false
+    /// Mostrar la señal de límite de velocidad durante la navegación.
+    var showSpeedLimit: Bool = true
 
     init(themeRawValue: String = MapThemeID.ciudadNocturna.rawValue,
          useMetricUnits: Bool = true,

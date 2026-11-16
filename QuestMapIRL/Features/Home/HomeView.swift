@@ -211,6 +211,7 @@ struct HomeView: View {
             recenter()
         }
         .onChange(of: settings?.mapAvatar) { _, avatar in applyAvatar(avatar) }
+        .onChange(of: settings?.showSpeedLimit) { _, value in navigation?.setShowsSpeedLimit(value ?? true) }
         .onChange(of: supports3D) { _, _ in apply3D(animated: false) }
         .onChange(of: settings?.view3D) { _, _ in apply3D(animated: true) }
         .onChange(of: panel.markers) { _, places in map.setMarkers(places) }
@@ -785,7 +786,9 @@ struct HomeView: View {
             mode: viewModel.mode,
             routeService: environment.routeService,
             speech: environment.speech,
-            useMetric: useMetric
+            useMetric: useMetric,
+            speedLimitService: environment.speedLimits,
+            showsSpeedLimit: settings?.showSpeedLimit ?? true
         )
         navigation = session
         navDisplay = .map

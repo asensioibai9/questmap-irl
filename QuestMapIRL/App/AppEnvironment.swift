@@ -10,6 +10,7 @@ final class AppEnvironment {
     let nearby: NearbySearchProviding
     let speech: SpeechService
     let network: NetworkMonitor
+    let speedLimits: SpeedLimitProviding
 
     /// Servicios reales de producción.
     init() {
@@ -19,6 +20,7 @@ final class AppEnvironment {
         self.nearby = TilePOISearchService()
         self.speech = SpeechService()
         self.network = NetworkMonitor()
+        self.speedLimits = ValhallaSpeedLimitService()
     }
 
     /// Inyección explícita para previews y tests.
@@ -27,12 +29,14 @@ final class AppEnvironment {
          placeSearch: PlaceSearchProviding,
          nearby: NearbySearchProviding,
          speech: SpeechService,
-         network: NetworkMonitor) {
+         network: NetworkMonitor,
+         speedLimits: SpeedLimitProviding = ValhallaSpeedLimitService()) {
         self.locationService = locationService
         self.routeService = routeService
         self.placeSearch = placeSearch
         self.nearby = nearby
         self.speech = speech
         self.network = network
+        self.speedLimits = speedLimits
     }
 }
