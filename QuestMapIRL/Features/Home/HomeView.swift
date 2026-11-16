@@ -2,19 +2,42 @@ import SwiftUI
 import SwiftData
 import CoreLocation
 
-/// Pantalla principal: mapa vectorial real a pantalla completa, búsqueda, accesos rápidos,
-/// vista previa de ruta y, al iniciar, el HUD de navegación sobre el mismo mapa.
+/// Ventanas que se abren desde el panel inferior (cuelgan de la propia hoja del panel).
+enum HomeModal: Identifiable, Equatable {
+    case profile, styles, saved
+    case address(AddressTarget)
+
+    enum AddressTarget: String { case home, work, zone }
+
+    var id: String {
+        switch self {
+        case .profile: return "profile"
+        case .styles: return "styles"
+        case .saved: return "saved"
+        case .address(let target): return "address-\(target.rawValue)"
+        }
+    }
+}
+
+/// Pantalla principal: mapa vectorial real a pantalla completa, controles flotantes a la derecha
+/// y un panel inferior arrastrable (buscador, accesos, recomendaciones, categorías o tarjeta de
+/// ruta). Al iniciar la navegación el panel se retira y aparece el HUD sobre el mismo mapa.
 struct HomeView: View {
     @Environment(\.mapTheme) private var theme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Query private var savedPlaces: [SavedPlace]
+    @Query private var settingsRows: [UserSettings]
 
     @State private var viewModel: HomeViewModel
+    @State private var panel: SearchPanelModel
     @State private var navigation: ActiveNavigationViewModel?
     @State private var navDisplay: NavDisplay = .map
     @State private var showFullRoute = false
-    @State private var showSearch = false
+    @State private var showPanel = false
+    @State private var detent: PresentationDetent = .compactPanel
+    @State private var modal: HomeModal?
+    @State private var showNavSearch = false
     @State private var showSaveDialog = false
     @State private var mapLoad: MapLoadState = .loading
     @State private var mapToken = 0
@@ -24,25 +47,24 @@ struct HomeView: View {
     @State private var miniMap = MapController()
 
     let environment: AppEnvironment
-    let useMetric: Bool
-    let settingsHeadingUp: Bool
-    let showCompass: Bool
+    /// false mientras se muestra la animación de inicio: no se pide ningún permiso ni se abre el panel.
+    let startupFinished: Bool
 
-    init(environment: AppEnvironment, useMetric: Bool, headingUp: Bool, showCompass: Bool) {
+    init(environment: AppEnvironment, startupFinished: Bool) {
         self.environment = environment
-        self.useMetric = useMetric
-        self.settingsHeadingUp = headingUp
-        self.showCompass = showCompass
+        self.startupFinished = startupFinished
         _viewModel = State(initialValue: HomeViewModel(
             locationService: environment.locationService,
             routeService: environment.routeService,
-            headingUp: headingUp
+            headingUp: true
         ))
+        _panel = State(initialValue: SearchPanelModel(search: environment.placeSearch, nearby: environment.nearby))
     }
 
+    private var settings: UserSettings? { settingsRows.first }
+    private var useMetric: Bool { settings?.useMetricUnits ?? true }
+    private var showCompass: Bool { settings?.showCompass ?? true }
     private var location: LocationServiceProtocol { environment.locationService }
-    private var home: SavedPlace? { savedPlaces.first { $0.kindRawValue == PlaceKind.home.rawValue } }
-    private var work: SavedPlace? { savedPlaces.first { $0.kindRawValue == PlaceKind.work.rawValue } }
     private var followMode: FollowMode { viewModel.headingUp ? .headingUp : .northUp }
     private var navigationBottomInset: CGFloat { viewHeight * 0.22 }
 
@@ -63,9 +85,17 @@ struct HomeView: View {
                     miniMap: miniMap,
                     useMetric: useMetric,
                     onRecenter: recenter,
-                    onSearch: { showSearch = true },
+                    onSearch: { showNavSearch = true },
                     onEnd: { navigation.stop() }
                 )
+                .sheet(isPresented: $showNavSearch) {
+                    AddressPickerView(title: "Cambiar destino", prompt: "Buscar destino",
+                                      search: environment.placeSearch, near: location.currentLocation?.coordinate) { place in
+                        // Cambiar de destino en plena navegación: se cierra la actual y luego se ruta al nuevo.
+                        pendingPlace = place
+                        navigation.stop()
+                    }
+                }
             } else {
                 browsingOverlay
             }
@@ -75,10 +105,10 @@ struct HomeView: View {
                 .onAppear { viewHeight = proxy.size.height }
                 .onChange(of: proxy.size.height) { _, height in viewHeight = height }
         })
-        .toolbar(navigation == nil ? .visible : .hidden, for: .tabBar)
         .animation(.smooth, value: viewModel.destination != nil)
-        .animation(.smooth, value: viewModel.routeState)
+        .sheet(isPresented: $showPanel) { panelSheet }
         .onAppear(perform: setUp)
+        .onChange(of: startupFinished) { _, finished in if finished { afterStartup() } }
         .onChange(of: location.authState) { _, state in
             if state.isAuthorized { location.start(mode: navigation == nil ? .idle : .navigating) }
         }
@@ -104,6 +134,7 @@ struct HomeView: View {
         .onChange(of: viewModel.destination) { _, place in
             map.setDestination(place?.coordinate)
             miniMap.setDestination(place?.coordinate)
+            if navigation == nil { detent = place == nil ? .compactPanel : .medium }
         }
         .onChange(of: viewModel.selectedRouteID) { _, _ in
             guard navigation == nil else { return }
@@ -117,30 +148,16 @@ struct HomeView: View {
                 recenter()
             }
         }
-        .onChange(of: settingsHeadingUp) { _, value in
+        .onChange(of: settings?.headingUp) { _, value in
+            guard let value else { return }
             viewModel.headingUp = value
             recenter()
         }
+        .onChange(of: settings?.mapAvatar) { _, avatar in applyAvatar(avatar) }
+        .onChange(of: panel.markers) { _, places in map.setMarkers(places) }
         .onChange(of: navDisplay) { _, _ in
             // El mapa grande se recrea al volver desde el modo HUD: recupera su cámara de seguimiento.
             if navigation != nil { recenter() }
-        }
-        .sheet(isPresented: $showSearch) {
-            SearchView(search: environment.placeSearch, near: location.currentLocation?.coordinate) { place in
-                if let session = navigation {
-                    // Cambiar de destino en plena navegación: se cierra la actual y luego se ruta al nuevo.
-                    pendingPlace = place
-                    session.stop()
-                } else {
-                    viewModel.setDestination(place)
-                }
-            }
-        }
-        .confirmationDialog("Guardar este destino como", isPresented: $showSaveDialog, titleVisibility: .visible) {
-            Button("Casa") { save(kind: .home) }
-            Button("Trabajo") { save(kind: .work) }
-            Button("Favorito") { save(kind: .favorite) }
-            Button("Cancelar", role: .cancel) {}
         }
     }
 
@@ -162,95 +179,66 @@ struct HomeView: View {
                 onStateChange: { mapLoad = $0 }
             )
             .id(mapToken)
-            .ignoresSafeArea(edges: navigation == nil ? [.top, .horizontal] : .all)
+            .ignoresSafeArea()
         }
     }
 
-    // MARK: - Exploración
+    // MARK: - Capa de exploración (sobre el mapa)
 
     private var browsingOverlay: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    searchBar
+        ZStack {
+            VStack(spacing: 8) {
+                HStack(alignment: .top, spacing: 10) {
                     GPSIndicator(theme: theme, quality: location.quality, signalLost: location.isSignalLost)
                         .fixedSize()
+                    Spacer()
                 }
-                if viewModel.destination == nil { quickAccess }
                 banners
+                Spacer()
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
 
-            Spacer(minLength: 0)
+            // Atribución obligatoria de los datos: arriba, porque el panel cubre el borde inferior.
+            VStack {
+                Text(theme.activeCartography.attribution)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .padding(.horizontal, 7).padding(.vertical, 2)
+                    .background(.black.opacity(0.55), in: .capsule)
+                    .padding(.top, 2)
+                Spacer()
+            }
+            .accessibilityHidden(true)
+            .allowsHitTesting(false)
 
             HStack {
                 Spacer()
-                sideControls
+                VStack { Spacer(); sideControls }
             }
-            .padding(.trailing, 16)
-            .padding(.bottom, 8)
-
-            if viewModel.destination != nil {
-                routeCard
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 6)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-
-            Text(theme.activeCartography.attribution)
-                .font(.system(size: 9))
-                .foregroundStyle(theme.textSecondary)
-                .padding(.horizontal, 6).padding(.vertical, 2)
-                .background(theme.panel.opacity(0.7), in: .capsule)
-                .padding(.bottom, 4)
-                .accessibilityHidden(true)
+            .padding(.trailing, 14)
+            .padding(.bottom, 14 + 118)
+            .ignoresSafeArea(.container, edges: .bottom)
         }
     }
 
-    private var searchBar: some View {
-        Button { showSearch = true } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass").font(.body.weight(theme.iconWeight))
-                Text(viewModel.destination?.name ?? "¿A dónde vamos?").lineLimit(1)
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(viewModel.destination == nil ? theme.textSecondary : theme.textPrimary)
-            .font(.body.weight(.medium))
-            .padding(.horizontal, 14)
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .background(theme.panel, in: RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous).stroke(theme.panelBorder, lineWidth: 1))
-        }
-        .accessibilityLabel("Buscar destino")
-    }
+    // MARK: - Controles flotantes
 
-    private var quickAccess: some View {
-        HStack(spacing: 10) {
-            quickChip("house.fill", "Casa", home)
-            quickChip("briefcase.fill", "Trabajo", work)
-            Spacer()
-        }
-    }
-
-    private func quickChip(_ icon: String, _ title: String, _ place: SavedPlace?) -> some View {
-        Button {
-            if let place {
-                viewModel.setDestination(Place(id: "saved-\(place.createdAt.timeIntervalSince1970)", name: place.name,
-                                               subtitle: place.kindTitle, latitude: place.latitude, longitude: place.longitude))
-            } else {
-                showSearch = true
+    private var sideControls: some View {
+        VStack(spacing: 12) {
+            CircleIconButton(systemImage: "square.3.layers.3d", label: "Estilo de mapa",
+                             size: 48, accent: theme.accent, floating: true) { modal = .styles }
+            CircleIconButton(systemImage: viewModel.headingUp ? "location.north.line.fill" : "safari",
+                             label: viewModel.headingUp ? "Rumbo arriba. Cambiar a norte arriba" : "Norte arriba. Cambiar a rumbo arriba",
+                             size: 48, isActive: viewModel.headingUp, accent: theme.accent, floating: true) {
+                viewModel.headingUp.toggle()
+                settings?.headingUp = viewModel.headingUp
+                recenter()
             }
-        } label: {
-            Label(title, systemImage: icon)
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 14)
-                .frame(minHeight: 40)
-                .background(theme.panel, in: .capsule)
-                .overlay(Capsule().stroke(theme.panelBorder, lineWidth: 1))
-                .foregroundStyle(place == nil ? theme.textSecondary : theme.accent)
+            CircleIconButton(systemImage: viewModel.isFollowing ? "location.fill" : "location",
+                             label: "Recentrar en mi ubicación",
+                             size: 48, isActive: viewModel.isFollowing, accent: theme.accent, floating: true) { recenter() }
         }
-        .accessibilityHint(place == nil ? "Sin guardar. Toca para buscar." : "Ir a \(place!.name)")
     }
 
     // MARK: - Avisos
@@ -258,13 +246,13 @@ struct HomeView: View {
     @ViewBuilder
     private var banners: some View {
         if !environment.network.isOnline {
-            infoBanner("Sin conexión: el mapa, la búsqueda y las rutas necesitan internet.", systemImage: "wifi.slash")
+            InlineMessage(kind: .warning, text: "Sin conexión: el mapa, la búsqueda y las rutas necesitan internet.")
         }
         if case .failed(let message) = mapLoad {
-            actionBanner(message, button: "Reintentar") { mapToken += 1 }
+            InlineMessage(kind: .error, text: message, actionTitle: "Reintentar") { mapToken += 1 }
         }
-        if let error = viewModel.errorMessage {
-            infoBanner(error, systemImage: "exclamationmark.triangle.fill")
+        if let error = viewModel.errorMessage, navigation == nil, viewModel.destination == nil {
+            InlineMessage(kind: .warning, text: error)
         }
         permissionBanner
     }
@@ -273,75 +261,117 @@ struct HomeView: View {
     private var permissionBanner: some View {
         switch location.authState {
         case .denied:
-            actionBanner("Sin acceso a la ubicación no podemos guiarte.", button: "Abrir Ajustes", action: openSettings)
+            InlineMessage(kind: .warning, text: "Sin acceso a la ubicación no podemos guiarte.",
+                          actionTitle: "Abrir Ajustes", action: openSettings)
         case .restricted:
-            infoBanner("La ubicación está restringida en este dispositivo (control parental o perfil).", systemImage: "lock.fill")
+            InlineMessage(kind: .warning, text: "La ubicación está restringida en este dispositivo (control parental o perfil).")
         case .servicesDisabled:
-            actionBanner("Los servicios de localización están desactivados.", button: "Abrir Ajustes", action: openSettings)
+            InlineMessage(kind: .warning, text: "Los servicios de localización están desactivados.",
+                          actionTitle: "Abrir Ajustes", action: openSettings)
         case .notDetermined:
-            infoBanner("Permite la ubicación para verte en el mapa.", systemImage: "location.fill")
+            if startupFinished {
+                InlineMessage(kind: .info, text: "Permite la ubicación para verte en el mapa.")
+            }
         case .authorizedWhenInUse, .authorizedAlways:
             if location.isSignalLost, location.currentLocation != nil {
-                infoBanner("Señal GPS perdida. Mostramos tu última posición conocida.", systemImage: "location.slash.fill")
+                InlineMessage(kind: .warning, text: "Señal GPS perdida. Mostramos tu última posición conocida.")
             } else if location.currentLocation == nil {
-                infoBanner("Buscando señal GPS…", systemImage: "location.viewfinder")
+                InlineMessage(kind: .info, text: "Buscando señal GPS…")
             }
         }
-    }
-
-    private func infoBanner(_ text: String, systemImage: String) -> some View {
-        Label(text, systemImage: systemImage)
-            .font(.footnote.weight(.semibold))
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(theme.panel, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .foregroundStyle(theme.textPrimary)
-    }
-
-    private func actionBanner(_ text: String, button: String, action: @escaping () -> Void) -> some View {
-        HStack {
-            Text(text).font(.footnote.weight(.semibold))
-            Spacer()
-            Button(button, action: action).font(.footnote.weight(.bold)).tint(theme.accent)
-        }
-        .padding(10)
-        .background(theme.panel, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .foregroundStyle(theme.textPrimary)
     }
 
     private func openSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
     }
 
-    // MARK: - Controles
+    // MARK: - Panel inferior
 
-    private var sideControls: some View {
-        VStack(spacing: 12) {
-            MapRoundButton(theme: theme,
-                           systemImage: viewModel.headingUp ? "location.north.line.fill" : "safari",
-                           label: viewModel.headingUp ? "Vista según rumbo. Cambiar a norte arriba" : "Norte arriba. Cambiar a vista según rumbo",
-                           isActive: viewModel.headingUp) {
-                viewModel.headingUp.toggle()
-                recenter()
+    private var panelSheet: some View {
+        Group {
+            if viewModel.destination != nil {
+                routePanel
+            } else {
+                SearchPanelView(
+                    model: panel,
+                    detent: $detent,
+                    near: location.currentLocation?.coordinate,
+                    accent: theme.accent,
+                    onSelect: { place in select(place) },
+                    onShowOnMap: { place in showOnMap(place) },
+                    onProfile: { modal = .profile },
+                    onShowSaved: { modal = .saved },
+                    onPickAddress: { kind in modal = .address(kind == .home ? .home : .work) },
+                    onChooseZone: { modal = .address(.zone) }
+                )
             }
-            MapRoundButton(theme: theme,
-                           systemImage: viewModel.isFollowing ? "location.fill" : "location",
-                           label: "Recentrar en mi ubicación",
-                           isActive: viewModel.isFollowing) { recenter() }
+        }
+        .presentationDetents([.compactPanel, .medium, .large], selection: $detent)
+        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(28)
+        .presentationBackground(AppColor.surface)
+        .interactiveDismissDisabled()
+        .preferredColorScheme(.dark)
+        .tint(theme.accent)
+        .sheet(item: $modal) { modalView($0) }
+    }
+
+    @ViewBuilder
+    private func modalView(_ modal: HomeModal) -> some View {
+        switch modal {
+        case .profile:
+            ProfileSheetView(environment: environment)
+                .environment(\.mapTheme, theme)
+        case .styles:
+            NavigationStack {
+                MapStyleGalleryView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) { Button("Listo") { self.modal = nil } }
+                    }
+            }
+            .preferredColorScheme(.dark)
+            .tint(theme.accent)
+        case .saved:
+            SavedPlacesView(onSelect: { select($0) }, onShowOnMap: { showOnMap($0) })
+        case .address(let target):
+            AddressPickerView(title: addressTitle(target), prompt: "Buscar dirección",
+                              search: environment.placeSearch, near: location.currentLocation?.coordinate) { place in
+                addressPicked(place, for: target)
+            }
         }
     }
 
-    private var routeCard: some View {
-        QuestPanel(theme: theme) {
-            VStack(alignment: .leading, spacing: 12) {
+    private func addressTitle(_ target: HomeModal.AddressTarget) -> String {
+        switch target {
+        case .home: return savedPlaces.contains { $0.kindRawValue == PlaceKind.home.rawValue } ? "Editar casa" : "Añadir casa"
+        case .work: return savedPlaces.contains { $0.kindRawValue == PlaceKind.work.rawValue } ? "Editar trabajo" : "Añadir trabajo"
+        case .zone: return "Elegir zona"
+        }
+    }
+
+    private func addressPicked(_ place: Place, for target: HomeModal.AddressTarget) {
+        switch target {
+        case .home: saveSingle(kind: .home, place: place)
+        case .work: saveSingle(kind: .work, place: place)
+        case .zone: panel.setArea(place, near: location.currentLocation?.coordinate)
+        }
+    }
+
+    // MARK: - Tarjeta de ruta (dentro del panel)
+
+    private var routePanel: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
                 if let destination = viewModel.destination {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(destination.name).font(.headline).lineLimit(1)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(destination.name).font(.title2.weight(.bold)).lineLimit(2)
                         if !destination.subtitle.isEmpty {
-                            Text(destination.subtitle).font(.caption).foregroundStyle(theme.textSecondary).lineLimit(1)
+                            Text(destination.subtitle).font(.subheadline).foregroundStyle(AppColor.textSecondary).lineLimit(2)
                         }
                     }
-                    .foregroundStyle(theme.textPrimary)
+                    .foregroundStyle(AppColor.textPrimary)
+                    .padding(.top, 20)
                 }
 
                 Picker("Modo", selection: $viewModel.mode) {
@@ -352,43 +382,54 @@ struct HomeView: View {
 
                 switch viewModel.routeState {
                 case .loading:
-                    HStack { ProgressView(); Text("Calculando rutas…").font(.subheadline) }
-                        .frame(maxWidth: .infinity, minHeight: 60)
-                        .foregroundStyle(theme.textSecondary)
+                    HStack(spacing: 10) { ProgressView(); Text("Calculando rutas…").font(.subheadline) }
+                        .frame(maxWidth: .infinity, minHeight: 70)
+                        .foregroundStyle(AppColor.textSecondary)
                 case .ready where !viewModel.routes.isEmpty:
                     routeAlternatives
                     if let route = viewModel.selectedRoute {
                         Button { startNavigation(route) } label: {
-                            Label("Iniciar misión", systemImage: "play.fill")
+                            Label("Iniciar ruta", systemImage: "play.fill")
                                 .font(.headline)
-                                .frame(maxWidth: .infinity, minHeight: 56)
+                                .frame(maxWidth: .infinity, minHeight: 54)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(theme.accent)
-                        .foregroundStyle(theme.isDark ? theme.background : .white)
+                        .foregroundStyle(.black)
                     }
-                case .failed:
-                    Button("Reintentar") { viewModel.loadRoutes() }
-                        .buttonStyle(.bordered)
-                        .frame(maxWidth: .infinity)
+                case .failed(let message):
+                    InlineMessage(kind: .warning, text: message, actionTitle: "Reintentar") { viewModel.loadRoutes() }
                 default:
                     EmptyView()
                 }
 
-                HStack {
+                HStack(spacing: 14) {
                     Button("Cancelar", role: .cancel) { clearRoute() }
+                        .font(.subheadline.weight(.semibold))
                     Spacer()
-                    Button { showSaveDialog = true } label: { Image(systemName: "star") }
-                        .accessibilityLabel("Guardar lugar")
+                    CircleIconButton(systemImage: "star", label: "Guardar lugar", size: 40) { showSaveDialog = true }
                     if let origin = viewModel.origin, let destination = viewModel.destination,
                        let url = ShareLinkBuilder.routeURL(from: origin, to: destination.coordinate, mode: viewModel.mode) {
-                        ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }
-                            .accessibilityLabel("Compartir ruta")
+                        ShareLink(item: url) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 17, weight: .semibold))
+                                .frame(width: 40, height: 40)
+                                .background(AppColor.surfaceRaised, in: .circle)
+                                .foregroundStyle(.white)
+                        }
+                        .accessibilityLabel("Compartir ruta")
                     }
                 }
-                .font(.subheadline)
-                .foregroundStyle(theme.textPrimary)
+                .foregroundStyle(AppColor.textPrimary)
             }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 30)
+        }
+        .confirmationDialog("Guardar este destino como", isPresented: $showSaveDialog, titleVisibility: .visible) {
+            Button("Casa") { save(kind: .home) }
+            Button("Trabajo") { save(kind: .work) }
+            Button("Favorito") { save(kind: .favorite) }
+            Button("Cancelar", role: .cancel) {}
         }
     }
 
@@ -399,19 +440,19 @@ struct HomeView: View {
                     let selected = option.id == viewModel.selectedRoute?.id
                     Button { viewModel.selectedRouteID = option.id } label: {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("\(option.etaMinutes) min")
-                                .font(.system(.title2, design: theme.titleDesign).weight(.bold))
+                            Text("\(option.etaMinutes) min").font(.title2.weight(.bold))
                             Text(Formatters.distance(option.distanceMeters, metric: useMetric)).font(.caption)
-                            Text(option.name).font(.caption2).lineLimit(1)
+                            Text(option.name).font(.caption2).foregroundStyle(AppColor.textSecondary).lineLimit(1)
                         }
                         .padding(12)
-                        .frame(width: 130, alignment: .leading)
-                        .background(selected ? theme.accent.opacity(0.22) : theme.background.opacity(0.5),
-                                    in: RoundedRectangle(cornerRadius: theme.cornerRadius - 4, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: theme.cornerRadius - 4, style: .continuous)
+                        .frame(width: 132, alignment: .leading)
+                        .background(selected ? theme.accent.opacity(0.22) : AppColor.surfaceRaised,
+                                    in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .stroke(selected ? theme.accent : .clear, lineWidth: 2))
                     }
-                    .foregroundStyle(theme.textPrimary)
+                    .buttonStyle(PressableStyle())
+                    .foregroundStyle(AppColor.textPrimary)
                     .accessibilityLabel("\(option.name), \(option.etaMinutes) minutos, \(Formatters.distance(option.distanceMeters, metric: useMetric))")
                     .accessibilityAddTraits(selected ? .isSelected : [])
                 }
@@ -422,12 +463,34 @@ struct HomeView: View {
     // MARK: - Mapa: cámara y estado
 
     private func setUp() {
+        if let settings {
+            viewModel.headingUp = settings.headingUp
+            viewModel.mode = settings.defaultMode
+        }
         map.onFollowCancelled = { viewModel.isFollowing = false }
+        applyAvatar(settings?.mapAvatar)
+        if startupFinished { afterStartup() } else { location.start(mode: .idle) }
+        pushUser()
+        map.setFollow(followMode, zoom: theme.activeCartography.defaultZoom, pitch: 0, bottomInset: 0)
+    }
+
+    /// Después de la animación de inicio: ahora sí se puede pedir el permiso (con contexto) y abrir el panel.
+    private func afterStartup() {
         if location.authState == .notDetermined { location.requestWhenInUseAuthorization() }
         location.start(mode: navigation == nil ? .idle : .navigating)
-        pushUser()
-        let style = theme.activeCartography
-        map.setFollow(followMode, zoom: style.defaultZoom, pitch: 0, bottomInset: 0)
+        if navigation == nil { presentPanel() }
+    }
+
+    private func presentPanel(after delay: Double = 0.05) {
+        Task {
+            try? await Task.sleep(for: .seconds(delay))
+            if navigation == nil, startupFinished { showPanel = true }
+        }
+    }
+
+    private func applyAvatar(_ avatar: MapAvatar?) {
+        map.setAvatar(avatar ?? .arrow)
+        miniMap.setAvatar(avatar ?? .arrow)
     }
 
     private func pushUser() {
@@ -450,21 +513,37 @@ struct HomeView: View {
     }
 
     private func routeInsets(bottom: CGFloat) -> UIEdgeInsets {
-        UIEdgeInsets(top: viewHeight * 0.22, left: 40, bottom: bottom, right: 40)
+        UIEdgeInsets(top: viewHeight * 0.18, left: 40, bottom: bottom, right: 40)
     }
 
     private func fitSelectedRoute() {
         guard navigation == nil, let route = viewModel.selectedRoute else { return }
         map.setRoute(route.coordinates)
-        map.fit(route.coordinates, insets: routeInsets(bottom: viewHeight * 0.42))
+        map.fit(route.coordinates, insets: routeInsets(bottom: viewHeight * 0.55))
         viewModel.isFollowing = false
     }
 
     // MARK: - Acciones
 
+    private func select(_ place: Place) {
+        modal = nil
+        viewModel.setDestination(place)
+    }
+
+    private func showOnMap(_ place: Place) {
+        modal = nil
+        panel.markers = [place]
+        viewModel.isFollowing = false
+        detent = .compactPanel
+        map.focus(on: place.coordinate)
+    }
+
     private func startNavigation(_ route: Route) {
         guard let destination = viewModel.destination else { return }
         let style = theme.activeCartography
+        panel.closeCategory()
+        panel.clearQuery()
+        showPanel = false
         location.setMode(.navigating)
         let session = ActiveNavigationViewModel(
             route: route,
@@ -505,6 +584,8 @@ struct HomeView: View {
         environment.speech.stop()
         UIApplication.shared.isIdleTimerDisabled = false
         clearRoute()
+        detent = .compactPanel
+        presentPanel(after: 0.45)
         if let next = pendingPlace {
             pendingPlace = nil
             viewModel.setDestination(next)
@@ -520,21 +601,24 @@ struct HomeView: View {
         recenter()
     }
 
+    /// Casa y Trabajo: solo uno de cada; la dirección se guarda en la nota.
+    private func saveSingle(kind: PlaceKind, place: Place) {
+        savedPlaces.filter { $0.kindRawValue == kind.rawValue }.forEach(modelContext.delete)
+        let address = place.subtitle.isEmpty ? place.name : "\(place.name), \(place.subtitle)"
+        modelContext.insert(SavedPlace(name: kind == .home ? "Casa" : "Trabajo", note: address,
+                                       iconName: kind == .home ? "house.fill" : "briefcase.fill",
+                                       kind: kind, latitude: place.latitude, longitude: place.longitude))
+    }
+
     private func save(kind: PlaceKind) {
         guard let destination = viewModel.destination else { return }
-        if kind == .home || kind == .work {
-            savedPlaces.filter { $0.kindRawValue == kind.rawValue }.forEach(modelContext.delete)
-        }
-        let icon: String
         switch kind {
-        case .home: icon = "house.fill"
-        case .work: icon = "briefcase.fill"
-        case .favorite: icon = "star.fill"
-        case .pin: icon = "mappin"
+        case .home, .work:
+            saveSingle(kind: kind, place: destination)
+        case .favorite, .pin:
+            modelContext.insert(SavedPlace(name: destination.name, note: destination.subtitle, iconName: "star.fill",
+                                           kind: kind, latitude: destination.latitude, longitude: destination.longitude))
         }
-        let name = kind == .home ? "Casa" : kind == .work ? "Trabajo" : destination.name
-        modelContext.insert(SavedPlace(name: name, iconName: icon, kind: kind,
-                                       latitude: destination.latitude, longitude: destination.longitude))
     }
 }
 

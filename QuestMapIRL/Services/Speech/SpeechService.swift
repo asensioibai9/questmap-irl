@@ -35,14 +35,31 @@ final class SpeechService {
     private let synthesizer = AVSpeechSynthesizer()
     private let styleKey = "questmap.voiceStyle"
 
+    private let volumeKey = "questmap.voiceVolume"
+
     var isMuted = false
     var style: VoiceStyle {
         didSet { UserDefaults.standard.set(style.rawValue, forKey: styleKey) }
+    }
+    /// Volumen de las indicaciones, de 0 a 1 (relativo al volumen del sistema).
+    var volume: Float {
+        didSet { UserDefaults.standard.set(volume, forKey: volumeKey) }
+    }
+
+    /// Borra las preferencias guardadas y vuelve a los valores iniciales.
+    func resetPreferences() {
+        UserDefaults.standard.removeObject(forKey: styleKey)
+        UserDefaults.standard.removeObject(forKey: volumeKey)
+        style = .clara
+        volume = 1
+        UserDefaults.standard.removeObject(forKey: styleKey)
+        UserDefaults.standard.removeObject(forKey: volumeKey)
     }
 
     init() {
         let saved = UserDefaults.standard.string(forKey: styleKey) ?? ""
         style = VoiceStyle(rawValue: saved) ?? .clara
+        volume = UserDefaults.standard.object(forKey: volumeKey) as? Float ?? 1
         try? AVAudioSession.sharedInstance().setCategory(
             .playback, mode: .voicePrompt, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
         )
@@ -65,6 +82,7 @@ final class SpeechService {
         utterance.voice = voice
         utterance.pitchMultiplier = style.pitch
         utterance.rate = style.rate
+        utterance.volume = volume
         utterance.preUtteranceDelay = 0.05
         synthesizer.speak(utterance)
     }

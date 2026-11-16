@@ -21,6 +21,9 @@ final class MapController {
     private var routeCoordinates: [CLLocationCoordinate2D] = []
     private var destination: CLLocationCoordinate2D?
     private var user: (coordinate: CLLocationCoordinate2D, heading: Double)?
+    private var markers: [Place] = []
+    private var avatar: MapAvatar = .arrow
+    private var arrowColorHex: UInt32 = 0xFFFFFF
 
     private(set) var followMode: FollowMode = .northUp
     private var followZoom: Double = 15.5
@@ -47,12 +50,38 @@ final class MapController {
         styleReady = false
     }
 
-    func styleDidLoad() {
+    func styleDidLoad(_ style: MLNStyle, arrowHex: UInt32) {
         styleReady = true
+        arrowColorHex = arrowHex
+        UserArrowImage.register(in: style, avatar: avatar, arrowHex: arrowHex)
         pushRoute()
         pushDestination()
+        pushMarkers()
         pushUser()
         applyFollow(animated: false)
+    }
+
+    /// Cambia el avatar de la posición del usuario sin recargar el mapa.
+    func setAvatar(_ newAvatar: MapAvatar) {
+        guard newAvatar != avatar else { return }
+        avatar = newAvatar
+        guard styleReady, let style = mapView?.style else { return }
+        UserArrowImage.register(in: style, avatar: avatar, arrowHex: arrowColorHex)
+    }
+
+    /// Marcadores de resultados de búsqueda (categorías, lugares guardados mostrados en el mapa).
+    func setMarkers(_ places: [Place]) {
+        markers = places
+        pushMarkers()
+    }
+
+    /// Centra el mapa en un punto sin seguir al usuario.
+    func focus(on coordinate: CLLocationCoordinate2D, zoom: Double = 16, bottomInset: CGFloat = 0) {
+        followMode = .off
+        onFollowCancelled?()
+        guard let mapView else { return }
+        mapView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: bottomInset, right: 0)
+        mapView.setCenter(coordinate, zoomLevel: zoom, direction: 0, animated: true)
     }
 
     func userMovedCamera() {
@@ -149,6 +178,21 @@ final class MapController {
         } else {
             source.shape = nil
         }
+    }
+
+    private func pushMarkers() {
+        guard let source = shapeSource("results") else { return }
+        if markers.isEmpty {
+            source.shape = nil
+            return
+        }
+        let features: [MLNPointFeature] = markers.map { place in
+            let feature = MLNPointFeature()
+            feature.coordinate = place.coordinate
+            feature.attributes = ["name": place.name]
+            return feature
+        }
+        source.shape = MLNShapeCollectionFeature(shapes: features)
     }
 
     private func pushUser() {

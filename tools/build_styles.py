@@ -280,6 +280,18 @@ def build_style(cfg):
          "layout": {"text-field": ["get", "housenumber"], "text-font": FONT, "text-size": 10},
          "paint": {"text-color": p["road_text"], "text-opacity": 0.7}})
 
+    # ---- Resultados de búsqueda / lugares mostrados ------------------------
+    add({"id": "results-halo", "type": "circle", "source": "results",
+         "paint": {"circle-color": cfg["results"]["color"], "circle-opacity": 0.25,
+                   "circle-radius": interp([(10, 9), (16, 17)])}})
+    add({"id": "results-core", "type": "circle", "source": "results",
+         "paint": {"circle-color": cfg["results"]["color"], "circle-radius": interp([(10, 4), (16, 7)]),
+                   "circle-stroke-color": cfg["results"]["stroke"], "circle-stroke-width": 2}})
+    add({"id": "results-label", "type": "symbol", "source": "results", "minzoom": 13,
+         "layout": {"text-field": ["get", "name"], "text-font": FONT_BOLD, "text-size": 12,
+                    "text-offset": [0, 1.1], "text-anchor": "top", "text-max-width": 8, "text-optional": True},
+         "paint": {"text-color": p["city_text"], "text-halo-color": p["halo"], "text-halo-width": 1.8}})
+
     # ---- Destino y usuario (siempre encima) -----------------------------
     add({"id": "destination-halo", "type": "circle", "source": "destination",
          "paint": {"circle-color": cfg["destination"]["color"], "circle-opacity": 0.28,
@@ -305,6 +317,7 @@ def build_style(cfg):
         "sources": {
             "openmaptiles": {"type": "vector", "url": "{{TILES_URL}}"},
             "route": {"type": "geojson", "data": empty},
+            "results": {"type": "geojson", "data": empty},
             "destination": {"type": "geojson", "data": empty},
             "user": {"type": "geojson", "data": empty},
         },
@@ -340,6 +353,7 @@ NOIR = {
     },
     "route": {"core": "#f23fc4", "casing": "#0a0b0d", "glow": "#f23fc4", "glow_opacity": 0.3},
     "destination": {"color": "#ffd400", "stroke": "#0a0b0d"},
+    "results": {"color": "#38e1ff", "stroke": "#0a0b0d"},
     "user": {"halo": "#ffffff"},
 }
 
@@ -365,6 +379,7 @@ CLARO = {
     },
     "route": {"core": "#0a84ff", "casing": "#ffffff", "glow": "#0a84ff", "glow_opacity": 0.2},
     "destination": {"color": "#ff3b30", "stroke": "#ffffff"},
+    "results": {"color": "#ff9f0a", "stroke": "#ffffff"},
     "user": {"halo": "#0a84ff"},
 }
 

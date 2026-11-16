@@ -40,12 +40,12 @@ final class StyleManagerTests: XCTestCase {
             let data = try StyleManager.resolve(Data(contentsOf: url), provider: .openFreeMap)
             let style = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
             let sources = try XCTUnwrap(style["sources"] as? [String: Any])
-            for required in ["openmaptiles", "route", "destination", "user"] {
+            for required in ["openmaptiles", "route", "destination", "user", "results"] {
                 XCTAssertNotNil(sources[required], "\(name): falta la fuente \(required)")
             }
             let layers = try XCTUnwrap(style["layers"] as? [[String: Any]])
             let ids = Set(layers.compactMap { $0["id"] as? String })
-            for required in ["route-core", "destination-core", "user-arrow"] {
+            for required in ["route-core", "destination-core", "user-arrow", "results-core"] {
                 XCTAssertTrue(ids.contains(required), "\(name): falta la capa \(required)")
             }
         }

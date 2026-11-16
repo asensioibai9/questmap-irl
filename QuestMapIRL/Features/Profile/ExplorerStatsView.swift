@@ -1,8 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// Perfil: nivel cosmético, estadísticas, niebla revelada y logros. Todo gratuito.
-struct ProfileView: View {
+/// Estadísticas y logros: nivel cosmético, estadísticas, niebla revelada y logros. Todo gratuito.
+struct ExplorerStatsView: View {
     @Environment(\.mapTheme) private var theme
     @Query(sort: \TripRecord.startedAt, order: .reverse) private var trips: [TripRecord]
     @Query private var cells: [VisitedCell]
@@ -18,29 +18,29 @@ struct ProfileView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                if trips.isEmpty {
-                    ContentUnavailableView(
-                        "Aún no has viajado",
-                        systemImage: "map",
-                        description: Text("Completa tu primera ruta y aquí verás kilómetros, zonas reveladas y logros.")
-                    )
-                    .padding(.top, 60)
-                } else {
-                    VStack(spacing: 16) {
-                        levelCard
-                        statsGrid
-                        achievements
-                        recentTrips
-                    }
-                    .padding(16)
+        ScrollView {
+            if trips.isEmpty {
+                ContentUnavailableView(
+                    "Aún no has viajado",
+                    systemImage: "map",
+                    description: Text("Completa tu primera ruta y aquí verás kilómetros, zonas reveladas y logros.")
+                )
+                .padding(.top, 60)
+            } else {
+                VStack(spacing: 16) {
+                    levelCard
+                    statsGrid
+                    achievements
+                    recentTrips
                 }
+                .padding(16)
             }
-            .background(theme.background.ignoresSafeArea())
-            .navigationTitle("Explorador")
         }
-        .tint(theme.accent)
+        .background(AppColor.background.ignoresSafeArea())
+        .navigationTitle("Estadísticas y logros")
+        .navigationBarTitleDisplayMode(.inline)
+        .environment(\.mapTheme, ThemeCatalog.ciudadNocturna)
+        .preferredColorScheme(.dark)
     }
 
     private var levelCard: some View {
@@ -89,7 +89,7 @@ struct ProfileView: View {
             ForEach(Achievements.all) { achievement in
                 let unlocked = achievement.isUnlocked(stats)
                 HStack {
-                    Image(systemName: unlocked ? "rosette" : "lock.fill")
+                    Image(systemName: unlocked ? "rosette" : "circle.dashed")
                         .foregroundStyle(unlocked ? theme.accent : theme.textSecondary)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(achievement.title).font(.subheadline.weight(.semibold))

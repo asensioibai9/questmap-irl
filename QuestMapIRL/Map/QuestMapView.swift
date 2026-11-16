@@ -112,8 +112,7 @@ struct QuestMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
             cancelTimeout()
-            UserArrowImage.register(in: style, arrowHex: parent.style.userArrowHex)
-            parent.controller.styleDidLoad()
+            parent.controller.styleDidLoad(style, arrowHex: parent.style.userArrowHex)
             report(.ready)
         }
 

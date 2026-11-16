@@ -7,6 +7,7 @@ final class AppEnvironment {
     let locationService: LocationServiceProtocol
     let routeService: RouteServiceProtocol
     let placeSearch: PlaceSearchProviding
+    let nearby: NearbySearchProviding
     let speech: SpeechService
     let network: NetworkMonitor
 
@@ -15,6 +16,7 @@ final class AppEnvironment {
         self.locationService = LocationService()
         self.routeService = OSRMRouteService()
         self.placeSearch = PhotonSearchService()
+        self.nearby = OverpassNearbyService()
         self.speech = SpeechService()
         self.network = NetworkMonitor()
     }
@@ -23,11 +25,13 @@ final class AppEnvironment {
     init(locationService: LocationServiceProtocol,
          routeService: RouteServiceProtocol,
          placeSearch: PlaceSearchProviding,
+         nearby: NearbySearchProviding,
          speech: SpeechService,
          network: NetworkMonitor) {
         self.locationService = locationService
         self.routeService = routeService
         self.placeSearch = placeSearch
+        self.nearby = nearby
         self.speech = speech
         self.network = network
     }

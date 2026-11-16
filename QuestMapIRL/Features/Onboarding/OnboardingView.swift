@@ -12,8 +12,8 @@ struct OnboardingView: View {
     var body: some View {
         VStack(spacing: 0) {
             TabView(selection: $page) {
-                step(icon: "map.fill", title: "Tu ciudad, como un minimapa",
-                     text: "Navegación GPS real con datos de Apple Maps y una estética de videojuego propia. Las rutas y los tiempos son siempre precisos.")
+                step(icon: "map.fill", title: "Tu ciudad, como un mapa de juego",
+                     text: "Navegación GPS con mapas reales de OpenStreetMap dibujados con una estética de videojuego propia. Sin cuentas, anuncios ni compras.")
                     .tag(0)
                 step(icon: "location.fill", title: "Necesitamos tu ubicación",
                      text: "Solo mientras usas la app, para situarte en el mapa y guiarte. Tus recorridos se guardan únicamente en tu dispositivo.")
@@ -36,7 +36,7 @@ struct OnboardingView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(theme.accent)
-                .foregroundStyle(theme.isDark ? theme.background : .white)
+                .foregroundStyle(.black)
 
                 if page == 1, locationService.authState == .denied {
                     Text("Has denegado la ubicación. Puedes activarla después en Ajustes del iPhone.")
@@ -47,7 +47,7 @@ struct OnboardingView: View {
             .padding(.bottom, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.background.ignoresSafeArea())
+        .background(AppColor.background.ignoresSafeArea())
     }
 
     private var buttonTitle: String {
@@ -70,10 +70,10 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
             Text(text)
                 .multilineTextAlignment(.center)
-                .foregroundStyle(theme.textSecondary)
+                .foregroundStyle(AppColor.textSecondary)
             Spacer()
         }
-        .foregroundStyle(theme.textPrimary)
+        .foregroundStyle(AppColor.textPrimary)
         .padding(32)
     }
 }
