@@ -54,6 +54,9 @@ struct CartographyStyle: Equatable {
     let minimapShape: MinimapShape
     let minimapBorderHex: UInt32
     let attribution: String
+    /// Color del símbolo de los puntos de interés y de su contorno.
+    var poiIconHex: UInt32 = 0xFFFFFF
+    var poiOutlineHex: UInt32 = 0x0A0B0D
 }
 
 /// Tokens del tema: HUD (paneles, texto, iconos) y cartografía. Cambiar de tema nunca altera

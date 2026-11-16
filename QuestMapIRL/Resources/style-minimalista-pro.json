@@ -3994,8 +3994,8 @@
    }
   },
   {
-   "id": "poi-dot",
-   "type": "circle",
+   "id": "poi-icon",
+   "type": "symbol",
    "source": "openmaptiles",
    "source-layer": "poi",
    "minzoom": 15,
@@ -4021,13 +4021,13 @@
       "restaurant",
       "fast_food",
       "cafe",
+      "bakery",
+      "ice_cream",
       "bar",
       "pub",
       "beer",
-      "ice_cream",
-      "bakery",
-      "shop",
       "grocery",
+      "shop",
       "clothing_store",
       "butcher",
       "alcohol_shop",
@@ -4040,185 +4040,12 @@
       "theatre",
       "cinema",
       "art_gallery",
-      "library"
-     ],
-     true,
-     false
-    ],
-    [
-     "<=",
-     [
-      "coalesce",
-      [
-       "get",
-       "rank"
-      ],
-      99
-     ],
-     [
-      "interpolate",
-      [
-       "exponential",
-       1.4
-      ],
-      [
-       "zoom"
-      ],
-      15,
-      6,
-      16,
-      12,
-      17,
-      30,
-      18,
-      99
-     ]
-    ]
-   ],
-   "paint": {
-    "circle-color": [
-     "match",
-     [
-      "get",
-      "class"
-     ],
-     [
-      "fuel"
-     ],
-     "#f08a2c",
-     [
-      "parking"
-     ],
-     "#2f86e8",
-     [
-      "hospital",
-      "pharmacy",
-      "doctors",
-      "dentist",
-      "veterinary"
-     ],
-     "#e5484d",
-     [
-      "police",
-      "fire_station",
-      "prison"
-     ],
-     "#5865e6",
-     [
-      "restaurant",
-      "fast_food",
-      "cafe",
-      "bar",
-      "pub",
-      "beer",
-      "ice_cream",
-      "bakery"
-     ],
-     "#f2b21a",
-     [
-      "shop",
-      "grocery",
-      "clothing_store",
-      "butcher",
-      "alcohol_shop",
-      "laundry",
-      "hairdresser"
-     ],
-     "#d94fb7",
-     [
-      "museum",
-      "attraction",
-      "castle",
-      "monument",
-      "theatre",
-      "cinema",
-      "art_gallery",
-      "library"
-     ],
-     "#1fb89a",
-     "#8a93a6"
-    ],
-    "circle-radius": [
-     "interpolate",
-     [
-      "exponential",
-      1.4
-     ],
-     [
-      "zoom"
-     ],
-     15,
-     2.4,
-     17,
-     4.2,
-     19,
-     6
-    ],
-    "circle-stroke-color": "#ffffff",
-    "circle-stroke-width": [
-     "interpolate",
-     [
-      "exponential",
-      1.4
-     ],
-     [
-      "zoom"
-     ],
-     15,
-     0.8,
-     18,
-     1.6
-    ]
-   }
-  },
-  {
-   "id": "poi-label",
-   "type": "symbol",
-   "source": "openmaptiles",
-   "source-layer": "poi",
-   "minzoom": 16.5,
-   "filter": [
-    "all",
-    [
-     "match",
-     [
-      "get",
-      "class"
-     ],
-     [
-      "fuel",
-      "parking",
-      "hospital",
-      "pharmacy",
-      "doctors",
-      "dentist",
-      "veterinary",
-      "police",
-      "fire_station",
-      "prison",
-      "restaurant",
-      "fast_food",
-      "cafe",
-      "bar",
-      "pub",
-      "beer",
-      "ice_cream",
-      "bakery",
-      "shop",
-      "grocery",
-      "clothing_store",
-      "butcher",
-      "alcohol_shop",
-      "laundry",
-      "hairdresser",
-      "museum",
-      "attraction",
-      "castle",
-      "monument",
-      "theatre",
-      "cinema",
-      "art_gallery",
-      "library"
+      "library",
+      "bank",
+      "atm",
+      "lodging",
+      "bus",
+      "railway"
      ],
      true,
      false
@@ -4254,19 +4081,127 @@
     ]
    ],
    "layout": {
-    "text-field": [
-     "coalesce",
+    "icon-image": [
+     "match",
      [
       "get",
-      "name:es"
+      "class"
      ],
      [
-      "get",
-      "name"
-     ]
+      "fuel"
+     ],
+     "poi-fuel",
+     [
+      "parking"
+     ],
+     "poi-parking",
+     [
+      "hospital",
+      "pharmacy",
+      "doctors",
+      "dentist",
+      "veterinary"
+     ],
+     "poi-health",
+     [
+      "police",
+      "fire_station",
+      "prison"
+     ],
+     "poi-police",
+     [
+      "restaurant",
+      "fast_food"
+     ],
+     "poi-food",
+     [
+      "cafe",
+      "bakery",
+      "ice_cream"
+     ],
+     "poi-cafe",
+     [
+      "bar",
+      "pub",
+      "beer"
+     ],
+     "poi-bar",
+     [
+      "grocery"
+     ],
+     "poi-grocery",
+     [
+      "shop",
+      "clothing_store",
+      "butcher",
+      "alcohol_shop",
+      "laundry",
+      "hairdresser"
+     ],
+     "poi-shop",
+     [
+      "museum",
+      "attraction",
+      "castle",
+      "monument",
+      "theatre",
+      "cinema",
+      "art_gallery",
+      "library"
+     ],
+     "poi-culture",
+     [
+      "bank",
+      "atm"
+     ],
+     "poi-bank",
+     [
+      "lodging"
+     ],
+     "poi-lodging",
+     [
+      "bus",
+      "railway"
+     ],
+     "poi-transit",
+     "poi-shop"
     ],
-    "text-font": [
-     "Noto Sans Regular"
+    "icon-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0.55,
+     17,
+     0.85,
+     19,
+     1.1
+    ],
+    "icon-allow-overlap": false,
+    "icon-padding": 3,
+    "text-field": [
+     "step",
+     [
+      "zoom"
+     ],
+     "",
+     16.5,
+     [
+      "coalesce",
+      [
+       "get",
+       "name:es"
+      ],
+      [
+       "get",
+       "name"
+      ]
+     ]
     ],
     "text-size": [
      "interpolate",
@@ -4278,22 +4213,25 @@
       "zoom"
      ],
      16.5,
-     10,
+     10.5,
      19,
-     12
+     12.5
     ],
     "text-offset": [
      0,
-     0.9
+     1.15
     ],
     "text-anchor": "top",
     "text-max-width": 7,
-    "text-optional": true
+    "text-optional": true,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
    },
    "paint": {
     "text-color": "#4a5163",
     "text-halo-color": "#ffffff",
-    "text-halo-width": 1.4
+    "text-halo-width": 1.8
    }
   },
   {
@@ -4324,9 +4262,6 @@
       "name"
      ]
     ],
-    "text-font": [
-     "Noto Sans Regular"
-    ],
     "text-size": [
      "interpolate",
      [
@@ -4341,11 +4276,14 @@
      16,
      12.5,
      19,
-     15
+     15.5
     ],
     "text-max-angle": 28,
     "text-letter-spacing": 0.02,
-    "text-padding": 6
+    "text-padding": 6,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
    },
    "paint": {
     "text-color": "#3b4252",
@@ -4381,9 +4319,6 @@
       "name"
      ]
     ],
-    "text-font": [
-     "Noto Sans Regular"
-    ],
     "text-size": [
      "interpolate",
      [
@@ -4398,11 +4333,14 @@
      16,
      12.5,
      19,
-     15
+     15.5
     ],
     "text-max-angle": 28,
     "text-letter-spacing": 0.02,
-    "text-padding": 6
+    "text-padding": 6,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
    },
    "paint": {
     "text-color": "#3b4252",
@@ -4438,9 +4376,6 @@
       "name"
      ]
     ],
-    "text-font": [
-     "Noto Sans Regular"
-    ],
     "text-size": [
      "interpolate",
      [
@@ -4455,11 +4390,14 @@
      16,
      12.5,
      19,
-     15
+     15.5
     ],
     "text-max-angle": 28,
     "text-letter-spacing": 0.02,
-    "text-padding": 6
+    "text-padding": 6,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
    },
    "paint": {
     "text-color": "#3b4252",
@@ -4495,9 +4433,6 @@
       "name"
      ]
     ],
-    "text-font": [
-     "Noto Sans Regular"
-    ],
     "text-size": [
      "interpolate",
      [
@@ -4512,11 +4447,14 @@
      16,
      12.5,
      19,
-     15
+     15.5
     ],
     "text-max-angle": 28,
     "text-letter-spacing": 0.02,
-    "text-padding": 6
+    "text-padding": 6,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
    },
    "paint": {
     "text-color": "#3b4252",
@@ -4552,9 +4490,6 @@
       "name"
      ]
     ],
-    "text-font": [
-     "Noto Sans Regular"
-    ],
     "text-size": [
      "interpolate",
      [
@@ -4569,11 +4504,14 @@
      16,
      12.5,
      19,
-     15
+     15.5
     ],
     "text-max-angle": 28,
     "text-letter-spacing": 0.02,
-    "text-padding": 6
+    "text-padding": 6,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
    },
    "paint": {
     "text-color": "#3b4252",
@@ -4609,9 +4547,6 @@
       "name"
      ]
     ],
-    "text-font": [
-     "Noto Sans Regular"
-    ],
     "text-size": [
      "interpolate",
      [
@@ -4626,11 +4561,14 @@
      16,
      12.5,
      19,
-     15
+     15.5
     ],
     "text-max-angle": 28,
     "text-letter-spacing": 0.02,
-    "text-padding": 6
+    "text-padding": 6,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
    },
    "paint": {
     "text-color": "#3b4252",

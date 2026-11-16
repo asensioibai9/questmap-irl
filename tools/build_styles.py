@@ -94,6 +94,17 @@ def road_filter(tier, brunnel, ramps):
 def build_style(cfg):
     p = cfg["palette"]
     layers = []
+    lab = cfg.get("labels", {})
+    label_font = lab.get("font", FONT)
+    label_upper = lab.get("upper", False)
+    halo_w = lab.get("halo", 1.8)
+
+    def text_layout(extra):
+        layout = dict(extra)
+        layout["text-font"] = label_font
+        if label_upper:
+            layout["text-transform"] = "uppercase"
+        return layout
 
     def add(layer):
         layers.append(layer)
@@ -170,8 +181,10 @@ def build_style(cfg):
                        "line-width": interp(scaled(ROAD_WIDTH[tier], 0.9))}})
 
     # ---- Carreteras en superficie: primero contornos, luego rellenos ----
+    road_k = cfg.get("road_k", 1.0)
+
     def casing(tier, brunnel, ramps, ident):
-        widths = ROAD_WIDTH[tier]
+        widths = scaled(ROAD_WIDTH[tier], road_k)
         k = 0.7 if ramps else 1.0
         stops = [(z, round(w * k + max(p["casing_min"], w * k * p["casing_ratio"]), 3)) for z, w in widths]
         return {"id": ident, "type": "line", "source": "openmaptiles", "source-layer": "transportation",
@@ -181,7 +194,7 @@ def build_style(cfg):
                 "paint": {"line-color": p["casing"], "line-width": interp(stops)}}
 
     def fill(tier, brunnel, ramps, ident):
-        widths = ROAD_WIDTH[tier]
+        widths = scaled(ROAD_WIDTH[tier], road_k)
         k = 0.7 if ramps else 1.0
         return {"id": ident, "type": "line", "source": "openmaptiles", "source-layer": "transportation",
                 "minzoom": ROAD_MINZOOM[tier] + (0.5 if ramps else 0),
@@ -218,31 +231,36 @@ def build_style(cfg):
          "paint": {"line-color": cfg["route"]["core"],
                    "line-width": interp([(8, 3), (14, 6.5), (18, 14)])}})
 
-    # ---- POI: puntos de color por clase (iconos propios en un sprite futuro)
-    poi_colors = [
-        (["fuel"], p["poi_fuel"]),
-        (["parking"], p["poi_parking"]),
-        (["hospital", "pharmacy", "doctors", "dentist", "veterinary"], p["poi_health"]),
-        (["police", "fire_station", "prison"], p["poi_police"]),
-        (["restaurant", "fast_food", "cafe", "bar", "pub", "beer", "ice_cream", "bakery"], p["poi_food"]),
-        (["shop", "grocery", "clothing_store", "butcher", "alcohol_shop", "laundry", "hairdresser"], p["poi_shop"]),
-        (["museum", "attraction", "castle", "monument", "theatre", "cinema", "art_gallery", "library"], p["poi_culture"]),
+    # ---- POI: iconos (registrados por la app con el nombre "poi-*") --------
+    poi_icons = [
+        (["fuel"], "poi-fuel"),
+        (["parking"], "poi-parking"),
+        (["hospital", "pharmacy", "doctors", "dentist", "veterinary"], "poi-health"),
+        (["police", "fire_station", "prison"], "poi-police"),
+        (["restaurant", "fast_food"], "poi-food"),
+        (["cafe", "bakery", "ice_cream"], "poi-cafe"),
+        (["bar", "pub", "beer"], "poi-bar"),
+        (["grocery"], "poi-grocery"),
+        (["shop", "clothing_store", "butcher", "alcohol_shop", "laundry", "hairdresser"], "poi-shop"),
+        (["museum", "attraction", "castle", "monument", "theatre", "cinema", "art_gallery", "library"], "poi-culture"),
+        (["bank", "atm"], "poi-bank"),
+        (["lodging"], "poi-lodging"),
+        (["bus", "railway"], "poi-transit"),
     ]
-    poi_classes = [c for classes, _ in poi_colors for c in classes]
+    poi_classes = [c for classes, _ in poi_icons for c in classes]
     poi_filter = ["all", is_in("class", poi_classes),
                   ["<=", ["coalesce", ["get", "rank"], 99], interp_rank()]]
-    add({"id": "poi-dot", "type": "circle", "source": "openmaptiles", "source-layer": "poi",
+    poi_name = ["coalesce", ["get", "name:es"], ["get", "name"]]
+    add({"id": "poi-icon", "type": "symbol", "source": "openmaptiles", "source-layer": "poi",
          "minzoom": 15, "filter": poi_filter,
-         "paint": {"circle-color": match("class", poi_colors, p["poi_other"]),
-                   "circle-radius": interp([(15, 2.4), (17, 4.2), (19, 6)]),
-                   "circle-stroke-color": p["poi_stroke"], "circle-stroke-width": interp([(15, 0.8), (18, 1.6)])}})
-    add({"id": "poi-label", "type": "symbol", "source": "openmaptiles", "source-layer": "poi",
-         "minzoom": 16.5, "filter": poi_filter,
-         "layout": {"text-field": ["coalesce", ["get", "name:es"], ["get", "name"]],
-                    "text-font": FONT, "text-size": interp([(16.5, 10), (19, 12)]),
-                    "text-offset": [0, 0.9], "text-anchor": "top", "text-max-width": 7,
-                    "text-optional": True},
-         "paint": {"text-color": p["poi_text"], "text-halo-color": p["halo"], "text-halo-width": 1.4}})
+         "layout": {"icon-image": match("class", poi_icons, "poi-shop"),
+                    "icon-size": interp([(15, 0.55), (17, 0.85), (19, 1.1)]),
+                    "icon-allow-overlap": False, "icon-padding": 3,
+                    "text-field": ["step", ["zoom"], "", 16.5, poi_name],
+                    **text_layout({"text-size": interp([(16.5, 10.5), (19, 12.5)]),
+                                   "text-offset": [0, 1.15], "text-anchor": "top", "text-max-width": 7,
+                                   "text-optional": True})},
+         "paint": {"text-color": p["poi_text"], "text-halo-color": p["halo"], "text-halo-width": halo_w}})
 
     # ---- Etiquetas -------------------------------------------------------
     road_label_zoom = [("motorway", 10.5), ("trunk", 11), ("primary", 11.5), ("secondary", 12.5),
@@ -251,11 +269,12 @@ def build_style(cfg):
         add({"id": f"label-road-{cls}", "type": "symbol", "source": "openmaptiles",
              "source-layer": "transportation_name", "minzoom": z,
              "filter": ["==", ["get", "class"], cls],
-             "layout": {"symbol-placement": "line", "symbol-spacing": 320,
+             "layout": {"symbol-placement": "line", "symbol-spacing": lab.get("spacing", 320),
                         "text-field": ["coalesce", ["get", "name:es"], ["get", "name"]],
-                        "text-font": FONT, "text-size": interp([(11, 9.5), (16, 12.5), (19, 15)]),
-                        "text-max-angle": 28, "text-letter-spacing": 0.02, "text-padding": 6},
-             "paint": {"text-color": p["road_text"], "text-halo-color": p["halo"], "text-halo-width": 1.8}})
+                        **text_layout({"text-size": interp([(11, 9.5), (16, lab.get("road_size", 12.5)), (19, lab.get("road_size", 12.5) + 3)]),
+                                       "text-max-angle": 28, "text-letter-spacing": 0.04 if label_upper else 0.02,
+                                       "text-padding": 6})},
+             "paint": {"text-color": p["road_text"], "text-halo-color": p["halo"], "text-halo-width": halo_w}})
     add({"id": "label-water", "type": "symbol", "source": "openmaptiles", "source-layer": "water_name",
          "minzoom": 10,
          "layout": {"text-field": ["coalesce", ["get", "name:es"], ["get", "name"]], "text-font": FONT_ITALIC,
@@ -305,7 +324,8 @@ def build_style(cfg):
     add({"id": "user-arrow", "type": "symbol", "source": "user",
          "layout": {"icon-image": "user-arrow", "icon-rotate": ["coalesce", ["get", "heading"], 0],
                     "icon-rotation-alignment": "map", "icon-pitch-alignment": "map",
-                    "icon-allow-overlap": True, "icon-ignore-placement": True, "icon-size": 1}})
+                    "icon-allow-overlap": True, "icon-ignore-placement": True,
+                    "icon-size": cfg["user"].get("size", 1)}})
 
     empty = {"type": "FeatureCollection", "features": []}
     return {
@@ -333,28 +353,28 @@ def interp_rank():
 NOIR = {
     "id": "ciudadNocturna",
     "name": "Ciudad nocturna",
-    "reference": "Lenguaje visual de minimapa urbano nocturno (referencia: GTA V). Comparación con capturas concretas PENDIENTE.",
+    "reference": "Lenguaje visual de mapa urbano de videojuego nocturno. Referencia principal: captura aportada por el usuario (casco urbano costero). Comparación píxel a píxel NO realizada.",
+    "road_k": 1.35,
+    "labels": {"font": FONT_BOLD, "upper": True, "halo": 3.0, "road_size": 14.5, "spacing": 260},
     "palette": {
-        # Tratamiento casi monocromo: terreno oscuro, edificios en gris medio, vías claras.
-        "land": "#17191d", "grass": "#1c2020", "wood": "#1a1e1e", "sand": "#212224", "farm": "#1b1d1e",
-        "rock": "#222427", "residential": "#191b1f", "commercial": "#1e2024", "industrial": "#1a1c20",
-        "institution": "#202226", "sports": "#1f2323", "cemetery": "#1c2020", "military": "#1f1d20",
-        "water": "#0d1b2a", "water_edge": "#3a5f82", "water_text": "#7fa3c6",
-        "runway": "#2c2e33",
-        "building": "#3d4047", "building_edge": "#62656e", "building_opacity": 0.95,
-        "pedestrian": "#383b41", "path": "#7a7d84", "rail": "#4a4d54", "tunnel": "#7a7d85",
-        "casing": "#0a0b0d", "casing_min": 0.8, "casing_ratio": 0.2,
-        "road": {"motorway": "#f4f4f2", "trunk": "#e8e8e6", "primary": "#dcdde0", "secondary": "#c4c6ca",
-                 "tertiary": "#c0c2c7", "minor": "#a4a7ad", "service": "#82858c"},
-        "road_text": "#e4e5e8", "halo": "#0a0b0d", "place_text": "#9a9da4", "city_text": "#f0f0f2",
-        "poi_fuel": "#ff8a3d", "poi_parking": "#5aa9ff", "poi_health": "#ff4d6d", "poi_police": "#7b86ff",
-        "poi_food": "#ffd24d", "poi_shop": "#ff6fd8", "poi_culture": "#47e3c3", "poi_other": "#8d99b0",
-        "poi_stroke": "#07090d", "poi_text": "#c0c9db",
+        # Casi monocromo: fondo casi negro, edificios gris oscuro, vías claras, agua azul grisácea.
+        "land": "#161616", "grass": "#1b1b1b", "wood": "#1a1a1a", "sand": "#202020", "farm": "#1a1a1a",
+        "rock": "#212121", "residential": "#181818", "commercial": "#1c1c1c", "industrial": "#191919",
+        "institution": "#1e1e1e", "sports": "#1e1e1e", "cemetery": "#1b1b1b", "military": "#1d1b1d",
+        "water": "#2b3844", "water_edge": "#44586a", "water_text": "#a9bfd0",
+        "runway": "#2c2c2c",
+        "building": "#414141", "building_edge": "#5c5c5c", "building_opacity": 1.0,
+        "pedestrian": "#333333", "path": "#8a8a8a", "rail": "#7a7a7a", "tunnel": "#8a8a8a",
+        "casing": "#0b0b0b", "casing_min": 1.0, "casing_ratio": 0.22,
+        "road": {"motorway": "#ececec", "trunk": "#e0e0e0", "primary": "#d2d2d2", "secondary": "#c2c2c2",
+                 "tertiary": "#b3b3b3", "minor": "#a3a3a3", "service": "#868686"},
+        "road_text": "#ffffff", "halo": "#000000", "place_text": "#d4d4d4", "city_text": "#ffffff",
+        "poi_text": "#ffffff",
     },
     "route": {"core": "#f23fc4", "casing": "#0a0b0d", "glow": "#f23fc4", "glow_opacity": 0.3},
     "destination": {"color": "#ffd400", "stroke": "#0a0b0d"},
     "results": {"color": "#38e1ff", "stroke": "#0a0b0d"},
-    "user": {"halo": "#ffffff"},
+    "user": {"halo": "#ffffff", "size": 1.35},
 }
 
 CLARO = {

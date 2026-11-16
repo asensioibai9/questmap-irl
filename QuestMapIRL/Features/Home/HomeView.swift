@@ -67,6 +67,8 @@ struct HomeView: View {
     private var location: LocationServiceProtocol { environment.locationService }
     private var followMode: FollowMode { viewModel.headingUp ? .headingUp : .northUp }
     private var navigationBottomInset: CGFloat { viewHeight * 0.22 }
+    /// La cámara inclinada solo se usa conduciendo; a pie se mantiene cenital.
+    private var navigationPitch: Double { viewModel.mode == .driving ? theme.activeCartography.navigationPitch : 0 }
 
     // MARK: - Cuerpo
 
@@ -505,7 +507,7 @@ struct HomeView: View {
         viewModel.isFollowing = true
         let style = theme.activeCartography
         if navigation != nil {
-            map.setFollow(followMode, zoom: style.navigationZoom, pitch: style.navigationPitch, bottomInset: navigationBottomInset)
+            map.setFollow(followMode, zoom: style.navigationZoom, pitch: navigationPitch, bottomInset: navigationBottomInset)
             miniMap.setFollow(followMode, zoom: style.minimapZoom, pitch: 0, bottomInset: 0)
         } else {
             map.setFollow(followMode, zoom: style.defaultZoom, pitch: 0, bottomInset: 0)
@@ -565,7 +567,7 @@ struct HomeView: View {
         miniMap.setRoute(route.coordinates)
         miniMap.setDestination(destination.coordinate)
         viewModel.isFollowing = true
-        map.setFollow(followMode, zoom: style.navigationZoom, pitch: style.navigationPitch, bottomInset: navigationBottomInset)
+        map.setFollow(followMode, zoom: style.navigationZoom, pitch: navigationPitch, bottomInset: navigationBottomInset)
         miniMap.setFollow(followMode, zoom: style.minimapZoom, pitch: 0, bottomInset: 0)
         if let reading = location.currentLocation { session.update(with: reading) }
     }

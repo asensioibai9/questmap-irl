@@ -56,7 +56,8 @@ enum ThemeCatalog {
         cartography: CartographyStyle(
             resourceName: "style-minimalista-pro", backgroundHex: 0xF3F4F7, userArrowHex: 0x0A84FF,
             defaultZoom: 15.5, navigationZoom: 17, navigationPitch: 0,
-            minimapZoom: 16.5, minimapShape: .roundedSquare, minimapBorderHex: 0xFFFFFF, attribution: attribution)
+            minimapZoom: 16.5, minimapShape: .roundedSquare, minimapBorderHex: 0xFFFFFF, attribution: attribution,
+            poiIconHex: 0x2B2F3A, poiOutlineHex: 0xFFFFFF)
     )
 
     // MARK: - Próximamente (solo paleta de HUD; sin estilo cartográfico todavía)

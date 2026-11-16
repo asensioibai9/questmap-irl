@@ -112,6 +112,7 @@ struct QuestMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
             cancelTimeout()
+            PoiIcons.register(in: style, fillHex: parent.style.poiIconHex, outlineHex: parent.style.poiOutlineHex)
             parent.controller.styleDidLoad(style, arrowHex: parent.style.userArrowHex)
             report(.ready)
         }
