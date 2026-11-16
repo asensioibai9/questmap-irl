@@ -112,7 +112,8 @@ final class NavigationHubTests: XCTestCase {
     // MARK: Alimentación por GPS sin vistas
 
     func testRealLocationReadingsFeedTheSessionWithoutAnyView() async {
-        hub.start(route: route(), destination: home, mode: .driving)
+        location.currentLocation = reading(points[0])
+        hub.start(route: route(), destination: home, mode: .driving)   // la primera lectura ya se usa al empezar
         let before = hub.session?.snapshot.remainingMeters ?? 0
         location.currentLocation = reading(CLLocationCoordinate2D(latitude: 40.4060, longitude: -3.7000))
         await settle()
