@@ -289,6 +289,10 @@ final class SpotifyMusicTests: XCTestCase {
         XCTAssertEqual(stored.connectedMusicServices, [.spotify])
     }
 
+    func testOfficialSDKIsLinkedInTheApp() {
+        XCTAssertTrue(SpotifyMusicBackend.isSDKLinked, "la integración usa el SDK real, no un sustituto")
+    }
+
     func testOnlyRealIntegrationsAreOffered() {
         XCTAssertEqual(MusicServiceID.allCases, [.appleMusic, .spotify])
     }

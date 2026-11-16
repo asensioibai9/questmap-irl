@@ -34,6 +34,15 @@ final class SpotifyMusicBackend: MusicBackend, SpotifyRemoteClientDelegate {
         client?.delegate = self
     }
 
+    /// true si el SDK oficial de Spotify está enlazado en esta compilación.
+    static var isSDKLinked: Bool {
+        #if canImport(SpotifyiOS)
+        return true
+        #else
+        return false
+        #endif
+    }
+
     /// Crea el adaptador con el SDK real si está enlazado y hay Client ID.
     static func makeDefault() -> SpotifyMusicBackend {
         let config = SpotifyConfig.load()
