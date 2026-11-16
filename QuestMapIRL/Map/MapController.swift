@@ -31,6 +31,7 @@ final class MapController {
     private var followZoom: Double = 15.5
     private var followPitch: Double = 0
     private var buildings3D = false
+    private var simplified = false
     private var bottomInset: CGFloat = 0
     private var hasCenteredOnUser = false
 
@@ -64,6 +65,7 @@ final class MapController {
         pushSaved()
         pushUser()
         applyBuildings()
+        applySimplified()
         applyPitch(animated: false)
         applyFollow(animated: false)
     }
@@ -94,6 +96,13 @@ final class MapController {
     func setSavedPlaces(_ places: [(coordinate: CLLocationCoordinate2D, icon: String)]) {
         savedMarkers = places
         pushSaved()
+    }
+
+    /// Mapa para la pantalla de un coche: oculta iconos de puntos de interés, números de portal y marcadores de resultados
+    /// (la ruta, el destino y la posición del usuario se conservan). Se vuelve a aplicar tras cada carga de estilo.
+    func setSimplified(_ enabled: Bool) {
+        simplified = enabled
+        applySimplified()
     }
 
     /// Edificios 3D encendidos/apagados. Solo cambia la visibilidad de la capa `building-3d` (que ya está en el
@@ -180,6 +189,14 @@ final class MapController {
     }
 
     // MARK: - Privado
+
+    private func applySimplified() {
+        guard styleReady, let style = mapView?.style else { return }
+        for layer in style.layers where layer.identifier.hasPrefix("poi-icon") || layer.identifier == "label-housenumber"
+            || layer.identifier.hasPrefix("results-") || layer.identifier == "saved-places" {
+            layer.isVisible = !simplified
+        }
+    }
 
     private func applyBuildings() {
         guard styleReady, let layer = mapView?.style?.layer(withIdentifier: "building-3d") else { return }

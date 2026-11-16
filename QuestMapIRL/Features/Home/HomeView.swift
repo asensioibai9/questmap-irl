@@ -32,7 +32,6 @@ struct HomeView: View {
 
     @State private var viewModel: HomeViewModel
     @State private var panel: SearchPanelModel
-    @State private var navigation: ActiveNavigationViewModel?
     @State private var navDisplay: NavDisplay = .map
     @State private var showFullRoute = false
     @State private var showPanel = false
@@ -68,6 +67,8 @@ struct HomeView: View {
     }
 
     private var settings: UserSettings? { settingsRows.first }
+    /// La navegación vive en el centro compartido (también la usa CarPlay), no en esta vista.
+    private var navigation: ActiveNavigationViewModel? { environment.hub.session }
     private var useMetric: Bool { settings?.useMetricUnits ?? true }
     private var showCompass: Bool { settings?.showCompass ?? true }
     private var location: LocationServiceProtocol { environment.locationService }
@@ -81,8 +82,9 @@ struct HomeView: View {
     /// Navegación: en estilos con 3D manda la preferencia del usuario (2D = cenital siempre; 3D = perspectiva
     /// moderada, más suave a pie). En el resto de estilos se mantiene el comportamiento anterior.
     private var navigationPitch: Double {
-        if supports3D { return view3D ? (viewModel.mode == .driving ? 45 : 30) : 0 }
-        return viewModel.mode == .driving ? theme.activeCartography.navigationPitch : 0
+        let mode = navigation?.mode ?? viewModel.mode
+        if supports3D { return view3D ? (mode == .driving ? 45 : 30) : 0 }
+        return mode == .driving ? theme.activeCartography.navigationPitch : 0
     }
 
     // MARK: - Cuerpo
@@ -166,17 +168,14 @@ struct HomeView: View {
         }
         .onChange(of: location.smoothedLocation) { _, _ in pushUser() }
         .onChange(of: location.displayHeading) { _, _ in pushUser() }
-        .onChange(of: location.currentLocation) { _, reading in
-            guard let reading, let navigation else { return }
-            navigation.update(with: reading)
-        }
     }
 
     private func routeHandlers<V: View>(_ view: V) -> some View {
         view
-        .onChange(of: navigation?.finished) { _, finished in
-            if finished == true { endNavigation() }
+        .onChange(of: environment.hub.startToken) { _, _ in
+            if let session = environment.hub.session { presentNavigationUI(session) }
         }
+        .onChange(of: environment.hub.endToken) { _, _ in endNavigationUI() }
         .onChange(of: navigation?.route.id) { _, _ in
             guard let navigation else { return }
             map.setRoute(navigation.route.coordinates)
@@ -685,7 +684,8 @@ struct HomeView: View {
         applyMusicSettings()
         apply3D(animated: false)
         pushSavedPlaces()
-        if startupFinished { afterStartup() } else { location.start(mode: .idle) }
+        if let active = environment.hub.session { presentNavigationUI(active) }   // navegación iniciada antes (p. ej. desde CarPlay)
+        if startupFinished { afterStartup() } else if environment.hub.session == nil { location.start(mode: .idle) }
         pushUser()
         map.setFollow(followMode, zoom: theme.activeCartography.defaultZoom, pitch: explorePitch, bottomInset: 0)
     }
@@ -807,59 +807,36 @@ struct HomeView: View {
         map.setSavedPlaces(items)
     }
 
+    /// Pide al centro de navegación que empiece. La interfaz se prepara al reaccionar a `startToken`.
     private func startNavigation(_ route: Route) {
         guard let destination = viewModel.destination else { return }
+        environment.hub.start(route: route, destination: destination, mode: viewModel.mode)
+    }
+
+    /// Prepara la pantalla del iPhone para una navegación (iniciada aquí o en CarPlay).
+    private func presentNavigationUI(_ session: ActiveNavigationViewModel) {
         let style = theme.activeCartography
         panel.closeCategory()
         panel.clearQuery()
         viewModel.clearSelection()
         showPanel = false
-        location.setMode(.navigating)
-        let session = ActiveNavigationViewModel(
-            route: route,
-            destinationName: destination.name,
-            destination: destination.coordinate,
-            mode: viewModel.mode,
-            routeService: environment.routeService,
-            speech: environment.speech,
-            useMetric: useMetric,
-            speedLimitService: environment.speedLimits,
-            showsSpeedLimit: settings?.showSpeedLimit ?? true
-        )
-        navigation = session
         navDisplay = .map
         showFullRoute = false
         UIApplication.shared.isIdleTimerDisabled = true
-        session.start()
 
-        map.setRoute(route.coordinates)
-        map.setDestination(destination.coordinate)
-        miniMap.setRoute(route.coordinates)
-        miniMap.setDestination(destination.coordinate)
+        map.setRoute(session.route.coordinates)
+        map.setDestination(session.destination)
+        miniMap.setRoute(session.route.coordinates)
+        miniMap.setDestination(session.destination)
         viewModel.isFollowing = true
         map.setFollow(followMode, zoom: style.navigationZoom, pitch: navigationPitch, bottomInset: navigationBottomInset)
         miniMap.setFollow(followMode, zoom: style.minimapZoom, pitch: 0, bottomInset: 0)
-        if let reading = location.currentLocation { session.update(with: reading) }
     }
 
-    private func endNavigation() {
-        guard let session = navigation else { return }
-        let summary = session.summary()
-        // Solo se guardan viajes con recorrido real o que llegaron al destino.
-        if summary.distanceMeters >= 100 || session.hasArrived {
-            try? TripRepository(context: modelContext).save(summary)
-        }
-        navigation = nil
+    /// La navegación ya terminó en el centro (guardado del viaje, voz y GPS incluidos): aquí solo se limpia la pantalla.
+    private func endNavigationUI() {
         navDisplay = .map
         showFullRoute = false
-        location.setMode(.idle)
-        if session.hasArrived {
-            // Llegada: deja terminar "Has llegado a tu destino" en vez de cortarla.
-            environment.speech.releaseAfterSpeaking()
-        } else {
-            // Cancelación o cambio de destino: se corta cualquier voz pendiente.
-            environment.speech.stopImmediately()
-        }
         UIApplication.shared.isIdleTimerDisabled = false
         clearRoute()
         detent = .compactPanel

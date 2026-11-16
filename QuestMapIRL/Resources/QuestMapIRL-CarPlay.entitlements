@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- SOLO para usar cuando Apple haya concedido el entitlement de CarPlay a tu cuenta de desarrollador y el
+         perfil de aprovisionamiento lo incluya. Con una cuenta gratuita o con Sideloadly, firmar con este archivo FALLA.
+         Ver docs/21-carplay.md. -->
+    <key>com.apple.developer.carplay-maps</key>
+    <true/>
+</dict>
+</plist>
