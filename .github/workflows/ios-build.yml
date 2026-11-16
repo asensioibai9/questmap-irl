@@ -30,8 +30,26 @@ jobs:
 
       - name: Test
         run: |
+          set -o pipefail
           xcodebuild test \
             -project QuestMapIRL.xcodeproj \
             -scheme QuestMapIRL \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO | tee test.log
+
+      # Resumen visible en la página de la ejecución: pasados, saltados y fallidos.
+      - name: Resumen de tests
+        if: always()
+        run: |
+          {
+            echo "### Resultado de los tests"
+            echo '```'
+            grep -E "Executed [0-9]+ tests?, with" test.log | tail -n 1 || true
+            echo "--- Saltados ---"
+            grep -E "Test Case .* skipped" test.log || echo "(ninguno)"
+            echo "--- Fallidos ---"
+            grep -E "Test Case .* failed" test.log || echo "(ninguno)"
+            echo "--- Tests de voz ---"
+            grep -E "Test Case .*NavigationVoice.* (passed|skipped|failed)" test.log || echo "(no aparecen)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
