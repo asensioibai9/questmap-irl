@@ -119,7 +119,7 @@ final class TilePOISearchServiceTests: XCTestCase {
 
     func testRecoversAfterATransientServerError() async throws {
         var tileCalls = 0
-        let item = fixturePOI("hotel", "hotel", "Hotel Europa", eastMeters: 80, northMeters: 0)
+        let item = fixturePOI("lodging", "hotel", "Hotel Europa", eastMeters: 80, northMeters: 0)
         StubURLProtocol.responder = { request in
             let url = request.url!.absoluteString
             if url == "https://tiles.test/planet" { return ok(tileJSONData()) }
