@@ -60,7 +60,8 @@ enum ThemeCatalog {
             poiIconHex: 0x2B2F3A, poiOutlineHex: 0xFFFFFF)
     )
 
-    // MARK: - Próximamente (solo paleta de HUD; sin estilo cartográfico todavía)
+    // MARK: - Isla y Mundo de bloques (texturas procedurales)
+    // Los siguientes (fantasía, arcade) siguen sin cartografía: solo paleta de HUD.
 
     static let islaRoyale = MapTheme(
         id: .islaRoyale, name: "Isla",
@@ -74,7 +75,11 @@ enum ThemeCatalog {
         titleDesign: .rounded, iconWeight: .heavy, cornerRadius: 20,
         poiIcons: [.fuel: "fuelpump.circle.fill", .food: "takeoutbag.and.cup.and.straw.fill", .parking: "p.circle.fill",
                    .hospital: "cross.case.fill", .police: "shield.fill", .shop: "cart.fill", .poi: "mappin.and.ellipse", .quest: "scope"],
-        cartography: nil
+        cartography: CartographyStyle(
+            resourceName: "style-isla", backgroundHex: 0x74A83A, userArrowHex: 0xFFFFFF,
+            defaultZoom: 15.5, navigationZoom: 16.5, navigationPitch: 0,
+            minimapZoom: 16, minimapShape: .roundedSquare, minimapBorderHex: 0xFFFFFF, attribution: attribution,
+            poiIconHex: 0xFFFFFF, poiOutlineHex: 0x18290F, textures: ["tex-canopy", "tex-grass"])
     )
 
     static let mundoBloques = MapTheme(
@@ -89,7 +94,13 @@ enum ThemeCatalog {
         titleDesign: .monospaced, iconWeight: .black, cornerRadius: 4,
         poiIcons: [.fuel: "fuelpump.fill", .food: "carrot.fill", .parking: "square.fill", .hospital: "heart.fill",
                    .police: "shield.fill", .shop: "shippingbox.fill", .poi: "cube.fill", .quest: "flag.square.fill"],
-        cartography: nil
+        cartography: CartographyStyle(
+            resourceName: "style-bloques", backgroundHex: 0x68A53F, userArrowHex: 0xFFFFFF,
+            defaultZoom: 15.5, navigationZoom: 16.5, navigationPitch: 0,
+            minimapZoom: 16, minimapShape: .roundedSquare, minimapBorderHex: 0x3B2A1E, attribution: attribution,
+            poiIconHex: 0xFFFFFF, poiOutlineHex: 0x1D1D1D,
+            textures: ["tex-block-grass", "tex-block-leaves", "tex-block-sand", "tex-block-path",
+                       "tex-block-stone", "tex-block-water", "tex-block-planks"])
     )
 
     static let mapaFantasia = MapTheme(

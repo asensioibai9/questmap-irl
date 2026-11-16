@@ -99,6 +99,19 @@ def build_style(cfg):
     label_upper = lab.get("upper", False)
     halo_w = lab.get("halo", 1.8)
 
+    def overlays(stage):
+        """Texturas (fill-pattern) superpuestas a un color base, por etapa de dibujo."""
+        for tex in cfg.get("overlays", []):
+            if tex["after"] != stage:
+                continue
+            layer = {"id": tex["id"], "type": "fill", "source": "openmaptiles", "source-layer": tex["layer"],
+                     "paint": {"fill-pattern": tex["pattern"], "fill-opacity": tex.get("opacity", 1)}}
+            if tex.get("classes"):
+                layer["filter"] = is_in("class", tex["classes"])
+            if tex.get("minzoom"):
+                layer["minzoom"] = tex["minzoom"]
+            add(layer)
+
     def text_layout(extra):
         layout = dict(extra)
         layout["text-font"] = label_font
@@ -110,6 +123,10 @@ def build_style(cfg):
         layers.append(layer)
 
     add({"id": "background", "type": "background", "paint": {"background-color": p["land"]}})
+    if cfg.get("background_pattern"):
+        # Suelo base con textura: un polígono que cubre el mundo (background-pattern no es fiable entre motores).
+        add({"id": "ground-pattern", "type": "fill", "source": "world",
+             "paint": {"fill-pattern": cfg["background_pattern"], "fill-antialias": False}})
 
     # ---- Suelo -----------------------------------------------------------
     add({"id": "landcover", "type": "fill", "source": "openmaptiles", "source-layer": "landcover",
@@ -127,9 +144,20 @@ def build_style(cfg):
              (["pitch", "playground", "stadium", "track", "theme_park", "zoo"], p["sports"]),
              ("cemetery", p["cemetery"]), ("military", p["military"])], CLEAR)}})
 
+    overlays("landuse")
+
     # ---- Agua ------------------------------------------------------------
     add({"id": "water", "type": "fill", "source": "openmaptiles", "source-layer": "water",
          "paint": {"fill-color": p["water"]}})
+    overlays("water")
+    if cfg.get("shore"):
+        sh = cfg["shore"]
+        add({"id": "water-shore", "type": "line", "source": "openmaptiles", "source-layer": "water",
+             "minzoom": 6, "layout": {"line-join": "round"},
+             "paint": {"line-color": sh["color"], "line-opacity": sh.get("opacity", 0.6),
+                       "line-width": interp([(8, 4), (14, 14), (18, 40)]),
+                       "line-offset": interp([(8, 2), (14, 7), (18, 20)]),
+                       "line-blur": interp([(8, 2), (14, 6), (18, 14)])}})
     add({"id": "water-edge", "type": "line", "source": "openmaptiles", "source-layer": "water",
          "minzoom": 9,
          "paint": {"line-color": p["water_edge"], "line-opacity": 0.9,
@@ -150,6 +178,7 @@ def build_style(cfg):
          "minzoom": 14,
          "paint": {"fill-color": p["building"], "fill-opacity": interp([(14, 0.0), (15, p["building_opacity"])]),
                    "fill-antialias": True}})
+    overlays("building")
     add({"id": "building-outline", "type": "line", "source": "openmaptiles", "source-layer": "building",
          "minzoom": 15.5,
          "paint": {"line-color": p["building_edge"], "line-opacity": interp([(15.5, 0), (17, 0.9)]),
@@ -190,7 +219,7 @@ def build_style(cfg):
         return {"id": ident, "type": "line", "source": "openmaptiles", "source-layer": "transportation",
                 "minzoom": ROAD_MINZOOM[tier] + (0.5 if ramps else 0),
                 "filter": road_filter(tier, brunnel, ramps),
-                "layout": {"line-cap": "butt", "line-join": "round"},
+                "layout": {"line-cap": "butt", "line-join": cfg.get("road_join", "round")},
                 "paint": {"line-color": p["casing"], "line-width": interp(stops)}}
 
     def fill(tier, brunnel, ramps, ident):
@@ -199,7 +228,7 @@ def build_style(cfg):
         return {"id": ident, "type": "line", "source": "openmaptiles", "source-layer": "transportation",
                 "minzoom": ROAD_MINZOOM[tier] + (0.5 if ramps else 0),
                 "filter": road_filter(tier, brunnel, ramps),
-                "layout": {"line-cap": "round", "line-join": "round"},
+                "layout": {"line-cap": cfg.get("road_cap", "round"), "line-join": cfg.get("road_join", "round")},
                 "paint": {"line-color": p["road"][tier], "line-width": interp(scaled(widths, k))}}
 
     for tier in TIERS:
@@ -265,7 +294,7 @@ def build_style(cfg):
     # ---- Etiquetas -------------------------------------------------------
     road_label_zoom = [("motorway", 10.5), ("trunk", 11), ("primary", 11.5), ("secondary", 12.5),
                        ("tertiary", 13.5), ("minor", 15)]
-    for cls, z in road_label_zoom:
+    for cls, z in (road_label_zoom if lab.get("roads", True) else []):
         add({"id": f"label-road-{cls}", "type": "symbol", "source": "openmaptiles",
              "source-layer": "transportation_name", "minzoom": z,
              "filter": ["==", ["get", "class"], cls],
@@ -332,10 +361,15 @@ def build_style(cfg):
         "version": 8,
         "name": cfg["name"],
         "metadata": {"questmap:generator": "tools/build_styles.py", "questmap:style-id": cfg["id"],
-                     "questmap:reference": cfg["reference"]},
+                     "questmap:reference": cfg["reference"],
+                     "questmap:images": sorted({t["pattern"] for t in cfg.get("overlays", [])}
+                                                  | ({cfg["background_pattern"]} if cfg.get("background_pattern") else set()))},
         "glyphs": "{{GLYPHS_URL}}",
         "sources": {
             "openmaptiles": {"type": "vector", "url": "{{TILES_URL}}"},
+            **({"world": {"type": "geojson", "data": {"type": "Feature", "properties": {}, "geometry": {
+                "type": "Polygon", "coordinates": [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]]}}}}
+               if cfg.get("background_pattern") else {}),
             "route": {"type": "geojson", "data": empty},
             "results": {"type": "geojson", "data": empty},
             "destination": {"type": "geojson", "data": empty},
@@ -404,9 +438,82 @@ CLARO = {
 }
 
 
+ISLA = {
+    "id": "islaRoyale",
+    "name": "Isla",
+    "reference": "Vista cenital de isla de battle royale, referencia: mapa de la Temporada 3 del Capítulo 1 (galería de theclick.gg, analizada en navegador). Técnicas: verde saturado por clases de suelo, copas de árbol y hierba con texturas procedurales, aguas poco profundas, zonas urbanas claras. Comparación píxel a píxel NO realizada.",
+    "road_k": 0.55,
+    "labels": {"font": FONT_BOLD, "upper": True, "halo": 2.4, "roads": False},
+    "shore": {"color": "#55b4ea", "opacity": 0.55},
+    "overlays": [
+        {"id": "tex-wood", "layer": "landcover", "classes": ["wood"], "pattern": "tex-canopy", "after": "landuse"},
+        {"id": "tex-grass", "layer": "landcover", "classes": ["grass", "wetland", "farmland"], "pattern": "tex-grass",
+         "after": "landuse", "opacity": 0.7, "minzoom": 12},
+    ],
+    "palette": {
+        "land": "#74a83a", "grass": "#86b947", "wood": "#3d7a2a", "sand": "#d8ca90", "farm": "#b8b83e",
+        "rock": "#8f8672", "residential": "#9ab05c", "commercial": "#c6c4ae", "industrial": "#a49e86",
+        "institution": "#b4be84", "sports": "#98c957", "cemetery": "#78a045", "military": "#8c8c6c",
+        "water": "#1e5c9e", "water_edge": "#7cc8f2", "water_text": "#eaf7ff",
+        "runway": "#b8b39b",
+        "building": "#ebe8de", "building_edge": "#a29e8c", "building_opacity": 1.0,
+        "pedestrian": "#d9d5c1", "path": "#c8b888", "rail": "#8c8470", "tunnel": "#bdb28e",
+        "casing": "#8f8561", "casing_min": 0.6, "casing_ratio": 0.12,
+        "road": {"motorway": "#f2ebd3", "trunk": "#ede5c9", "primary": "#e7ddbd", "secondary": "#dfd4b1",
+                 "tertiary": "#d7cba5", "minor": "#d0c39b", "service": "#c5b88f"},
+        "road_text": "#ffffff", "halo": "#18290f", "place_text": "#ffffff", "city_text": "#ffffff",
+        "poi_text": "#ffffff",
+    },
+    "route": {"core": "#ff2e93", "casing": "#ffffff", "glow": "#ff2e93", "glow_opacity": 0.35},
+    "destination": {"color": "#ffe600", "stroke": "#18290f"},
+    "results": {"color": "#00e5ff", "stroke": "#18290f"},
+    "user": {"halo": "#ffffff", "size": 1.2},
+}
+
+BLOQUES = {
+    "id": "mundoBloques",
+    "name": "Mundo de bloques",
+    "reference": "Vista cenital de mundo de bloques (referencia: apariencia de BlueMap sobre mundos de Minecraft, bluecolored.de/bluemap). Técnicas: texturas de 16x16 'píxeles' repetidas (hierba, hojas, arena, agua, caminos, tablones), vías de extremos rectos y esquinas en ángulo. NO es un mundo voxel ni 3D. Comparación píxel a píxel NO realizada.",
+    "road_k": 0.8,
+    "road_cap": "butt",
+    "road_join": "miter",
+    "labels": {"font": FONT_BOLD, "upper": False, "halo": 2.6, "road_size": 12.5},
+    "background_pattern": "tex-block-grass",
+    "overlays": [
+        {"id": "tex-wood", "layer": "landcover", "classes": ["wood"], "pattern": "tex-block-leaves", "after": "landuse"},
+        {"id": "tex-sand", "layer": "landcover", "classes": ["sand"], "pattern": "tex-block-sand", "after": "landuse"},
+        {"id": "tex-farm", "layer": "landcover", "classes": ["farmland"], "pattern": "tex-block-path", "after": "landuse",
+         "opacity": 0.85},
+        {"id": "tex-urban", "layer": "landuse", "classes": ["industrial", "commercial", "railway", "garages", "quarry"],
+         "pattern": "tex-block-stone", "after": "landuse"},
+        {"id": "tex-water", "layer": "water", "pattern": "tex-block-water", "after": "water"},
+        {"id": "tex-building", "layer": "building", "pattern": "tex-block-planks", "after": "building", "minzoom": 14},
+    ],
+    "palette": {
+        "land": "#68a53f", "grass": CLEAR, "wood": "#2c6620", "sand": "#dccd96", "farm": "#9a7a4a",
+        "rock": "#7d7d7d", "residential": CLEAR, "commercial": "#8a8a8a", "industrial": "#6e6e6e",
+        "institution": CLEAR, "sports": CLEAR, "cemetery": CLEAR, "military": CLEAR,
+        "water": "#2f56b8", "water_edge": "#1d3a8a", "water_text": "#ffffff",
+        "runway": "#8a8a8a",
+        "building": "#a8824e", "building_edge": "#3a2a14", "building_opacity": 1.0,
+        "pedestrian": "#9b7b4c", "path": "#7d5f37", "rail": "#555555", "tunnel": "#6a5030",
+        "casing": "#3d2e18", "casing_min": 1.0, "casing_ratio": 0.18,
+        "road": {"motorway": "#b5b5b5", "trunk": "#a8a8a8", "primary": "#a98a58", "secondary": "#a08150",
+                 "tertiary": "#987a4a", "minor": "#9b7b4c", "service": "#8c6e42"},
+        "road_text": "#ffffff", "halo": "#1d1d1d", "place_text": "#ffffff", "city_text": "#ffffff",
+        "poi_text": "#ffffff",
+    },
+    "route": {"core": "#ffe14d", "casing": "#1d1d1d", "glow": "#ffe14d", "glow_opacity": 0.3},
+    "destination": {"color": "#ff4d4d", "stroke": "#1d1d1d"},
+    "results": {"color": "#4dd9ff", "stroke": "#1d1d1d"},
+    "user": {"halo": "#ffffff", "size": 1.2},
+}
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
-    for cfg, filename in ((NOIR, "style-ciudad-nocturna.json"), (CLARO, "style-minimalista-pro.json")):
+    for cfg, filename in ((NOIR, "style-ciudad-nocturna.json"), (CLARO, "style-minimalista-pro.json"),
+                           (ISLA, "style-isla.json"), (BLOQUES, "style-bloques.json")):
         style = build_style(cfg)
         path = os.path.join(OUT_DIR, filename)
         with open(path, "w", encoding="utf-8") as f:

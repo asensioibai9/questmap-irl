@@ -4,7 +4,8 @@
  "metadata": {
   "questmap:generator": "tools/build_styles.py",
   "questmap:style-id": "ciudadNocturna",
-  "questmap:reference": "Lenguaje visual de mapa urbano de videojuego nocturno. Referencia principal: captura aportada por el usuario (casco urbano costero). Comparación píxel a píxel NO realizada."
+  "questmap:reference": "Lenguaje visual de mapa urbano de videojuego nocturno. Referencia principal: captura aportada por el usuario (casco urbano costero). Comparación píxel a píxel NO realizada.",
+  "questmap:images": []
  },
  "glyphs": "{{GLYPHS_URL}}",
  "sources": {

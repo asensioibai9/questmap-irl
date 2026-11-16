@@ -50,4 +50,21 @@ final class StyleManagerTests: XCTestCase {
             }
         }
     }
+
+    /// Las texturas que declara cada tema deben ser exactamente las que pide su JSON, y existir en el catálogo.
+    @MainActor
+    func testDeclaredTexturesMatchStyleMetadataAndExist() throws {
+        let bundle = Bundle(for: AppEnvironment.self)
+        for theme in ThemeCatalog.all where theme.isCartographyReady {
+            let cartography = theme.activeCartography
+            let url = try XCTUnwrap(bundle.url(forResource: cartography.resourceName, withExtension: "json"))
+            let style = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+            let metadata = style["metadata"] as? [String: Any] ?? [:]
+            let wanted = Set(metadata["questmap:images"] as? [String] ?? [])
+            XCTAssertEqual(wanted, Set(cartography.textures), "\(cartography.resourceName): texturas desalineadas")
+            for name in wanted {
+                XCTAssertNotNil(UIImage(named: name, in: bundle, compatibleWith: nil), "Falta la textura \(name)")
+            }
+        }
+    }
 }

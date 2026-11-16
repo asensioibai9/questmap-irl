@@ -17,7 +17,7 @@
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script>
 /* Herramienta de desarrollo: renderiza el MISMO JSON de estilo que usa la app, sin interfaz.
-   Parámetros: ?style=ciudad-nocturna|minimalista-pro &lat= &lon= &z= &bearing= &pitch= &route=1 &minimap=1
+   Parámetros: ?style=ciudad-nocturna|minimalista-pro|isla|bloques &lat= &lon= &z= &bearing= &pitch= &route=1 &minimap=1
    Es MapLibre GL JS (web); la app usa MapLibre Native. Pueden existir diferencias menores de render. */
 const q = new URLSearchParams(location.search);
 const num = (k, d) => q.has(k) ? parseFloat(q.get(k)) : d;
@@ -37,6 +37,13 @@ fetch(`../../QuestMapIRL/Resources/style-${styleName}.json`)
       attributionControl: false, fadeDuration: 0
     });
     window.map = map;
+    // Texturas del estilo (fill-pattern): se cargan bajo demanda desde el catálogo de recursos de la app.
+    const wanted = (style.metadata && style.metadata['questmap:images']) || [];
+    map.on('styleimagemissing', async e => {
+      if (!wanted.includes(e.id)) return;
+      const res = await map.loadImage(`../../QuestMapIRL/Resources/Assets.xcassets/${e.id}.imageset/${e.id}.png`);
+      if (!map.hasImage(e.id)) map.addImage(e.id, res.data);
+    });
     map.on('load', () => {
       if (q.get('route')) {
         // Ruta real de OSRM (Puerta del Sol → Plaza de Castilla) para ver la capa de ruta y el destino

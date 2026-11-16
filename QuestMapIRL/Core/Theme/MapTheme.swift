@@ -57,6 +57,9 @@ struct CartographyStyle: Equatable {
     /// Color del símbolo de los puntos de interés y de su contorno.
     var poiIconHex: UInt32 = 0xFFFFFF
     var poiOutlineHex: UInt32 = 0x0A0B0D
+    /// Texturas del catálogo de recursos que usa el estilo (`fill-pattern`). Deben coincidir con
+    /// `metadata["questmap:images"]` del JSON (lo comprueba un test).
+    var textures: [String] = []
 }
 
 /// Tokens del tema: HUD (paneles, texto, iconos) y cartografía. Cambiar de tema nunca altera

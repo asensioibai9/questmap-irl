@@ -8,6 +8,8 @@ extension MapTheme {
         switch id {
         case .ciudadNocturna: return "StylePreviewNoir"
         case .minimalistaPro: return "StylePreviewLight"
+        case .islaRoyale: return "StylePreviewIsla"
+        case .mundoBloques: return "StylePreviewBloques"
         default: return nil
         }
     }

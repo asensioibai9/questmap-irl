@@ -4,7 +4,8 @@
  "metadata": {
   "questmap:generator": "tools/build_styles.py",
   "questmap:style-id": "minimalistaPro",
-  "questmap:reference": "Estilo propio claro y legible para conducir de día. Sin referencia a videojuegos."
+  "questmap:reference": "Estilo propio claro y legible para conducir de día. Sin referencia a videojuegos.",
+  "questmap:images": []
  },
  "glyphs": "{{GLYPHS_URL}}",
  "sources": {
