@@ -8,6 +8,10 @@ enum MapThemeID: String, CaseIterable, Codable, Identifiable {
     case mapaFantasia
     case retroArcade
     case minimalistaPro
+    case salvajeOeste
+    case ciudadCiber
+    case redUrbana
+    case rutasRally
 
     var id: String { rawValue }
 }

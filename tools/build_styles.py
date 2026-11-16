@@ -226,23 +226,39 @@ def build_style(cfg):
     def fill(tier, brunnel, ramps, ident):
         widths = scaled(ROAD_WIDTH[tier], road_k * tier_k.get(tier, 1.0))
         k = 0.7 if ramps else 1.0
+        dash = cfg.get("dash_tiers", {}).get(tier)
+        paint = {"line-color": p["road"][tier], "line-width": interp(scaled(widths, k))}
+        if dash:
+            paint["line-dasharray"] = dash     # caminos y sendas discontinuos (jerarquía por trazo)
         return {"id": ident, "type": "line", "source": "openmaptiles", "source-layer": "transportation",
                 "minzoom": ROAD_MINZOOM[tier] + (0.5 if ramps else 0),
                 "filter": road_filter(tier, brunnel, ramps),
-                "layout": {"line-cap": cfg.get("road_cap", "round"), "line-join": cfg.get("road_join", "round")},
-                "paint": {"line-color": p["road"][tier], "line-width": interp(scaled(widths, k))}}
+                "layout": {"line-cap": "butt" if dash else cfg.get("road_cap", "round"), "line-join": cfg.get("road_join", "round")},
+                "paint": paint}
 
-    for tier in TIERS:
+    no_casing = cfg.get("no_casing", False)   # estilos de tinta: líneas finas sin contorno
+    for tier in (TIERS if not no_casing else []):
         add(casing(tier, "surface", False, f"road-casing-{tier}"))
-    for tier in ("secondary", "primary", "trunk", "motorway"):
+    for tier in (("secondary", "primary", "trunk", "motorway") if not no_casing else ()):
         add(casing(tier, "surface", True, f"ramp-casing-{tier}"))
     for tier in TIERS:
         add(fill(tier, "surface", False, f"road-{tier}"))
     for tier in ("secondary", "primary", "trunk", "motorway"):
         add(fill(tier, "surface", True, f"ramp-{tier}"))
 
+    # ---- Caminos sin asfaltar (dato real `surface`), solo en estilos que los distinguen ----------
+    if cfg.get("unpaved"):
+        up = cfg["unpaved"]
+        add({"id": "road-unpaved", "type": "line", "source": "openmaptiles", "source-layer": "transportation",
+             "minzoom": 12, "filter": ["all", ["==", ["geometry-type"], "LineString"],
+                                       ["==", ["get", "surface"], "unpaved"],
+                                       ["!", is_in("brunnel", ["bridge", "tunnel"])]],
+             "layout": {"line-cap": "butt", "line-join": "round"},
+             "paint": {"line-color": up["color"], "line-dasharray": up.get("dash", [2, 1.6]),
+                       "line-width": interp([(12, 0.8), (15, 2.2), (18, 6)])}})
+
     # ---- Puentes (encima de todo lo anterior) ---------------------------
-    for tier in TIERS:
+    for tier in (TIERS if not no_casing else []):
         add(casing(tier, "bridge", False, f"bridge-casing-{tier}"))
     for tier in TIERS:
         add(fill(tier, "bridge", False, f"bridge-{tier}"))
@@ -606,10 +622,171 @@ BLOQUES = {
 }
 
 
+# ---------------------------------------------------------------------------------------------
+# Estilos de la Fase 4. Referencias: capturas CONSULTADAS en navegador (ver docs/18). Los colores son
+# interpretaciones propias; no se ha extraído ningún color ni asset de los juegos.
+# ---------------------------------------------------------------------------------------------
+
+OESTE = {
+    "id": "salvajeOeste",
+    "name": "Mapa del salvaje oeste",
+    "reference": "Interpretación de un mapa de tinta sobre papel ocre. Referencia consultada: imagen del mapa completo de un juego del oeste (vista general de baja resolución, sin detalle de símbolos a zoom alto). Rasgos trasladados: papel ocre, trazo fino negro sin contornos, agua como lavado gris verdoso, edificios como pequeñas manchas de tinta, etiquetas espaciadas en versalitas. Comparación píxel a píxel NO realizada.",
+    "road_k": 0.4,
+    "tier_k": {"motorway": 1.5, "trunk": 1.4, "primary": 1.25, "secondary": 1.1, "tertiary": 0.95, "minor": 0.8, "service": 0.7},
+    "no_casing": True,
+    "dash_tiers": {"service": [3, 2.2], "minor": [6, 1.6]},
+    "labels": {"font": FONT_BOLD, "upper": True, "halo": 1.4, "road_size": 10, "spacing": 380},
+    "overlays": [
+        {"id": "tex-wood", "layer": "landcover", "classes": ["wood"], "pattern": "tex-ink-stipple", "after": "landuse", "opacity": 0.9},
+    ],
+    "palette": {
+        "land": "#cfae77", "grass": "#cfae77", "wood": "#c4a36d", "sand": "#dcc189", "farm": "#d3b57e",
+        "rock": "#bd9d68", "residential": "#cfae77", "commercial": "#cdac75", "industrial": "#c8a770",
+        "institution": "#cfae77", "sports": "#cfae77", "cemetery": "#cfae77", "military": "#cfae77",
+        "water": "#98a393", "water_edge": "#4b4a3c", "water_text": "#3f4538",
+        "runway": "#a98d5f",
+        "building": "#7d6544", "building_edge": "#2b2118", "building_opacity": 0.55,
+        "pedestrian": "#c9a972", "path": "#4a3b2a", "rail": "#2b2118", "tunnel": "#6b5a44",
+        "casing": "#2b2118", "casing_min": 0.5, "casing_ratio": 0.1,
+        "road": {"motorway": "#241a10", "trunk": "#241a10", "primary": "#2b2118", "secondary": "#2b2118",
+                 "tertiary": "#33281c", "minor": "#3a2d1f", "service": "#4a3b2a"},
+        "road_text": "#3a2c1c", "halo": "#d4b47e", "place_text": "#3a2c1c", "city_text": "#241a10",
+        "poi_text": "#3a2c1c",
+    },
+    "route": {"core": "#a31f1f", "casing": "#f1e2bd", "glow": "#a31f1f", "glow_opacity": 0.18},
+    "destination": {"color": "#a31f1f", "stroke": "#f1e2bd"},
+    "results": {"color": "#2f5d62", "stroke": "#f1e2bd"},
+    "user": {"halo": "#3a2c1c", "size": 1.2},
+}
+
+CIBER = {
+    "id": "ciudadCiber",
+    "name": "Ciudad ciber",
+    "reference": "Jerarquía de un mapa urbano futurista. Referencia consultada: captura de un mapa de pausa de un juego de ciencia ficción (con interfaz): manzanas en rojo sangre con relieve, vías como bandas de cian translúcido con borde brillante y más anchas cuanto mayor es su rango, agua y vacíos casi negros, marcadores amarillos. NO es neón sobre negro: el rojo de los volúmenes y el cian de las vías cumplen funciones distintas. Comparación píxel a píxel NO realizada; el color de la ruta (amarillo) es una elección propia.",
+    "road_k": 1.15,
+    "tier_k": {"motorway": 1.2, "trunk": 1.1, "primary": 1.0, "secondary": 0.9, "tertiary": 0.78, "minor": 0.62, "service": 0.5},
+    "labels": {"font": FONT_BOLD, "upper": True, "halo": 1.8, "road_size": 10.5, "spacing": 360},
+    "palette": {
+        "land": "#14060c", "grass": "#16080e", "wood": "#14070d", "sand": "#1a0a10", "farm": "#15070d",
+        "rock": "#1a0a10", "residential": "#17080e", "commercial": "#1b0a11", "industrial": "#150810",
+        "institution": "#1a0a11", "sports": "#16080e", "cemetery": "#16080e", "military": "#17080e",
+        "water": "#08111f", "water_edge": "#1f4a66", "water_text": "#5fa8c9",
+        "runway": "#103642",
+        "building": "#7e1424", "building_edge": "#e04a5c", "building_opacity": 0.95,
+        "pedestrian": "#0f2a33", "path": "#1b7f90", "rail": "#1b7f90", "tunnel": "#2c8a98",
+        "casing": "#2fd0e4", "casing_min": 0.6, "casing_ratio": 0.16,
+        "road": {"motorway": "#127484", "trunk": "#116a79", "primary": "#0f5d6b", "secondary": "#0d505c",
+                 "tertiary": "#0b434d", "minor": "#093740", "service": "#072c34"},
+        "road_text": "#9aeaf5", "halo": "#05080f", "place_text": "#d96a7a", "city_text": "#ffd1d8",
+        "poi_text": "#e8f6f8",
+    },
+    "buildings_3d": {"colors": [(0, "#6a1020"), (40, "#9c1a2c"), (120, "#d03047")], "max_height": 140,
+                     "light": {"anchor": "viewport", "color": "#ffd6dc", "intensity": 0.5, "position": [1.15, 205, 40]}},
+    "route": {"core": "#fcee0a", "casing": "#05080f", "glow": "#fcee0a", "glow_opacity": 0.3},
+    "destination": {"color": "#fcee0a", "stroke": "#05080f"},
+    "results": {"color": "#2fd0e4", "stroke": "#05080f"},
+    "user": {"halo": "#2fd0e4", "size": 1.25},
+}
+
+NORDICO = {
+    "id": "mapaFantasia",
+    "name": "Mapa de fantasía",
+    "reference": "Interpretación PLANA (sin relieve real) de un mapa de pergamino envejecido. Referencia consultada: imagen del mapa de una provincia nórdica de fantasía alojada en una wiki de fans (papel sepia con pliegues, caminos en rojo pardo —continuos los principales y punteados los menores—, cerros dibujados en «^», ríos de tinta oscura). Rasgos trasladados: sepia oscuro, caminos rojo pardo, cerros y arbolado por textura de tinta, etiquetas en mayúsculas espaciadas. NO se promete relieve equivalente: haría falta una fuente de elevación y un motor de terreno. Comparación píxel a píxel NO realizada.",
+    "road_k": 0.5,
+    "tier_k": {"motorway": 1.4, "trunk": 1.3, "primary": 1.2, "secondary": 1.05, "tertiary": 0.9, "minor": 0.8, "service": 0.7},
+    "no_casing": True,
+    "dash_tiers": {"minor": [1, 2.4], "service": [1, 2.8]},
+    "road_cap": "round",
+    "labels": {"font": FONT_BOLD, "upper": True, "halo": 1.6, "road_size": 10, "spacing": 400},
+    "overlays": [
+        {"id": "tex-hills", "layer": "landcover", "classes": ["rock", "ice"], "pattern": "tex-ink-hills", "after": "landuse"},
+        {"id": "tex-trees", "layer": "landcover", "classes": ["wood"], "pattern": "tex-ink-trees", "after": "landuse"},
+    ],
+    "palette": {
+        "land": "#c6ae84", "grass": "#c6ae84", "wood": "#bca37a", "sand": "#d3bd93", "farm": "#c9b088",
+        "rock": "#b99f75", "residential": "#c6ae84", "commercial": "#c3aa80", "industrial": "#bea67c",
+        "institution": "#c6ae84", "sports": "#c6ae84", "cemetery": "#c6ae84", "military": "#c6ae84",
+        "water": "#b4bdb2", "water_edge": "#3f3a2f", "water_text": "#3f3a2f",
+        "runway": "#a89070",
+        "building": "#5a4634", "building_edge": "#33261a", "building_opacity": 0.7,
+        "pedestrian": "#bfa67c", "path": "#7a3a2a", "rail": "#4a3a2a", "tunnel": "#8a6a52",
+        "casing": "#33261a", "casing_min": 0.5, "casing_ratio": 0.1,
+        "road": {"motorway": "#7a2a1e", "trunk": "#7a2a1e", "primary": "#832f22", "secondary": "#8c3a2a",
+                 "tertiary": "#8c4030", "minor": "#8c4a35", "service": "#8c4a35"},
+        "road_text": "#4a2418", "halo": "#cdb68c", "place_text": "#3b2a1c", "city_text": "#2b1d12",
+        "poi_text": "#3b2a1c",
+    },
+    "route": {"core": "#b5321f", "casing": "#f0e0bd", "glow": "#b5321f", "glow_opacity": 0.2},
+    "destination": {"color": "#b5321f", "stroke": "#f0e0bd"},
+    "results": {"color": "#2e5a66", "stroke": "#f0e0bd"},
+    "user": {"halo": "#3b2a1c", "size": 1.2},
+}
+
+RED = {
+    "id": "redUrbana",
+    "name": "Red urbana",
+    "reference": "Mapa diurno, claro y plano de una ciudad costera. Referencia consultada: captura de un mapa de pausa de un juego de hackers en una bahía (manzanas gris claro con calles blancas, parques verdes, agua azul claro, autopistas amarillo-naranja, marcadores rojos pequeños). Es un lenguaje cartográfico claro, no un efecto de «interfaz hacker»: sin cuadrículas ni brillos. Comparación píxel a píxel NO realizada; el color de la ruta es propio.",
+    "road_k": 1.1,
+    "tier_k": {"motorway": 1.25, "trunk": 1.15, "primary": 1.0, "secondary": 0.9, "tertiary": 0.8, "minor": 0.7, "service": 0.55},
+    "labels": {"font": FONT_BOLD, "upper": False, "halo": 2.0, "road_size": 11, "spacing": 330},
+    "palette": {
+        "land": "#d9dadc", "grass": "#9fd48f", "wood": "#86c777", "sand": "#ece3c4", "farm": "#cfe3b6",
+        "rock": "#c9cacd", "residential": "#d6d7da", "commercial": "#d0d1d5", "industrial": "#cdced2",
+        "institution": "#d3d6dc", "sports": "#a9d99a", "cemetery": "#b9dca9", "military": "#d2d0d4",
+        "water": "#62b3e8", "water_edge": "#3c8fc9", "water_text": "#ffffff",
+        "runway": "#c4c5c9",
+        "building": "#c5c6ca", "building_edge": "#aeb0b6", "building_opacity": 0.9,
+        "pedestrian": "#e6e7ea", "path": "#b0b2b8", "rail": "#9b9da3", "tunnel": "#bcbec4",
+        "casing": "#b4b6bc", "casing_min": 0.6, "casing_ratio": 0.14,
+        "road": {"motorway": "#f4b63d", "trunk": "#f6c45a", "primary": "#ffffff", "secondary": "#ffffff",
+                 "tertiary": "#ffffff", "minor": "#fbfbfc", "service": "#f3f3f5"},
+        "road_text": "#4a4d55", "halo": "#ffffff", "place_text": "#6a6d75", "city_text": "#2c2e34",
+        "poi_text": "#4a4d55",
+    },
+    "buildings_3d": {"colors": [(0, "#dcdde0"), (60, "#c2c3c8"), (140, "#a9abb2")], "max_height": 140,
+                     "light": {"anchor": "viewport", "color": "#ffffff", "intensity": 0.45, "position": [1.15, 210, 45]}},
+    "route": {"core": "#e8452c", "casing": "#ffffff", "glow": "#e8452c", "glow_opacity": 0.22},
+    "destination": {"color": "#e8452c", "stroke": "#ffffff"},
+    "results": {"color": "#1f6fe8", "stroke": "#ffffff"},
+    "user": {"halo": "#1f6fe8", "size": 1.2},
+}
+
+RALLY = {
+    "id": "rutasRally",
+    "name": "Rutas de rally",
+    "reference": "Mapa de terreno vivo con red viaria jerarquizada. Referencia consultada: imagen del mapa completo de un juego de conducción (vista general de baja resolución: terreno satelital verde/ocre/oscuro, costa turquesa, red de carreteras en líneas claras de grosor jerárquico). Rasgos trasladados: tierra saturada, carreteras claras con contorno oscuro y jerarquía por ancho y color, caminos sin asfaltar discontinuos (dato real `surface`). No se dibujan carreras, eventos ni coleccionables: solo los lugares reales del usuario. Los símbolos del juego no se pudieron analizar a este nivel de detalle. Comparación píxel a píxel NO realizada.",
+    "road_k": 1.0,
+    "tier_k": {"motorway": 1.25, "trunk": 1.15, "primary": 1.05, "secondary": 0.95, "tertiary": 0.82, "minor": 0.68, "service": 0.55},
+    "unpaved": {"color": "#f0d79b", "dash": [2, 1.5]},
+    "labels": {"font": FONT_BOLD, "upper": True, "halo": 2.2, "road_size": 11, "spacing": 330},
+    "palette": {
+        "land": "#6e8f45", "grass": "#78a04a", "wood": "#4d7236", "sand": "#d8c38e", "farm": "#b48b44",
+        "rock": "#5b4a3c", "residential": "#8a9a62", "commercial": "#9aa070", "industrial": "#8b8468",
+        "institution": "#86a05a", "sports": "#7fae52", "cemetery": "#6a9448", "military": "#7a8456",
+        "water": "#1f95ad", "water_edge": "#8fe0e8", "water_text": "#eefcff",
+        "runway": "#cfc9b6",
+        "building": "#a8a08a", "building_edge": "#6a6352", "building_opacity": 0.95,
+        "pedestrian": "#b9b49c", "path": "#e5cf94", "rail": "#7c7561", "tunnel": "#bdb7a0",
+        "casing": "#2a2723", "casing_min": 0.8, "casing_ratio": 0.2,
+        "road": {"motorway": "#ffffff", "trunk": "#fbf6e6", "primary": "#f7f1de", "secondary": "#f2ebd3",
+                 "tertiary": "#ece4c8", "minor": "#e6dcbc", "service": "#ddd1ac"},
+        "road_text": "#ffffff", "halo": "#1d241a", "place_text": "#ffffff", "city_text": "#ffffff",
+        "poi_text": "#ffffff",
+    },
+    "route": {"core": "#ff7a00", "casing": "#ffffff", "glow": "#ff7a00", "glow_opacity": 0.3},
+    "destination": {"color": "#ff7a00", "stroke": "#ffffff"},
+    "results": {"color": "#35d0ff", "stroke": "#1d241a"},
+    "user": {"halo": "#ffffff", "size": 1.25},
+}
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     for cfg, filename in ((NOIR, "style-ciudad-nocturna.json"), (CLARO, "style-minimalista-pro.json"),
-                           (ISLA, "style-isla.json"), (BLOQUES, "style-bloques.json")):
+                           (ISLA, "style-isla.json"), (BLOQUES, "style-bloques.json"),
+                           (OESTE, "style-salvaje-oeste.json"), (CIBER, "style-ciudad-ciber.json"),
+                           (NORDICO, "style-mapa-fantasia.json"), (RED, "style-red-urbana.json"),
+                           (RALLY, "style-rutas-rally.json")):
         style = build_style(cfg)
         path = os.path.join(OUT_DIR, filename)
         with open(path, "w", encoding="utf-8") as f:

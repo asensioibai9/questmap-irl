@@ -3,13 +3,18 @@ import SwiftData
 import CoreLocation
 
 extension MapTheme {
-    /// Imagen de previsualización del catálogo de recursos (capturas reales del estilo sobre Madrid).
+    /// Imagen de previsualización del catálogo de recursos. Noir, Claro, Isla y Bloques: capturas del estilo; los demás: esquemas dibujados con su paleta (no son capturas).
     var previewAsset: String? {
         switch id {
         case .ciudadNocturna: return "StylePreviewNoir"
         case .minimalistaPro: return "StylePreviewLight"
         case .islaRoyale: return "StylePreviewIsla"
         case .mundoBloques: return "StylePreviewBloques"
+        case .salvajeOeste: return "StylePreviewOeste"
+        case .ciudadCiber: return "StylePreviewCiber"
+        case .mapaFantasia: return "StylePreviewFantasia"
+        case .redUrbana: return "StylePreviewRed"
+        case .rutasRally: return "StylePreviewRally"
         default: return nil
         }
     }

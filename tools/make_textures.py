@@ -84,6 +84,60 @@ def blocky(size, cells, palette, weights=None, alpha=255):
     return img
 
 
+def ink(size, draw_marks):
+    """Marcas de tinta sobre fondo transparente (4x de resolución y reducción para suavizar)."""
+    k = 4
+    img = Image.new("RGBA", (size * k, size * k), (0, 0, 0, 0))
+    draw_marks(ImageDraw.Draw(img), k)
+    return img.resize((size, size), Image.LANCZOS)
+
+
+def ink_stipple(size=64):
+    """Puntillismo fino (bosque en un mapa de tinta)."""
+    r = random.Random(11)
+
+    def marks(d, k):
+        for _ in range(70):
+            x, y = r.uniform(2, size - 2) * k, r.uniform(2, size - 2) * k
+            rad = r.choice([0.7, 0.9, 1.1]) * k
+            d.ellipse([x - rad, y - rad, x + rad, y + rad], fill=(52, 36, 20, 150))
+    return ink(size, marks)
+
+
+def ink_trees(size=48):
+    """Copas diminutas dibujadas a mano (arcos), repartidas con ligera irregularidad."""
+    r = random.Random(5)
+
+    def marks(d, k):
+        for gx in range(3):
+            for gy in range(3):
+                cx = (gx + 0.5) * size / 3 * k + r.uniform(-3, 3) * k
+                cy = (gy + 0.5) * size / 3 * k + r.uniform(-3, 3) * k
+                d.arc([cx - 4 * k, cy - 5 * k, cx + 4 * k, cy + 3 * k], 180, 360, fill=(58, 38, 22, 170), width=int(1.2 * k))
+                d.line([cx, cy + 3 * k, cx, cy + 6 * k], fill=(58, 38, 22, 170), width=int(1.2 * k))
+    return ink(size, marks)
+
+
+def ink_hills(size=64):
+    """Cerros en «^» al estilo de grabado de pergamino."""
+    r = random.Random(9)
+
+    def marks(d, k):
+        for row in range(4):
+            for col in range(4):
+                cx = (col + (0.5 if row % 2 else 0.0) + 0.35) * size / 4 * k + r.uniform(-2, 2) * k
+                cy = (row + 0.6) * size / 4 * k
+                w = r.uniform(5, 7) * k
+                d.line([cx - w, cy + 4 * k, cx, cy - 3 * k, cx + w, cy + 4 * k], fill=(70, 48, 30, 185), width=int(1.3 * k), joint="curve")
+    return ink(size, marks)
+
+
+def main_ink():
+    save("tex-ink-stipple", ink_stipple())
+    save("tex-ink-trees", ink_trees())
+    save("tex-ink-hills", ink_hills())
+
+
 def main():
     save("tex-canopy", canopy())
     save("tex-grass", grass())
@@ -98,4 +152,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    main_ink() if "ink" in sys.argv[1:] else main()

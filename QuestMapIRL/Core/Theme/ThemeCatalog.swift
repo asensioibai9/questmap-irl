@@ -7,7 +7,8 @@ import SwiftUI
 /// Solo los temas con `cartography != nil` tienen mapa propio terminado. El resto conserva su
 /// paleta de HUD pero se muestra como "Próximamente" hasta tener su estilo cartográfico.
 enum ThemeCatalog {
-    static let all: [MapTheme] = [ciudadNocturna, minimalistaPro, islaRoyale, mundoBloques, mapaFantasia, retroArcade]
+    static let all: [MapTheme] = [ciudadNocturna, minimalistaPro, islaRoyale, mundoBloques, salvajeOeste, ciudadCiber,
+                                  mapaFantasia, redUrbana, rutasRally, retroArcade]
 
     static func theme(for id: MapThemeID) -> MapTheme {
         all.first { $0.id == id } ?? ciudadNocturna
@@ -118,7 +119,89 @@ enum ThemeCatalog {
         titleDesign: .serif, iconWeight: .semibold, cornerRadius: 10,
         poiIcons: [.fuel: "flame.fill", .food: "cup.and.saucer.fill", .parking: "tent.fill", .hospital: "cross.vial.fill",
                    .police: "shield.checkered", .shop: "bag.fill", .poi: "sparkles", .quest: "scroll.fill"],
-        cartography: nil
+        cartography: CartographyStyle(
+            resourceName: "style-mapa-fantasia", backgroundHex: 0xC6AE84, userArrowHex: 0x3B2412,
+            defaultZoom: 15, navigationZoom: 16.5, navigationPitch: 0,
+            minimapZoom: 16, minimapShape: .circle, minimapBorderHex: 0x3B2412, attribution: attribution,
+            poiIconHex: 0x3B2A1C, poiOutlineHex: 0xF0E0BD, textures: ["tex-ink-hills", "tex-ink-trees"])
+    )
+
+    // MARK: - Fase 4 (referencias y límites en docs/18)
+
+    static let salvajeOeste = MapTheme(
+        id: .salvajeOeste, name: "Mapa del salvaje oeste",
+        tagline: "Tinta fina sobre papel ocre: caminos, polvo y una ruta carmesí.",
+        isDark: false,
+        background: Color(hex: 0xE3D0A5), panel: Color(hex: 0xF1E2BD, opacity: 0.96),
+        panelBorder: Color(hex: 0x4A3A28), accent: Color(hex: 0xA31F1F),
+        textPrimary: Color(hex: 0x2B2118), textSecondary: Color(hex: 0x5C4A34),
+        routeCore: Color(hex: 0xA31F1F), routeBorder: Color(hex: 0xF1E2BD),
+        destination: Color(hex: 0xA31F1F), player: Color(hex: 0x2B2118),
+        titleDesign: .serif, iconWeight: .semibold, cornerRadius: 8,
+        poiIcons: [.fuel: "flame.fill", .food: "fork.knife", .parking: "tent.fill", .hospital: "cross.fill",
+                   .police: "star.fill", .shop: "bag.fill", .poi: "mappin", .quest: "flag.fill"],
+        cartography: CartographyStyle(
+            resourceName: "style-salvaje-oeste", backgroundHex: 0xCFAE77, userArrowHex: 0x2B2118,
+            defaultZoom: 15, navigationZoom: 16.5, navigationPitch: 0,
+            minimapZoom: 16, minimapShape: .circle, minimapBorderHex: 0x2B2118, attribution: attribution,
+            poiIconHex: 0x2B2118, poiOutlineHex: 0xF1E2BD, textures: ["tex-ink-stipple"])
+    )
+
+    static let ciudadCiber = MapTheme(
+        id: .ciudadCiber, name: "Ciudad ciber",
+        tagline: "Manzanas rojas, vías de cian y una ruta amarilla que no se pierde.",
+        isDark: true,
+        background: Color(hex: 0x0A0710), panel: Color(hex: 0x14090F, opacity: 0.95),
+        panelBorder: Color(hex: 0x2FD0E4, opacity: 0.6), accent: Color(hex: 0xFCEE0A),
+        textPrimary: Color(hex: 0xF2F6F8), textSecondary: Color(hex: 0x8FB4BC),
+        routeCore: Color(hex: 0xFCEE0A), routeBorder: Color(hex: 0x05080F),
+        destination: Color(hex: 0xFCEE0A), player: Color(hex: 0x2FD0E4),
+        titleDesign: .default, iconWeight: .bold, cornerRadius: 6,
+        poiIcons: [.fuel: "bolt.fill", .food: "fork.knife", .parking: "parkingsign", .hospital: "cross.fill",
+                   .police: "shield.lefthalf.filled", .shop: "bag.fill", .poi: "diamond.fill", .quest: "exclamationmark"],
+        cartography: CartographyStyle(
+            resourceName: "style-ciudad-ciber", backgroundHex: 0x14060C, userArrowHex: 0x2FD0E4,
+            defaultZoom: 15.5, navigationZoom: 17, navigationPitch: 0,
+            minimapZoom: 16.5, minimapShape: .roundedSquare, minimapBorderHex: 0x2FD0E4, attribution: attribution,
+            poiIconHex: 0xE8F6F8, poiOutlineHex: 0x05080F, supportsBuildings3D: true)
+    )
+
+    static let redUrbana = MapTheme(
+        id: .redUrbana, name: "Red urbana",
+        tagline: "Una ciudad clara y plana: calles blancas, agua azul y autopistas amarillas.",
+        isDark: false,
+        background: Color(hex: 0xF4F5F7), panel: Color(hex: 0xFFFFFF, opacity: 0.96),
+        panelBorder: Color(hex: 0x000000, opacity: 0.12), accent: Color(hex: 0xE8452C),
+        textPrimary: Color(hex: 0x1F2128), textSecondary: Color(hex: 0x5A5E69),
+        routeCore: Color(hex: 0xE8452C), routeBorder: Color(hex: 0xFFFFFF),
+        destination: Color(hex: 0xE8452C), player: Color(hex: 0x1F6FE8),
+        titleDesign: .rounded, iconWeight: .semibold, cornerRadius: 16,
+        poiIcons: [.fuel: "fuelpump.fill", .food: "fork.knife", .parking: "parkingsign", .hospital: "cross.fill",
+                   .police: "shield.fill", .shop: "bag.fill", .poi: "mappin", .quest: "flag.fill"],
+        cartography: CartographyStyle(
+            resourceName: "style-red-urbana", backgroundHex: 0xD9DADC, userArrowHex: 0x1F6FE8,
+            defaultZoom: 15.5, navigationZoom: 17, navigationPitch: 0,
+            minimapZoom: 16.5, minimapShape: .circle, minimapBorderHex: 0xFFFFFF, attribution: attribution,
+            poiIconHex: 0x4A4D55, poiOutlineHex: 0xFFFFFF, supportsBuildings3D: true)
+    )
+
+    static let rutasRally = MapTheme(
+        id: .rutasRally, name: "Rutas de rally",
+        tagline: "Terreno vivo, carreteras claras y caminos de tierra discontinuos.",
+        isDark: true,
+        background: Color(hex: 0x131A12), panel: Color(hex: 0x1D2619, opacity: 0.95),
+        panelBorder: Color(hex: 0xFF7A00, opacity: 0.65), accent: Color(hex: 0xFF7A00),
+        textPrimary: Color(hex: 0xF7F5EC), textSecondary: Color(hex: 0xB3BFA6),
+        routeCore: Color(hex: 0xFF7A00), routeBorder: Color(hex: 0xFFFFFF),
+        destination: Color(hex: 0xFF7A00), player: Color(hex: 0xFFFFFF),
+        titleDesign: .rounded, iconWeight: .heavy, cornerRadius: 14,
+        poiIcons: [.fuel: "fuelpump.fill", .food: "fork.knife", .parking: "parkingsign", .hospital: "cross.fill",
+                   .police: "shield.fill", .shop: "bag.fill", .poi: "mappin", .quest: "flag.checkered"],
+        cartography: CartographyStyle(
+            resourceName: "style-rutas-rally", backgroundHex: 0x6E8F45, userArrowHex: 0xFFFFFF,
+            defaultZoom: 15, navigationZoom: 16.5, navigationPitch: 0,
+            minimapZoom: 16, minimapShape: .circle, minimapBorderHex: 0xFFFFFF, attribution: attribution,
+            poiIconHex: 0xFFFFFF, poiOutlineHex: 0x1D241A)
     )
 
     static let retroArcade = MapTheme(
