@@ -173,6 +173,17 @@ def build_style(cfg):
          "paint": {"line-color": p["runway"],
                    "line-width": interp([(10, 1), (14, 6), (18, 30)])}})
 
+    # ---- Límites administrativos (capa real `boundary`; excluye los marítimos) ------------------------
+    bd = cfg.get("boundaries", {})
+    if bd.get("enabled", True):
+        add({"id": "boundary", "type": "line", "source": "openmaptiles", "source-layer": "boundary", "minzoom": 3,
+             "filter": ["all", ["<=", ["coalesce", ["get", "admin_level"], 99], bd.get("max_level", 6)],
+                        ["!=", ["coalesce", ["get", "maritime"], 0], 1]],
+             "layout": {"line-join": "round"},
+             "paint": {"line-color": bd.get("color", p["place_text"]), "line-opacity": bd.get("opacity", 0.5),
+                       "line-dasharray": bd.get("dash", [3, 2]),
+                       "line-width": interp([(3, 0.6), (10, bd.get("width", 1.4)), (16, bd.get("width", 1.4) + 0.8)])}})
+
     # ---- Edificios (siluetas geométricas) --------------------------------
     add({"id": "building", "type": "fill", "source": "openmaptiles", "source-layer": "building",
          "minzoom": 14,
@@ -195,11 +206,18 @@ def build_style(cfg):
                    "line-width": interp([(15, 0.5), (18, 1.6)])}})
 
     # ---- Ferrocarril -----------------------------------------------------
+    rail_filter = ["all", ["==", ["get", "class"], "rail"], ["!", is_in("brunnel", ["tunnel"])]]
+    ties = cfg.get("rail_ties", True)
     add({"id": "rail", "type": "line", "source": "openmaptiles", "source-layer": "transportation",
-         "minzoom": 11, "filter": ["all", ["==", ["get", "class"], "rail"],
-                                   ["!", is_in("brunnel", ["tunnel"])]],
-         "paint": {"line-color": p["rail"], "line-dasharray": [3, 3],
-                   "line-width": interp([(11, 0.6), (16, 1.6)])}})
+         "minzoom": 11, "filter": rail_filter,
+         "paint": {"line-color": p["rail"], "line-width": interp([(11, 0.6), (16, 1.4)]),
+                   **({} if ties else {"line-dasharray": [3, 3]})}})
+    if ties:
+        # Traviesas: marcas cortas y anchas repetidas a lo largo de la vía (representan el ferrocarril real, no inventan vías).
+        add({"id": "rail-ties", "type": "line", "source": "openmaptiles", "source-layer": "transportation",
+             "minzoom": 13, "filter": rail_filter,
+             "paint": {"line-color": p["rail"], "line-dasharray": [0.3, 2.4],
+                       "line-width": interp([(13, 2.2), (16, 4.2), (18, 7)])}})
 
     # ---- Túneles (tenues, discontinuos) ---------------------------------
     for tier in TIERS:
@@ -216,7 +234,8 @@ def build_style(cfg):
     def casing(tier, brunnel, ramps, ident):
         widths = scaled(ROAD_WIDTH[tier], road_k * tier_k.get(tier, 1.0))
         k = 0.7 if ramps else 1.0
-        stops = [(z, round(w * k + max(p["casing_min"], w * k * p["casing_ratio"]), 3)) for z, w in widths]
+        boost = cfg.get("casing_boost", {"motorway": 1.5, "trunk": 1.25}).get(tier, 1.0)
+        stops = [(z, round(w * k + max(p["casing_min"], w * k * p["casing_ratio"]) * boost, 3)) for z, w in widths]
         return {"id": ident, "type": "line", "source": "openmaptiles", "source-layer": "transportation",
                 "minzoom": ROAD_MINZOOM[tier] + (0.5 if ramps else 0),
                 "filter": road_filter(tier, brunnel, ramps),
@@ -369,6 +388,26 @@ def build_style(cfg):
                                        "text-max-angle": 28, "text-letter-spacing": 0.04 if label_upper else 0.02,
                                        "text-padding": 6})},
              "paint": {"text-color": p["road_text"], "text-halo-color": p["halo"], "text-halo-width": halo_w}})
+    if cfg.get("refs", True):
+        # Número/referencia de la vía (campo real `ref` de transportation_name), solo en autopistas y autovías.
+        add({"id": "label-road-ref", "type": "symbol", "source": "openmaptiles", "source-layer": "transportation_name",
+             "minzoom": 9, "filter": ["all", is_in("class", ["motorway", "trunk"]), ["has", "ref"]],
+             "layout": {"symbol-placement": "line", "symbol-spacing": lab.get("ref_spacing", 460),
+                        "text-field": ["get", "ref"],
+                        **text_layout({"text-size": interp([(9, 9), (14, 11), (18, 13)]), "text-max-angle": 30,
+                                       "text-letter-spacing": 0.05, "text-padding": 6})},
+             "paint": {"text-color": p.get("ref_text", p["road_text"]), "text-halo-color": p["halo"], "text-halo-width": halo_w}})
+    if cfg.get("peaks"):
+        # Cimas con nombre y altitud (capa real `mountain_peak`): da sentido al relieve sin inventar montañas.
+        pk = cfg["peaks"]
+        add({"id": "label-peak", "type": "symbol", "source": "openmaptiles", "source-layer": "mountain_peak",
+             "minzoom": 11, "filter": ["has", "name"],
+             "layout": {"text-field": ["format", ["coalesce", ["get", "name:es"], ["get", "name"]], {},
+                                       ["case", ["has", "ele"], ["concat", "\n", ["to-string", ["get", "ele"]], " m"], ""],
+                                       {"font-scale": 0.8}],
+                        **text_layout({"text-size": interp([(11, 10), (15, 12)]), "text-max-width": 7, "text-padding": 6}),
+                        "text-font": pk.get("font", FONT_ITALIC), "text-transform": "none"},
+             "paint": {"text-color": pk.get("color", p["place_text"]), "text-halo-color": p["halo"], "text-halo-width": halo_w}})
     add({"id": "label-water", "type": "symbol", "source": "openmaptiles", "source-layer": "water_name",
          "minzoom": 10,
          "layout": {"text-field": ["coalesce", ["get", "name:es"], ["get", "name"]], "text-font": FONT_ITALIC,
@@ -506,6 +545,7 @@ NOIR = {
     "place_upper": False,       # barrios con mayúsculas y tildes originales, sin forzar versalitas
     "selection": True,
     "saved_places": True,
+    "boundaries": {"color": "#6a6a6a", "opacity": 0.55},
     # Volumen gris oscuro: más claro cuanto más alto. Tejado distinto de fachada por la luz y el degradado vertical.
     "buildings_3d": {"colors": [(0, "#2b2b2b"), (40, "#383838"), (120, "#464646")], "max_height": 120,
                      "light": {"anchor": "viewport", "color": "#ffffff", "intensity": 0.45, "position": [1.15, 205, 40]}},
@@ -569,6 +609,9 @@ ISLA = {
         "poi_text": "#ffffff",
     },
     # Volúmenes simplificados: alturas en escalones de 6 m, tope bajo y colores cálidos y claros sobre el verde.
+    "unpaved": {"color": "#fff3c4", "dash": [2.2, 1.4]},
+    "peaks": {"color": "#ffffff"},
+    "boundaries": {"color": "#fff6d0", "opacity": 0.55},
     "buildings_3d": {"colors": [(0, "#f3ecda"), (24, "#f2d27a"), (48, "#eca35c"), (90, "#d0674a")], "max_height": 72,
                      "height_step": 6,
                      "light": {"anchor": "viewport", "color": "#fff6e0", "intensity": 0.5, "position": [1.15, 215, 50]}},
@@ -613,6 +656,8 @@ BLOQUES = {
     },
     # Prismas rectangulares con alturas en múltiplos de 3 m y la textura de tablones en las paredes.
     # NO son voxels: la huella real del edificio se extruye tal cual (ver docs/17).
+    "unpaved": {"color": "#7d5f37", "dash": [1.2, 1.2]},
+    "boundaries": {"color": "#1d1d1d", "opacity": 0.5, "dash": [1.2, 1.2]},
     "buildings_3d": {"pattern": "tex-block-planks", "max_height": 60, "height_step": 3,
                      "light": {"anchor": "viewport", "color": "#e9dcc4", "intensity": 0.55, "position": [1.15, 215, 35]}},
     "route": {"core": "#ffe14d", "casing": "#1d1d1d", "glow": "#ffe14d", "glow_opacity": 0.3},
@@ -635,6 +680,9 @@ OESTE = {
     "tier_k": {"motorway": 1.5, "trunk": 1.4, "primary": 1.25, "secondary": 1.1, "tertiary": 0.95, "minor": 0.8, "service": 0.7},
     "no_casing": True,
     "dash_tiers": {"service": [3, 2.2], "minor": [6, 1.6]},
+    "boundaries": {"color": "#2b2118", "opacity": 0.7, "dash": [5, 2, 1, 2], "width": 1.6},
+    "peaks": {"color": "#3a2c1c"},
+    "ref_text": "#2b2118",
     "labels": {"font": FONT_BOLD, "upper": True, "halo": 1.4, "road_size": 10, "spacing": 380},
     "overlays": [
         {"id": "tex-wood", "layer": "landcover", "classes": ["wood"], "pattern": "tex-ink-stipple", "after": "landuse", "opacity": 0.9},
@@ -666,6 +714,8 @@ CIBER = {
     "road_k": 1.15,
     "tier_k": {"motorway": 1.2, "trunk": 1.1, "primary": 1.0, "secondary": 0.9, "tertiary": 0.78, "minor": 0.62, "service": 0.5},
     "labels": {"font": FONT_BOLD, "upper": True, "halo": 1.8, "road_size": 10.5, "spacing": 360},
+    "boundaries": {"color": "#2fd0e4", "opacity": 0.4, "dash": [2, 3]},
+    "ref_text": "#ffe94d",
     "palette": {
         "land": "#14060c", "grass": "#16080e", "wood": "#14070d", "sand": "#1a0a10", "farm": "#15070d",
         "rock": "#1a0a10", "residential": "#17080e", "commercial": "#1b0a11", "industrial": "#150810",
@@ -697,6 +747,9 @@ NORDICO = {
     "no_casing": True,
     "dash_tiers": {"minor": [1, 2.4], "service": [1, 2.8]},
     "road_cap": "round",
+    "boundaries": {"color": "#8c3a2a", "opacity": 0.8, "dash": [0.8, 2.2], "width": 1.8},
+    "peaks": {"color": "#3b2a1c"},
+    "ref_text": "#4a2418",
     "labels": {"font": FONT_BOLD, "upper": True, "halo": 1.6, "road_size": 10, "spacing": 400},
     "overlays": [
         {"id": "tex-hills", "layer": "landcover", "classes": ["rock", "ice"], "pattern": "tex-ink-hills", "after": "landuse"},
@@ -758,6 +811,8 @@ RALLY = {
     "road_k": 1.0,
     "tier_k": {"motorway": 1.25, "trunk": 1.15, "primary": 1.05, "secondary": 0.95, "tertiary": 0.82, "minor": 0.68, "service": 0.55},
     "unpaved": {"color": "#f0d79b", "dash": [2, 1.5]},
+    "peaks": {"color": "#ffffff"},
+    "boundaries": {"color": "#ffffff", "opacity": 0.4},
     "labels": {"font": FONT_BOLD, "upper": True, "halo": 2.2, "road_size": 11, "spacing": 330},
     "palette": {
         "land": "#6e8f45", "grass": "#78a04a", "wood": "#4d7236", "sand": "#d8c38e", "farm": "#b48b44",

@@ -305,6 +305,69 @@
    }
   },
   {
+   "id": "boundary",
+   "type": "line",
+   "source": "openmaptiles",
+   "source-layer": "boundary",
+   "minzoom": 3,
+   "filter": [
+    "all",
+    [
+     "<=",
+     [
+      "coalesce",
+      [
+       "get",
+       "admin_level"
+      ],
+      99
+     ],
+     6
+    ],
+    [
+     "!=",
+     [
+      "coalesce",
+      [
+       "get",
+       "maritime"
+      ],
+      0
+     ],
+     1
+    ]
+   ],
+   "layout": {
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#2b2118",
+    "line-opacity": 0.7,
+    "line-dasharray": [
+     5,
+     2,
+     1,
+     2
+    ],
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     3,
+     0.6,
+     10,
+     1.6,
+     16,
+     2.4000000000000004
+    ]
+   }
+  },
+  {
    "id": "building",
    "type": "fill",
    "source": "openmaptiles",
@@ -468,10 +531,6 @@
    ],
    "paint": {
     "line-color": "#2b2118",
-    "line-dasharray": [
-     3,
-     3
-    ],
     "line-width": [
      "interpolate",
      [
@@ -484,7 +543,63 @@
      11,
      0.6,
      16,
-     1.6
+     1.4
+    ]
+   }
+  },
+  {
+   "id": "rail-ties",
+   "type": "line",
+   "source": "openmaptiles",
+   "source-layer": "transportation",
+   "minzoom": 13,
+   "filter": [
+    "all",
+    [
+     "==",
+     [
+      "get",
+      "class"
+     ],
+     "rail"
+    ],
+    [
+     "!",
+     [
+      "match",
+      [
+       "get",
+       "brunnel"
+      ],
+      [
+       "tunnel"
+      ],
+      true,
+      false
+     ]
+    ]
+   ],
+   "paint": {
+    "line-color": "#2b2118",
+    "line-dasharray": [
+     0.3,
+     2.4
+    ],
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     13,
+     2.2,
+     16,
+     4.2,
+     18,
+     7
     ]
    }
   },
@@ -3173,6 +3288,145 @@
      "Noto Sans Bold"
     ],
     "text-transform": "uppercase"
+   },
+   "paint": {
+    "text-color": "#3a2c1c",
+    "text-halo-color": "#d4b47e",
+    "text-halo-width": 1.4
+   }
+  },
+  {
+   "id": "label-road-ref",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "transportation_name",
+   "minzoom": 9,
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "motorway",
+      "trunk"
+     ],
+     true,
+     false
+    ],
+    [
+     "has",
+     "ref"
+    ]
+   ],
+   "layout": {
+    "symbol-placement": "line",
+    "symbol-spacing": 460,
+    "text-field": [
+     "get",
+     "ref"
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     9,
+     9,
+     14,
+     11,
+     18,
+     13
+    ],
+    "text-max-angle": 30,
+    "text-letter-spacing": 0.05,
+    "text-padding": 6,
+    "text-font": [
+     "Noto Sans Bold"
+    ],
+    "text-transform": "uppercase"
+   },
+   "paint": {
+    "text-color": "#3a2c1c",
+    "text-halo-color": "#d4b47e",
+    "text-halo-width": 1.4
+   }
+  },
+  {
+   "id": "label-peak",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "mountain_peak",
+   "minzoom": 11,
+   "filter": [
+    "has",
+    "name"
+   ],
+   "layout": {
+    "text-field": [
+     "format",
+     [
+      "coalesce",
+      [
+       "get",
+       "name:es"
+      ],
+      [
+       "get",
+       "name"
+      ]
+     ],
+     {},
+     [
+      "case",
+      [
+       "has",
+       "ele"
+      ],
+      [
+       "concat",
+       "\n",
+       [
+        "to-string",
+        [
+         "get",
+         "ele"
+        ]
+       ],
+       " m"
+      ],
+      ""
+     ],
+     {
+      "font-scale": 0.8
+     }
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     11,
+     10,
+     15,
+     12
+    ],
+    "text-max-width": 7,
+    "text-padding": 6,
+    "text-font": [
+     "Noto Sans Italic"
+    ],
+    "text-transform": "none"
    },
    "paint": {
     "text-color": "#3a2c1c",

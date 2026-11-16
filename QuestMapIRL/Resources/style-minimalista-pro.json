@@ -281,6 +281,67 @@
    }
   },
   {
+   "id": "boundary",
+   "type": "line",
+   "source": "openmaptiles",
+   "source-layer": "boundary",
+   "minzoom": 3,
+   "filter": [
+    "all",
+    [
+     "<=",
+     [
+      "coalesce",
+      [
+       "get",
+       "admin_level"
+      ],
+      99
+     ],
+     6
+    ],
+    [
+     "!=",
+     [
+      "coalesce",
+      [
+       "get",
+       "maritime"
+      ],
+      0
+     ],
+     1
+    ]
+   ],
+   "layout": {
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#6b7385",
+    "line-opacity": 0.5,
+    "line-dasharray": [
+     3,
+     2
+    ],
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     3,
+     0.6,
+     10,
+     1.4,
+     16,
+     2.2
+    ]
+   }
+  },
+  {
    "id": "building",
    "type": "fill",
    "source": "openmaptiles",
@@ -444,10 +505,6 @@
    ],
    "paint": {
     "line-color": "#c1c6d1",
-    "line-dasharray": [
-     3,
-     3
-    ],
     "line-width": [
      "interpolate",
      [
@@ -460,7 +517,63 @@
      11,
      0.6,
      16,
-     1.6
+     1.4
+    ]
+   }
+  },
+  {
+   "id": "rail-ties",
+   "type": "line",
+   "source": "openmaptiles",
+   "source-layer": "transportation",
+   "minzoom": 13,
+   "filter": [
+    "all",
+    [
+     "==",
+     [
+      "get",
+      "class"
+     ],
+     "rail"
+    ],
+    [
+     "!",
+     [
+      "match",
+      [
+       "get",
+       "brunnel"
+      ],
+      [
+       "tunnel"
+      ],
+      true,
+      false
+     ]
+    ]
+   ],
+   "paint": {
+    "line-color": "#c1c6d1",
+    "line-dasharray": [
+     0.3,
+     2.4
+    ],
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     13,
+     2.2,
+     16,
+     4.2,
+     18,
+     7
     ]
    }
   },
@@ -1504,19 +1617,19 @@
       "zoom"
      ],
      6,
-     1.3,
+     1.475,
      9,
-     1.9,
+     2.075,
      11,
-     3.3,
+     3.475,
      14,
-     7.54,
+     7.8,
      16,
-     15.08,
+     15.6,
      18,
-     34.8,
+     36.0,
      20,
-     88.16
+     91.2
     ]
    }
   },
@@ -1588,19 +1701,19 @@
       "zoom"
      ],
      5,
-     1.5,
+     1.85,
      8,
-     2.2,
+     2.55,
      11,
-     3.9,
+     4.25,
      14,
-     8.7,
+     9.3,
      16,
-     17.4,
+     18.6,
      18,
-     41.76,
+     44.64,
      20,
-     104.4
+     111.6
     ]
    }
   },
@@ -1836,19 +1949,19 @@
       "zoom"
      ],
      6,
-     1.12,
+     1.295,
      9,
-     1.54,
+     1.715,
      11,
-     2.52,
+     2.695,
      14,
-     5.278,
+     5.46,
      16,
-     10.556,
+     10.92,
      18,
-     24.36,
+     25.2,
      20,
-     61.712
+     63.84
     ]
    }
   },
@@ -1920,19 +2033,19 @@
       "zoom"
      ],
      5,
-     1.26,
+     1.61,
      8,
-     1.75,
+     2.1,
      11,
-     2.94,
+     3.29,
      14,
-     6.09,
+     6.51,
      16,
-     12.18,
+     13.02,
      18,
-     29.232,
+     31.248,
      20,
-     73.08
+     78.12
     ]
    }
   },
@@ -3288,19 +3401,19 @@
       "zoom"
      ],
      6,
-     1.3,
+     1.475,
      9,
-     1.9,
+     2.075,
      11,
-     3.3,
+     3.475,
      14,
-     7.54,
+     7.8,
      16,
-     15.08,
+     15.6,
      18,
-     34.8,
+     36.0,
      20,
-     88.16
+     91.2
     ]
    }
   },
@@ -3364,19 +3477,19 @@
       "zoom"
      ],
      5,
-     1.5,
+     1.85,
      8,
-     2.2,
+     2.55,
      11,
-     3.9,
+     4.25,
      14,
-     8.7,
+     9.3,
      16,
-     17.4,
+     18.6,
      18,
-     41.76,
+     44.64,
      20,
-     104.4
+     111.6
     ]
    }
   },
@@ -4566,6 +4679,68 @@
     ],
     "text-max-angle": 28,
     "text-letter-spacing": 0.02,
+    "text-padding": 6,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
+   },
+   "paint": {
+    "text-color": "#3b4252",
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.8
+   }
+  },
+  {
+   "id": "label-road-ref",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "transportation_name",
+   "minzoom": 9,
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "motorway",
+      "trunk"
+     ],
+     true,
+     false
+    ],
+    [
+     "has",
+     "ref"
+    ]
+   ],
+   "layout": {
+    "symbol-placement": "line",
+    "symbol-spacing": 460,
+    "text-field": [
+     "get",
+     "ref"
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     9,
+     9,
+     14,
+     11,
+     18,
+     13
+    ],
+    "text-max-angle": 30,
+    "text-letter-spacing": 0.05,
     "text-padding": 6,
     "text-font": [
      "Noto Sans Regular"
