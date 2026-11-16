@@ -1,7 +1,8 @@
-import MapKit
-import SwiftUI
+import CoreLocation
 import Observation
 
+/// Estado de la pantalla principal: destino, rutas candidatas y su carga. No conoce el
+/// renderizador del mapa: la vista traslada este estado al `MapController`.
 @MainActor
 @Observable
 final class HomeViewModel {
@@ -9,15 +10,15 @@ final class HomeViewModel {
         case idle, loading, ready, failed(String)
     }
 
-    var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
-    var destination: CLLocationCoordinate2D?
-    var destinationName = "Destino"
-    var routes: [RouteOption] = []
+    var destination: Place?
+    var routes: [Route] = []
     var selectedRouteID: UUID?
     var mode: RouteMode = .driving
     var routeState: RouteState = .idle
     var headingUp: Bool
     var isFollowing = true
+    /// Se incrementa cada vez que llega un conjunto nuevo de rutas (la vista reencuadra el mapa).
+    private(set) var routesVersion = 0
 
     private let routeService: RouteServiceProtocol
     private let locationService: LocationServiceProtocol
@@ -29,34 +30,21 @@ final class HomeViewModel {
         self.headingUp = headingUp
     }
 
-    var selectedRoute: RouteOption? {
+    var selectedRoute: Route? {
         routes.first { $0.id == selectedRouteID } ?? routes.first
     }
 
-    var origin: CLLocationCoordinate2D? { locationService.smoothedLocation?.coordinate }
+    /// Origen de la ruta: la última lectura REAL del GPS (nunca una posición inventada).
+    var origin: CLLocationCoordinate2D? { locationService.currentLocation?.coordinate }
 
     var errorMessage: String? {
         if case .failed(let message) = routeState { return message }
         return nil
     }
 
-    /// Recentra la cámara en el usuario según la orientación elegida.
-    func recenter() {
-        isFollowing = true
-        withAnimation(.smooth(duration: 0.6)) {
-            cameraPosition = .userLocation(followsHeading: headingUp, fallback: .automatic)
-        }
-    }
-
-    func toggleHeadingUp() {
-        headingUp.toggle()
-        recenter()
-    }
-
-    /// Fija destino (desde búsqueda o pulsación larga) y calcula rutas.
-    func setDestination(_ coordinate: CLLocationCoordinate2D, name: String = "Destino") {
-        destination = coordinate
-        destinationName = name
+    /// Fija el destino EXACTO elegido por el usuario y calcula rutas.
+    func setDestination(_ place: Place) {
+        destination = place
         loadRoutes()
     }
 
@@ -68,23 +56,22 @@ final class HomeViewModel {
             return
         }
         routeState = .loading
+        let mode = mode
         routeTask = Task {
             do {
-                let found = try await routeService.routes(from: origin, to: destination, mode: mode)
+                let found = try await routeService.routes(from: origin, to: destination.coordinate, mode: mode)
                 guard !Task.isCancelled else { return }
                 routes = found
                 selectedRouteID = found.first?.id
                 routeState = .ready
-                if let rect = found.first?.route.polyline.boundingMapRect {
-                    isFollowing = false
-                    withAnimation(.smooth) {
-                        cameraPosition = .rect(rect.insetBy(dx: -rect.width * 0.35, dy: -rect.height * 0.35))
-                    }
-                }
+                routesVersion += 1
             } catch is CancellationError {
+                // Petición reemplazada por otra más reciente: se ignora.
             } catch {
+                guard !Task.isCancelled else { return }
                 routes = []
-                routeState = .failed(Self.describe(error))
+                selectedRouteID = nil
+                routeState = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
             }
         }
     }
@@ -95,20 +82,5 @@ final class HomeViewModel {
         routes = []
         selectedRouteID = nil
         routeState = .idle
-        recenter()
-    }
-
-    private static func describe(_ error: Error) -> String {
-        let ns = error as NSError
-        if ns.domain == NSURLErrorDomain { return "Sin conexión. Las rutas necesitan internet." }
-        if let mk = error as? MKError {
-            switch mk.code {
-            case .directionsNotFound, .placemarkNotFound: return "No hemos encontrado ninguna ruta hasta ahí."
-            case .loadingThrottled: return "Demasiadas peticiones. Espera unos segundos."
-            case .serverFailure: return "El servicio de rutas no responde. Inténtalo de nuevo."
-            default: break
-            }
-        }
-        return error.localizedDescription
     }
 }

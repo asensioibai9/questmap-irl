@@ -36,6 +36,16 @@ final class NavigationEngineTests: XCTestCase {
         XCTAssertEqual(snapshot.remainingSeconds, 30, accuracy: 3)
     }
 
+    func testUpcomingManeuverIsTheNextStep() {
+        // Al inicio se está en el paso 0; la maniobra a anunciar es la del paso 1.
+        let start = makeEngine().update(with: points[0])
+        XCTAssertEqual(start.stepIndex, 0)
+        XCTAssertEqual(start.upcomingIndex, 1)
+        // En el último paso no hay más maniobras: se queda en la última (la llegada).
+        let mid = makeEngine().update(with: CLLocationCoordinate2D(latitude: 40.4075, longitude: -3.7000))
+        XCTAssertEqual(mid.upcomingIndex, 1)
+    }
+
     func testArrival() {
         let snapshot = makeEngine().update(with: points[2])
         XCTAssertTrue(snapshot.hasArrived)

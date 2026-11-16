@@ -9,6 +9,13 @@ options:
   xcodeVersion: "15.0"
   createIntermediateGroups: true
 
+# MapLibre Native (renderizado de mapas vectoriales). Versión FIJADA a la 7.0.0 estable: la rama
+# main del repositorio de distribución apunta a prerelease.
+packages:
+  MapLibre:
+    url: https://github.com/maplibre/maplibre-gl-native-distribution
+    exactVersion: 7.0.0
+
 settings:
   base:
     SWIFT_VERSION: "5.9"
@@ -27,6 +34,9 @@ targets:
           - "Tests/**"
           - "**/*.md"
           - "Resources/Info.plist"
+    dependencies:
+      - package: MapLibre
+        product: MapLibre
     entitlements:
       path: QuestMapIRL/Resources/QuestMapIRL.entitlements
     settings:

@@ -2,12 +2,18 @@ import CoreLocation
 
 /// Instrucción de una maniobra, desacoplada de MapKit para poder testearla.
 struct RouteStepInfo: Equatable {
+    /// Maniobra que ocurre AL INICIO de este paso.
     let instruction: String
+    /// Distancia recorrida en este paso hasta la siguiente maniobra.
     let distanceMeters: Double
+    var symbol: String = "arrow.up"
 }
 
 struct NavigationSnapshot: Equatable {
+    /// Paso (tramo) en el que está el usuario ahora.
     var stepIndex: Int = 0
+    /// Paso cuya maniobra es la PRÓXIMA (la que hay que anunciar): el siguiente al actual.
+    var upcomingIndex: Int = 0
     var distanceToManeuver: Double = 0
     var remainingMeters: Double = 0
     var remainingSeconds: Double = 0
@@ -70,6 +76,7 @@ struct NavigationEngine {
 
         return NavigationSnapshot(
             stepIndex: stepIndex,
+            upcomingIndex: min(stepIndex + 1, max(steps.count - 1, 0)),
             distanceToManeuver: max(0, maneuverEnd - along),
             remainingMeters: remaining,
             remainingSeconds: expectedSeconds * ratio,

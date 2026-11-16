@@ -1,5 +1,4 @@
 import SwiftUI
-import MapKit
 
 /// Identificador estable de cada tema (se guarda en UserSettings).
 enum MapThemeID: String, CaseIterable, Codable, Identifiable {
@@ -32,32 +31,38 @@ enum POIKind: String, CaseIterable, Identifiable {
     }
 }
 
-/// Efecto decorativo que se dibuja encima del mapa real (nunca encima del HUD).
-enum OverlayEffect: Equatable {
-    case none
-    case vignette              // oscurece bordes
-    case neonGrid              // rejilla synthwave en perspectiva
-    case parchment             // tinte pergamino + grano
-    case voxelGrid             // cuadrícula de bloques
-    case scanlines             // líneas horizontales finas
+enum MinimapShape: Equatable {
+    case circle
+    case roundedSquare
 }
 
-/// Estilo del mapa base de MapKit que acompaña al tema.
-enum BaseMapKind: Equatable {
-    case standard       // calles normales con POIs reducidos
-    case muted          // calles atenuadas (mejor para HUD)
-    case imagery        // satélite (isla)
+/// Cómo se dibuja el MAPA REAL de este tema. El estilo vectorial vive en un JSON (capas, colores,
+/// anchos por zoom, etiquetas) y se renderiza con MapLibre; aquí solo van los parámetros de
+/// cámara y de los elementos que dibuja la app.
+struct CartographyStyle: Equatable {
+    /// Nombre del archivo JSON del estilo (sin extensión) en el bundle.
+    let resourceName: String
+    /// Color de fondo mientras cargan los tiles (evita destellos blancos).
+    let backgroundHex: UInt32
+    let userArrowHex: UInt32
+    let defaultZoom: Double
+    let navigationZoom: Double
+    let navigationPitch: Double
+    let minimapZoom: Double
+    let minimapShape: MinimapShape
+    let minimapBorderHex: UInt32
+    let attribution: String
 }
 
-/// Tokens visuales de un tema. Nunca afectan a datos de ruta ni a precisión.
+/// Tokens del tema: HUD (paneles, texto, iconos) y cartografía. Cambiar de tema nunca altera
+/// los datos de ruta ni de navegación.
 struct MapTheme: Equatable, Identifiable {
     let id: MapThemeID
     let name: String
     let tagline: String
     let isDark: Bool
-    let baseMap: BaseMapKind
 
-    // Superficies y texto del HUD
+    // HUD
     let background: Color
     let panel: Color
     let panelBorder: Color
@@ -65,25 +70,11 @@ struct MapTheme: Equatable, Identifiable {
     let textPrimary: Color
     let textSecondary: Color
 
-    // Ruta (tres capas: borde, resplandor, núcleo)
+    // Colores de marcadores (el mapa los toma del JSON; estos pintan el HUD y las miniaturas)
     let routeCore: Color
     let routeBorder: Color
-    let routeGlow: Color
-    let routeCoreWidth: CGFloat
-    let routeBorderWidth: CGFloat
-    let routeGlowWidth: CGFloat
-    let routeAnimated: Bool
-
-    // Marcadores
-    let origin: Color
     let destination: Color
     let player: Color
-
-    // Colores "de mundo": tintes de leyenda y overlays (MapKit no recolorea el mapa base)
-    let road: Color
-    let water: Color
-    let vegetation: Color
-    let building: Color
 
     // Tipografía e iconos
     let titleDesign: Font.Design
@@ -91,19 +82,13 @@ struct MapTheme: Equatable, Identifiable {
     let cornerRadius: CGFloat
     let poiIcons: [POIKind: String]
 
-    // Efecto sobre el mapa
-    let overlay: OverlayEffect
-    let overlayOpacity: Double
+    /// nil mientras el estilo cartográfico de este tema no está terminado.
+    let cartography: CartographyStyle?
 
-    var mapStyle: MapStyle {
-        switch baseMap {
-        case .standard:
-            return .standard(elevation: .realistic, emphasis: .automatic, pointsOfInterest: .excludingAll)
-        case .muted:
-            return .standard(elevation: .realistic, emphasis: .muted, pointsOfInterest: .excludingAll)
-        case .imagery:
-            return .hybrid(elevation: .realistic, pointsOfInterest: .excludingAll, showsTraffic: false)
-        }
+    var isCartographyReady: Bool { cartography != nil }
+
+    var activeCartography: CartographyStyle {
+        cartography ?? ThemeCatalog.ciudadNocturna.cartography!
     }
 
     func icon(for kind: POIKind) -> String {
@@ -133,5 +118,14 @@ extension Color {
         let g = Double((hex >> 8) & 0xFF) / 255
         let b = Double(hex & 0xFF) / 255
         self.init(.sRGB, red: r, green: g, blue: b, opacity: opacity)
+    }
+}
+
+extension UIColor {
+    convenience init(hex: UInt32, alpha: CGFloat = 1) {
+        self.init(red: CGFloat((hex >> 16) & 0xFF) / 255,
+                  green: CGFloat((hex >> 8) & 0xFF) / 255,
+                  blue: CGFloat(hex & 0xFF) / 255,
+                  alpha: alpha)
     }
 }

@@ -37,11 +37,15 @@ struct SettingsView: View {
                                 Text(candidate.tagline).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                             }
                             Spacer()
-                            if settings.themeID == candidate.id {
+                            if !candidate.isCartographyReady {
+                                Text("Próximamente").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                            } else if settings.themeID == candidate.id {
                                 Image(systemName: "checkmark.circle.fill").foregroundStyle(theme.accent)
                             }
                         }
                     }
+                    .disabled(!candidate.isCartographyReady)
+                    .opacity(candidate.isCartographyReady ? 1 : 0.55)
                     .accessibilityAddTraits(settings.themeID == candidate.id ? .isSelected : [])
                 }
             }
@@ -89,7 +93,12 @@ struct SettingsView: View {
 
             Section {
                 LabeledContent("Versión", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                LabeledContent("Datos de mapa", value: "Apple Maps")
+            }
+
+            Section("Datos y atribución") {
+                Text("Mapa: © OpenStreetMap contributors, © OpenMapTiles, servido por OpenFreeMap. Rutas: OSRM. Búsqueda: Photon. Todos sobre datos de OpenStreetMap (ODbL).")
+                    .font(.footnote)
+                Link("Copyright de OpenStreetMap", destination: URL(string: "https://www.openstreetmap.org/copyright")!)
             }
         }
     }

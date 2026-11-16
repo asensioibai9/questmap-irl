@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Vista previa de estilos (MapLibre GL JS)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+  html, body, #map { margin: 0; height: 100%; width: 100%; background: #111; }
+  /* Modo minimapa: recorte real del contenido en círculo, como en la app */
+  body.minimap #map { width: 240px; height: 240px; border-radius: 50%; border: 4px solid #07090d; margin: 40px; box-sizing: border-box; overflow: hidden; }
+  .maplibregl-ctrl-top-left, .maplibregl-ctrl-top-right { display: none; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+/* Herramienta de desarrollo: renderiza el MISMO JSON de estilo que usa la app, sin interfaz.
+   Parámetros: ?style=ciudad-nocturna|minimalista-pro &lat= &lon= &z= &bearing= &pitch= &route=1 &minimap=1
+   Es MapLibre GL JS (web); la app usa MapLibre Native. Pueden existir diferencias menores de render. */
+const q = new URLSearchParams(location.search);
+const num = (k, d) => q.has(k) ? parseFloat(q.get(k)) : d;
+const styleName = q.get('style') || 'ciudad-nocturna';
+if (q.get('minimap')) document.body.classList.add('minimap');
+
+fetch(`../../QuestMapIRL/Resources/style-${styleName}.json`)
+  .then(r => r.text())
+  .then(txt => {
+    txt = txt.replace('{{TILES_URL}}', 'https://tiles.openfreemap.org/planet')
+             .replace('{{GLYPHS_URL}}', 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf');
+    const style = JSON.parse(txt);
+    const map = new maplibregl.Map({
+      container: 'map', style,
+      center: [num('lon', -3.7038), num('lat', 40.4168)], zoom: num('z', 15),
+      bearing: num('bearing', 0), pitch: num('pitch', 0),
+      attributionControl: false, fadeDuration: 0
+    });
+    window.map = map;
+    map.on('load', () => {
+      if (q.get('route')) {
+        // Ruta real de OSRM (Puerta del Sol → Plaza de Castilla) para ver la capa de ruta y el destino
+        fetch('https://router.project-osrm.org/route/v1/driving/-3.7038,40.4168;-3.6883,40.4530?overview=full&geometries=geojson')
+          .then(r => r.json()).then(d => {
+            const g = d.routes[0].geometry;
+            map.getSource('route').setData({type: 'Feature', geometry: g, properties: {}});
+            map.getSource('destination').setData({type: 'Feature', geometry: {type: 'Point', coordinates: g.coordinates.at(-1)}, properties: {}});
+          }).catch(() => {});
+      }
+      map.getSource('user').setData({type: 'Feature', geometry: {type: 'Point', coordinates: [num('lon', -3.7038), num('lat', 40.4168)]}, properties: {heading: num('bearing', 0)}});
+    });
+    map.on('idle', () => { document.title = 'idle'; });
+    map.on('error', e => console.log('maplibre error', e && e.error && e.error.message));
+  });
+</script>
+</body>
+</html>

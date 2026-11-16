@@ -1,143 +1,122 @@
 import SwiftUI
-import MapKit
 
-/// Navegación activa a pantalla completa: mapa detrás, maniobra grande arriba,
-/// ETA / distancia / velocidad abajo y controles grandes.
-struct ActiveNavigationView: View {
+enum NavDisplay {
+    /// Mapa a pantalla completa con el HUD encima.
+    case map
+    /// HUD grande con minimapa compacto superpuesto.
+    case hud
+}
+
+/// HUD de navegación activa. Se dibuja sobre el mismo mapa de la pantalla principal (misma
+/// cámara, mismo estilo): no abre otro mapa. En modo `.hud` el mapa grande se sustituye por un
+/// fondo y aparece el minimapa.
+struct NavigationOverlay: View {
     @Environment(\.mapTheme) private var theme
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.scenePhase) private var scenePhase
 
-    @Bindable var viewModel: ActiveNavigationViewModel
-    let locationService: LocationServiceProtocol
+    let viewModel: ActiveNavigationViewModel
+    @Binding var display: NavDisplay
+    @Binding var showFullRoute: Bool
+    @Binding var headingUp: Bool
+    let location: LocationServiceProtocol
     let speech: SpeechService
+    let network: NetworkMonitor
+    let miniMap: MapController
     let useMetric: Bool
-    @State var headingUp: Bool
-
-    @State private var camera: MapCameraPosition
-    @State private var showFullRoute = false
-    @State private var showSearch = false
-
-    init(viewModel: ActiveNavigationViewModel, locationService: LocationServiceProtocol,
-         speech: SpeechService, useMetric: Bool, headingUp: Bool) {
-        self.viewModel = viewModel
-        self.locationService = locationService
-        self.speech = speech
-        self.useMetric = useMetric
-        _headingUp = State(initialValue: headingUp)
-        _camera = State(initialValue: .userLocation(followsHeading: headingUp, fallback: .automatic))
-    }
+    let onRecenter: () -> Void
+    let onSearch: () -> Void
+    let onEnd: () -> Void
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                map
-                MapOverlayView(theme: theme).allowsHitTesting(false).ignoresSafeArea()
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                VStack(spacing: 8) {
-                    ManeuverCard(viewModel: viewModel, theme: theme, useMetric: useMetric)
-                    HStack {
-                        GPSIndicator(theme: theme, quality: locationService.quality, signalLost: locationService.isSignalLost)
-                        Spacer()
-                        if viewModel.recalculationFailed {
-                            Label("Vuelve a la ruta", systemImage: "arrow.uturn.backward")
-                                .font(.caption.weight(.semibold))
-                                .padding(.horizontal, 10).frame(height: 28)
-                                .background(theme.panel, in: .capsule)
-                                .foregroundStyle(.red)
-                        }
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 6)
-            }
-            .overlay(alignment: .trailing) {
-                VStack(spacing: 12) {
-                    MapRoundButton(theme: theme,
-                                   systemImage: headingUp ? "location.north.line.fill" : "safari",
-                                   label: headingUp ? "Cambiar a norte arriba" : "Cambiar a vista según rumbo",
-                                   isActive: headingUp) {
-                        headingUp.toggle()
-                        showFullRoute = false
-                        follow()
-                    }
-                    MapRoundButton(theme: theme, systemImage: "location.fill", label: "Recentrar") {
-                        showFullRoute = false
-                        follow()
-                    }
-                }
-                .padding(.trailing, 12)
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                bottomPanel
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 6)
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
-        }
-        .background(theme.background.ignoresSafeArea())
-        .statusBarHidden(false)
-        .onAppear {
-            UIApplication.shared.isIdleTimerDisabled = true
-            viewModel.start()
-            if let loc = locationService.smoothedLocation { viewModel.update(with: loc) }
-        }
-        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
-        .onChange(of: locationService.smoothedLocation) { _, location in
-            guard let location else { return }
-            viewModel.update(with: location)
-        }
-        .onChange(of: viewModel.finished) { _, finished in
-            if finished { saveAndDismiss() }
-        }
-        .onChange(of: showFullRoute) { _, full in
-            withAnimation(.smooth) {
-                if full {
-                    camera = .rect(viewModel.route.route.polyline.boundingMapRect.insetBy(dx: -900, dy: -900))
-                } else {
-                    follow()
+        VStack(spacing: 10) {
+            ManeuverCard(viewModel: viewModel, theme: theme, useMetric: useMetric)
+            statusRow
+
+            if display == .hud {
+                hudBody
+            } else {
+                Spacer(minLength: 0)
+                HStack {
+                    Spacer()
+                    sideButtons
                 }
             }
+
+            bottomPanel
         }
-        .sheet(isPresented: $showSearch) {
-            SearchView(near: locationService.smoothedLocation?.coordinate) { _, _ in
-                // Cambiar de destino en plena navegación: cerramos y el Home recalcula.
-                viewModel.stop()
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
+        .padding(.bottom, 6)
+    }
+
+    // MARK: - Estado (GPS, conexión, recálculo)
+
+    private var statusRow: some View {
+        VStack(spacing: 6) {
+            HStack {
+                GPSIndicator(theme: theme, quality: location.quality, signalLost: location.isSignalLost)
+                Spacer()
+                if viewModel.recalculationFailed {
+                    chip("Vuelve a la ruta", "arrow.uturn.backward", .red)
+                }
+                if !network.isOnline {
+                    chip("Sin conexión", "wifi.slash", .orange)
+                }
+            }
+            if location.isSignalLost {
+                Label("Sin señal GPS: las indicaciones se pausan hasta recuperarla.", systemImage: "location.slash.fill")
+                    .font(.caption.weight(.semibold))
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(theme.panel, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .foregroundStyle(.red)
             }
         }
     }
 
-    // MARK: - Mapa
-
-    private var map: some View {
-        TimelineView(.animation(minimumInterval: 1 / 20, paused: !theme.routeAnimated)) { timeline in
-            let phase = CGFloat(timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2) * -32)
-            Map(position: $camera) {
-                if let loc = locationService.smoothedLocation {
-                    Annotation("Tu posición", coordinate: loc.coordinate, anchor: .center) {
-                        PlayerMarker(theme: theme, heading: headingUp ? 0 : locationService.displayHeading)
-                    }
-                    .annotationTitles(.hidden)
-                }
-                routeLayers(viewModel.route.route.polyline, theme: theme, phase: phase)
-                Annotation(viewModel.destinationName, coordinate: viewModel.destination) {
-                    Image(systemName: "flag.checkered.circle.fill")
-                        .font(.system(size: 30, weight: theme.iconWeight))
-                        .foregroundStyle(theme.destination)
-                        .shadow(color: theme.destination.opacity(0.7), radius: 8)
-                }
-            }
-            .mapStyle(theme.mapStyle)
-            .mapControls { MapCompass() }
-        }
-        .ignoresSafeArea()
+    private func chip(_ text: String, _ icon: String, _ color: Color) -> some View {
+        Label(text, systemImage: icon)
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(theme.panel, in: .capsule)
+            .foregroundStyle(color)
     }
 
-    private func follow() {
-        withAnimation(.smooth) {
-            camera = .userLocation(followsHeading: headingUp, fallback: .automatic)
+    // MARK: - Modo HUD con minimapa
+
+    private var hudBody: some View {
+        VStack(spacing: 12) {
+            Spacer(minLength: 0)
+            Text(Formatters.speed(viewModel.speedKmh, metric: useMetric))
+                .font(.system(size: 64, weight: .heavy, design: theme.titleDesign).monospacedDigit())
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
+                .foregroundStyle(theme.textPrimary)
+                .accessibilityLabel("Velocidad \(Formatters.speed(viewModel.speedKmh, metric: useMetric))")
+            Spacer(minLength: 0)
+            HStack(alignment: .bottom) {
+                MinimapView(controller: miniMap, size: 150) { display = .map }
+                Spacer()
+            }
+        }
+    }
+
+    // MARK: - Controles laterales (modo mapa)
+
+    private var sideButtons: some View {
+        VStack(spacing: 12) {
+            MapRoundButton(theme: theme,
+                           systemImage: headingUp ? "location.north.line.fill" : "safari",
+                           label: headingUp ? "Cambiar a norte arriba" : "Cambiar a vista según rumbo",
+                           isActive: headingUp) {
+                headingUp.toggle()
+                showFullRoute = false
+                onRecenter()
+            }
+            MapRoundButton(theme: theme, systemImage: "location.fill", label: "Recentrar") {
+                showFullRoute = false
+                onRecenter()
+            }
         }
     }
 
@@ -145,7 +124,7 @@ struct ActiveNavigationView: View {
 
     private var bottomPanel: some View {
         QuestPanel(theme: theme) {
-            VStack(spacing: 14) {
+            VStack(spacing: 12) {
                 ProgressView(value: viewModel.snapshot.progress)
                     .tint(theme.accent)
                     .accessibilityLabel("Progreso de la ruta \(Int(viewModel.snapshot.progress * 100)) por ciento")
@@ -154,18 +133,29 @@ struct ActiveNavigationView: View {
                     metric(Text(viewModel.eta, style: .time), "llegada", alignment: .leading, big: true)
                     Spacer()
                     metric(Text(Formatters.distance(viewModel.snapshot.remainingMeters, metric: useMetric)), "restan", alignment: .center)
-                    Spacer()
-                    metric(Text(Formatters.speed(viewModel.speedKmh, metric: useMetric)), "velocidad", alignment: .trailing)
+                    if display == .map {
+                        Spacer()
+                        metric(Text(Formatters.speed(viewModel.speedKmh, metric: useMetric)), "velocidad", alignment: .trailing)
+                    }
                 }
                 .foregroundStyle(theme.textPrimary)
 
                 NavControlsBar(theme: theme,
                                isMuted: speech.isMuted,
                                showFullRoute: showFullRoute,
+                               isHUD: display == .hud,
                                onMute: { speech.toggleMute() },
                                onToggleRoute: { showFullRoute.toggle() },
-                               onSearch: { showSearch = true },
-                               onEnd: { viewModel.stop() })
+                               onSearch: onSearch,
+                               onToggleDisplay: { display = display == .map ? .hud : .map },
+                               onEnd: onEnd)
+
+                Text(theme.activeCartography.attribution)
+                    .font(.system(size: 9))
+                    .foregroundStyle(theme.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .accessibilityHidden(true)
             }
         }
     }
@@ -179,11 +169,6 @@ struct ActiveNavigationView: View {
             Text(label).font(.caption).foregroundStyle(theme.textSecondary)
         }
         .accessibilityElement(children: .combine)
-    }
-
-    private func saveAndDismiss() {
-        try? TripRepository(context: modelContext).save(viewModel.summary())
-        dismiss()
     }
 }
 
@@ -217,8 +202,8 @@ struct ManeuverCard: View {
                 }
                 if let next = viewModel.nextInstruction, !viewModel.isRecalculating {
                     HStack(spacing: 6) {
-                        Text("Después").font(.caption.weight(.semibold)).foregroundStyle(theme.textSecondary)
-                        Image(systemName: ManeuverFormatter.symbol(for: next)).font(.caption.weight(.bold))
+                        Text("Después").font(.caption.weight(.semibold))
+                        Image(systemName: viewModel.nextSymbol).font(.caption.weight(.bold))
                         Text(next).font(.caption).lineLimit(1)
                     }
                     .foregroundStyle(theme.textSecondary)
@@ -236,20 +221,27 @@ struct NavControlsBar: View {
     let theme: MapTheme
     let isMuted: Bool
     let showFullRoute: Bool
+    let isHUD: Bool
     let onMute: () -> Void
     let onToggleRoute: () -> Void
     let onSearch: () -> Void
+    let onToggleDisplay: () -> Void
     let onEnd: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             control(isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", isMuted ? "Activar voz" : "Silenciar voz", onMute)
-            control(showFullRoute ? "location.fill" : "map.fill", showFullRoute ? "Volver a seguirme" : "Ver ruta completa", onToggleRoute)
+            if !isHUD {
+                control(showFullRoute ? "location.fill" : "map.fill", showFullRoute ? "Volver a seguirme" : "Ver ruta completa", onToggleRoute)
+            }
             control("magnifyingglass", "Buscar otro destino", onSearch)
+            control(isHUD ? "map" : "rectangle.inset.filled.bottomleading", isHUD ? "Abrir mapa completo" : "Modo HUD con minimapa", onToggleDisplay)
             Button(action: onEnd) {
                 Label("Finalizar", systemImage: "xmark")
                     .font(.headline)
-                    .frame(maxWidth: .infinity, minHeight: 56)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, minHeight: 52)
             }
             .buttonStyle(.borderedProminent)
             .tint(.red)
@@ -259,34 +251,11 @@ struct NavControlsBar: View {
     private func control(_ icon: String, _ label: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 20, weight: theme.iconWeight))
-                .frame(width: 56, height: 56)
+                .font(.system(size: 19, weight: theme.iconWeight))
+                .frame(width: 48, height: 52)
                 .foregroundStyle(theme.accent)
                 .background(theme.background.opacity(0.6), in: RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous))
         }
         .accessibilityLabel(label)
     }
-}
-
-// MARK: - Formato
-
-enum Formatters {
-    static func distance(_ meters: Double, metric: Bool) -> String {
-        if metric {
-            if meters >= 10_000 { return String(format: "%.0f km", meters / 1000) }
-            if meters >= 1000 { return String(format: "%.1f km", meters / 1000).replacingOccurrences(of: ".", with: ",") }
-            return "\(Int(max(0, meters).rounded(toNearest: 10))) m"
-        }
-        let feet = meters * 3.28084
-        if feet >= 1000 { return String(format: "%.1f mi", feet / 5280) }
-        return "\(Int(max(0, feet).rounded(toNearest: 50))) ft"
-    }
-
-    static func speed(_ kmh: Double, metric: Bool) -> String {
-        metric ? "\(Int(kmh)) km/h" : "\(Int(kmh * 0.621371)) mph"
-    }
-}
-
-private extension Double {
-    func rounded(toNearest step: Double) -> Double { (self / step).rounded() * step }
 }

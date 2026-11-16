@@ -65,9 +65,4 @@ final class ManeuverFormatterTests: XCTestCase {
         XCTAssertEqual(text, "Gira a la izquierda")
     }
 
-    func testSymbolsMatchInstruction() {
-        XCTAssertEqual(ManeuverFormatter.symbol(for: "Gira a la derecha"), "arrow.turn.up.right")
-        XCTAssertEqual(ManeuverFormatter.symbol(for: "Has llegado a tu destino"), "flag.checkered")
-        XCTAssertEqual(ManeuverFormatter.symbol(for: "Incorpórate a la A-6"), "arrow.merge")
-    }
 }

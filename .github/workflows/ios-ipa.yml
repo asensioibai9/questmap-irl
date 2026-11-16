@@ -43,6 +43,10 @@ jobs:
           cp -R "$APP" Payload/
           zip -qr QuestMapIRL-unsigned.ipa Payload
           ls -la QuestMapIRL-unsigned.ipa
+          echo "--- Frameworks embebidos en la app ---"
+          ls -la Payload/*.app/Frameworks || echo "SIN CARPETA Frameworks (MapLibre no está embebido)"
+          echo "--- Estilos de mapa en el bundle ---"
+          ls -la Payload/*.app/*.json
 
       - name: Upload .ipa
         uses: actions/upload-artifact@v4

@@ -1,82 +1,33 @@
 import SwiftUI
-import MapKit
 import SwiftData
+import CoreLocation
 
-/// Búsqueda de destino: texto libre (MKLocalSearch), lugares guardados y accesos por categoría.
-/// Estados: inicial, cargando, sin resultados, error / sin conexión.
+/// Búsqueda de destino: autocompletado, lugares guardados y accesos por categoría.
+/// Gestiona consulta vacía, carga, sin resultados, error y sin conexión; descarta respuestas
+/// antiguas que llegan tarde y no sustituye nunca el resultado elegido por otro parecido.
 struct SearchView: View {
-    enum State: Equatable { case idle, loading, results, empty, failed(String) }
+    enum Phase: Equatable { case idle, loading, results, empty, failed(String) }
 
     @Environment(\.mapTheme) private var theme
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \SavedPlace.createdAt, order: .reverse) private var savedPlaces: [SavedPlace]
 
+    let search: PlaceSearchProviding
     let near: CLLocationCoordinate2D?
-    let onSelect: (String, CLLocationCoordinate2D) -> Void
+    let onSelect: (Place) -> Void
 
     @SwiftUI.State private var query = ""
-    @SwiftUI.State private var results: [MKMapItem] = []
-    @SwiftUI.State private var state: State = .idle
+    @SwiftUI.State private var results: [Place] = []
+    @SwiftUI.State private var phase: Phase = .idle
     @SwiftUI.State private var searchTask: Task<Void, Never>?
-    private let service = PlaceSearchService()
-
-    private let categories: [(String, POIKind)] = [
-        ("Gasolinera", .fuel), ("Restaurante", .food), ("Parking", .parking),
-        ("Hospital", .hospital), ("Policía", .police), ("Centro comercial", .shop)
-    ]
 
     var body: some View {
         NavigationStack {
             List {
-                if query.isEmpty {
-                    Section {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(categories, id: \.0) { title, kind in
-                                    Button { query = title } label: {
-                                        Label(title, systemImage: theme.icon(for: kind))
-                                            .font(.subheadline.weight(.semibold))
-                                            .padding(.horizontal, 12).frame(minHeight: 36)
-                                            .background(theme.accent.opacity(0.15), in: .capsule)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .foregroundStyle(theme.accent)
-                                }
-                            }
-                        }
-                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                    } header: { Text("Cerca de ti") }
-
-                    Section("Tus lugares") {
-                        if savedPlaces.isEmpty {
-                            Text("Guarda Casa, Trabajo o favoritos desde la tarjeta de ruta.").foregroundStyle(.secondary)
-                        }
-                        ForEach(savedPlaces) { place in
-                            Button { select(place.name, place.coordinate) } label: {
-                                row(icon: place.iconName, title: place.name, subtitle: place.note.isEmpty ? place.kindTitle : place.note,
-                                    distance: distance(to: place.coordinate))
-                            }
-                        }
-                    }
+                if query.trimmingCharacters(in: .whitespaces).isEmpty {
+                    suggestions
                 } else {
-                    Section {
-                        switch state {
-                        case .loading:
-                            HStack { ProgressView(); Text("Buscando…") }.foregroundStyle(.secondary)
-                        case .empty:
-                            ContentUnavailableView.search(text: query)
-                        case .failed(let message):
-                            ContentUnavailableView(message, systemImage: "wifi.exclamationmark",
-                                                   description: Text("Comprueba la conexión e inténtalo de nuevo."))
-                        case .results, .idle:
-                            ForEach(results, id: \.self) { item in
-                                Button { select(item.name ?? "Destino", item.placemark.coordinate) } label: {
-                                    row(icon: "mappin.circle.fill", title: item.name ?? "Lugar",
-                                        subtitle: item.placemark.title ?? "", distance: distance(to: item.placemark.coordinate))
-                                }
-                            }
-                        }
-                    } header: { Text(state == .results ? "\(results.count) resultados" : "Resultados") }
+                    resultsSection
                 }
             }
             .listStyle(.insetGrouped)
@@ -85,7 +36,7 @@ struct SearchView: View {
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
                         prompt: "Dirección, calle, ciudad, restaurante…")
             .autocorrectionDisabled()
-            .onChange(of: query) { _, newValue in search(newValue) }
+            .onChange(of: query) { _, newValue in runSearch(newValue) }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cerrar") { dismiss() } }
             }
@@ -93,9 +44,65 @@ struct SearchView: View {
         .tint(theme.accent)
     }
 
-    // MARK: - Filas
+    // MARK: - Sugerencias
 
-    private func row(icon: String, title: String, subtitle: String, distance: String?) -> some View {
+    @ViewBuilder
+    private var suggestions: some View {
+        Section("Cerca de ti") {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(PlaceCategory.allCases) { category in
+                        Button { query = category.title } label: {
+                            Label(category.title, systemImage: theme.icon(for: category.poiKind))
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 12).frame(minHeight: 36)
+                                .background(theme.accent.opacity(0.15), in: .capsule)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(theme.accent)
+                    }
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        }
+
+        Section("Tus lugares") {
+            if savedPlaces.isEmpty {
+                Text("Guarda Casa, Trabajo o favoritos desde la tarjeta de ruta.").foregroundStyle(.secondary)
+            }
+            ForEach(savedPlaces) { saved in
+                let place = Place(id: "saved-\(saved.createdAt.timeIntervalSince1970)", name: saved.name,
+                                  subtitle: saved.note.isEmpty ? saved.kindTitle : saved.note,
+                                  latitude: saved.latitude, longitude: saved.longitude)
+                Button { select(place) } label: { row(icon: saved.iconName, place: place) }
+            }
+        }
+    }
+
+    // MARK: - Resultados
+
+    @ViewBuilder
+    private var resultsSection: some View {
+        Section {
+            switch phase {
+            case .loading, .idle:
+                HStack { ProgressView(); Text("Buscando…") }.foregroundStyle(.secondary)
+            case .empty:
+                ContentUnavailableView.search(text: query)
+            case .failed(let message):
+                ContentUnavailableView(message, systemImage: "wifi.exclamationmark",
+                                       description: Text("Comprueba la conexión e inténtalo de nuevo."))
+            case .results:
+                ForEach(results) { place in
+                    Button { select(place) } label: { row(icon: "mappin.circle.fill", place: place) }
+                }
+            }
+        } header: {
+            Text(phase == .results ? "\(results.count) resultados" : "Resultados")
+        }
+    }
+
+    private func row(icon: String, place: Place) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 16, weight: theme.iconWeight))
@@ -103,11 +110,13 @@ struct SearchView: View {
                 .frame(width: 32, height: 32)
                 .background(theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.body.weight(.medium)).foregroundStyle(.primary)
-                if !subtitle.isEmpty { Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
+                Text(place.name).font(.body.weight(.medium)).foregroundStyle(.primary)
+                if !place.subtitle.isEmpty {
+                    Text(place.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
             }
             Spacer()
-            if let distance {
+            if let distance = distance(to: place.coordinate) {
                 Text(distance).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
             Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
@@ -127,31 +136,37 @@ struct SearchView: View {
 
     // MARK: - Búsqueda
 
-    private func search(_ text: String) {
+    private func runSearch(_ text: String) {
         searchTask?.cancel()
         let trimmed = text.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { state = .idle; results = []; return }
-        state = .loading
+        guard !trimmed.isEmpty else {
+            phase = .idle
+            results = []
+            return
+        }
+        phase = .loading
+        // Si el texto coincide con un acceso por categoría, se filtra por esa categoría.
+        let category = PlaceCategory.allCases.first { $0.title == trimmed }
         searchTask = Task {
-            try? await Task.sleep(for: .milliseconds(350))   // debounce
+            try? await Task.sleep(for: .milliseconds(350))   // espera a que el usuario termine de escribir
             guard !Task.isCancelled else { return }
             do {
-                let found = try await service.search(trimmed, near: near)
-                guard !Task.isCancelled else { return }
+                let found = try await search.search(trimmed, near: near, category: category)
+                // Descarta respuestas antiguas: solo vale la de la consulta actual.
+                guard !Task.isCancelled, trimmed == query.trimmingCharacters(in: .whitespaces) else { return }
                 results = found
-                state = found.isEmpty ? .empty : .results
+                phase = found.isEmpty ? .empty : .results
             } catch is CancellationError {
             } catch {
-                let ns = error as NSError
-                let offline = ns.domain == NSURLErrorDomain || (error as? MKError)?.code == .serverFailure
+                guard !Task.isCancelled else { return }
                 results = []
-                state = offline ? .failed("Sin conexión") : .failed("No se pudo buscar")
+                phase = .failed((error as? LocalizedError)?.errorDescription ?? "No se pudo buscar")
             }
         }
     }
 
-    private func select(_ name: String, _ coordinate: CLLocationCoordinate2D) {
-        onSelect(name, coordinate)
+    private func select(_ place: Place) {
+        onSelect(place)
         dismiss()
     }
 }

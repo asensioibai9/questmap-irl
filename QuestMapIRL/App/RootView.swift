@@ -5,15 +5,20 @@ import SwiftData
 struct RootView: View {
     @AppStorage("questmap.onboardingDone") private var onboardingDone = false
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.colorScheme) private var systemScheme
     @Query private var settingsRows: [UserSettings]
 
     let environment: AppEnvironment
 
     private var settings: UserSettings? { settingsRows.first }
-    private var theme: MapTheme { ThemeCatalog.theme(for: settings?.themeID ?? .ciudadNocturna) }
 
-    /// Esquema de color efectivo: ajuste manual > tema > sistema.
+    /// Un tema sin estilo cartográfico terminado se sustituye por el tema por defecto, para que
+    /// el HUD y el mapa nunca queden desajustados.
+    private var theme: MapTheme {
+        let candidate = ThemeCatalog.theme(for: settings?.themeID ?? .ciudadNocturna)
+        return candidate.isCartographyReady ? candidate : ThemeCatalog.ciudadNocturna
+    }
+
+    /// Esquema de color efectivo: ajuste manual > tema.
     private var preferredScheme: ColorScheme? {
         switch settings?.nightModeOverride {
         case "day": return .light

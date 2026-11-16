@@ -1,13 +1,13 @@
 import CoreLocation
 import Observation
-import SwiftUI
 
-/// Estado de una navegación en curso. Recibe ubicaciones desde la vista
-/// y delega la geometría en NavigationEngine (dominio puro).
+/// Estado de una navegación en curso. Recibe lecturas REALES de ubicación y delega la geometría
+/// en `NavigationEngine` (dominio puro). No extrapola: si no llegan lecturas (túnel, sin señal), las
+/// instrucciones se pausan en vez de basarse en una estimación.
 @MainActor
 @Observable
 final class ActiveNavigationViewModel {
-    private(set) var route: RouteOption
+    private(set) var route: Route
     private(set) var snapshot = NavigationSnapshot()
     private(set) var isRecalculating = false
     private(set) var recalculationFailed = false
@@ -23,7 +23,7 @@ final class ActiveNavigationViewModel {
 
     private var engine: NavigationEngine
     private var offRouteCount = 0
-    private var announcedForStep: (index: Int, band: Int)?
+    private var announced: (index: Int, band: Int)?
     private var lastLocation: CLLocation?
     private var traveledMeters: Double = 0
     private var lastRecalculation = Date.distantPast
@@ -31,7 +31,7 @@ final class ActiveNavigationViewModel {
     private let routeService: RouteServiceProtocol
     private let speech: SpeechService
 
-    init(route: RouteOption, destinationName: String, destination: CLLocationCoordinate2D,
+    init(route: Route, destinationName: String, destination: CLLocationCoordinate2D,
          mode: RouteMode, routeService: RouteServiceProtocol, speech: SpeechService, useMetric: Bool) {
         self.route = route
         self.destinationName = destinationName
@@ -43,34 +43,45 @@ final class ActiveNavigationViewModel {
         self.engine = Self.makeEngine(route)
     }
 
-    var currentInstruction: String {
-        let steps = route.steps
-        guard snapshot.stepIndex < steps.count else { return "Has llegado a tu destino" }
-        let text = steps[snapshot.stepIndex].instruction
-        return text.isEmpty ? "Continúa por la ruta" : text
+    // MARK: - Datos para el HUD
+
+    private var upcomingStep: RouteStep? {
+        guard !route.steps.isEmpty else { return nil }
+        return route.steps[min(snapshot.upcomingIndex, route.steps.count - 1)]
     }
 
-    /// Instrucción del paso siguiente (para el HUD "después").
+    var currentInstruction: String { upcomingStep?.instruction ?? "Continúa por la ruta" }
+    var maneuverSymbol: String { upcomingStep?.symbol ?? "arrow.up" }
+    var upcomingStreet: String { upcomingStep?.streetName ?? "" }
+
     var nextInstruction: String? {
-        let steps = route.steps
-        let next = snapshot.stepIndex + 1
-        guard next < steps.count, !steps[next].instruction.isEmpty else { return nil }
-        return steps[next].instruction
+        let next = snapshot.upcomingIndex + 1
+        guard next < route.steps.count else { return nil }
+        let text = route.steps[next].instruction
+        return text.isEmpty ? nil : text
     }
 
-    var maneuverSymbol: String { ManeuverFormatter.symbol(for: currentInstruction) }
+    var nextSymbol: String {
+        let next = snapshot.upcomingIndex + 1
+        return next < route.steps.count ? route.steps[next].symbol : "arrow.up"
+    }
+
     var eta: Date { Date().addingTimeInterval(snapshot.remainingSeconds) }
+    var hasArrived: Bool { snapshot.hasArrived }
+
+    // MARK: - Ciclo
 
     func start() {
-        speech.announce("Empezamos la ruta hacia \(destinationName). " +
-                        ManeuverFormatter.spoken(instruction: currentInstruction,
-                                                 distance: snapshot.distanceToManeuver, metric: useMetric))
+        speech.announce("Empezamos la ruta hacia \(destinationName).")
     }
 
     func update(with location: CLLocation) {
+        // Lecturas inválidas: no se usan para guiar.
+        guard location.horizontalAccuracy >= 0 else { return }
+
         if let last = lastLocation {
             let delta = location.distance(from: last)
-            if delta < 200 { traveledMeters += delta }   // ignora teletransportes por mala señal
+            if delta < 200 { traveledMeters += delta }   // ignora saltos por mala señal
         }
         lastLocation = location
         speedKmh = max(0, location.speed) * 3.6
@@ -81,12 +92,15 @@ final class ActiveNavigationViewModel {
 
         if snapshot.hasArrived {
             speech.announce("Has llegado a tu destino.", interrupt: true)
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
             finished = true
             return
         }
 
-        offRouteCount = snapshot.isOffRoute ? offRouteCount + 1 : 0
+        // Recálculo: exige varias lecturas seguidas fuera de ruta, tolerancia según la precisión
+        // del GPS, descarta lecturas muy imprecisas y respeta una pausa entre peticiones.
+        let tolerance = max(engine.offRouteThreshold, location.horizontalAccuracy * 1.5)
+        let isOffRoute = snapshot.distanceFromRoute > tolerance && location.horizontalAccuracy <= 65
+        offRouteCount = isOffRoute ? offRouteCount + 1 : 0
         if offRouteCount >= 3, !isRecalculating, Date().timeIntervalSince(lastRecalculation) > 8 {
             Task { await recalculate(from: location.coordinate) }
         }
@@ -105,13 +119,14 @@ final class ActiveNavigationViewModel {
             destinationName: destinationName,
             destinationKey: FogGrid.key(for: destination),
             modeRawValue: mode.rawValue,
-            visitedKeys: visitedKeys.union(FogGrid.keys(along: route.route.polyline.coordinates))
+            visitedKeys: visitedKeys.union(FogGrid.keys(along: route.coordinates))
         )
     }
 
     // MARK: - Privado
 
-    /// Anuncia a ~500 m, ~150 m y en el punto; una vez por banda y paso.
+    /// Anuncia a ~500 m, ~150 m y en el punto; una vez por banda y paso. La primera maniobra
+    /// lejana se anuncia nada más empezar.
     private func announceIfNeeded() {
         let distance = snapshot.distanceToManeuver
         let band: Int
@@ -119,10 +134,13 @@ final class ActiveNavigationViewModel {
         case ..<40: band = 0
         case ..<180: band = 1
         case ..<550: band = 2
-        default: return
+        default: band = 3
         }
-        if let last = announcedForStep, last.index == snapshot.stepIndex, last.band <= band { return }
-        announcedForStep = (snapshot.stepIndex, band)
+        if let last = announced, last.index == snapshot.upcomingIndex, last.band <= band { return }
+        let isFirstAnnouncement = announced == nil
+        announced = (snapshot.upcomingIndex, band)
+        // Una maniobra lejana solo se anuncia al empezar (después, al acercarse).
+        if band == 3 && !isFirstAnnouncement { return }
         speech.announce(ManeuverFormatter.spoken(instruction: currentInstruction, distance: distance, metric: useMetric))
     }
 
@@ -136,7 +154,7 @@ final class ActiveNavigationViewModel {
             if let newRoute = try await routeService.routes(from: origin, to: destination, mode: mode).first {
                 route = newRoute
                 engine = Self.makeEngine(newRoute)
-                announcedForStep = nil
+                announced = nil
                 offRouteCount = 0
             }
         } catch {
@@ -145,9 +163,7 @@ final class ActiveNavigationViewModel {
         }
     }
 
-    private static func makeEngine(_ option: RouteOption) -> NavigationEngine {
-        NavigationEngine(points: option.route.polyline.coordinates,
-                         steps: option.steps,
-                         expectedSeconds: option.route.expectedTravelTime)
+    private static func makeEngine(_ route: Route) -> NavigationEngine {
+        NavigationEngine(points: route.coordinates, steps: route.stepInfos, expectedSeconds: route.durationSeconds)
     }
 }
