@@ -32,7 +32,7 @@ final class Phase4StylesTests: XCTestCase {
             routes.insert(route)
         }
         XCTAssertEqual(routes.count, resources.count, "cada estilo tiene su propia ruta")
-        for theme in [ThemeCatalog.salvajeOeste, .ciudadCiber, .mapaFantasia, .redUrbana, .rutasRally] {
+        for theme in [ThemeCatalog.salvajeOeste, ThemeCatalog.ciudadCiber, ThemeCatalog.mapaFantasia, ThemeCatalog.redUrbana, ThemeCatalog.rutasRally] {
             XCTAssertTrue(theme.isCartographyReady, theme.name)
         }
     }
