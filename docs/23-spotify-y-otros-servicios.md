@@ -51,3 +51,12 @@ Fuentes consultadas: [Spotify iOS SDK](https://github.com/spotify/ios-sdk), [Ama
 ## CarPlay
 
 No hay controles de música en la interfaz de CarPlay de QuestMap IRL: la categoría de navegación no garantiza plantillas de audio y esta app no es la fuente de la música. No se publican metadatos de Spotify como propios. La navegación convive con la música del sistema (la voz baja el volumen y lo recupera). No se usa audio silencioso.
+
+## «Cualquier app (experimental)» · API privada (añadido a petición del usuario)
+
+Tercer servicio en Ajustes › Música. Usa el framework PRIVADO de Apple `MediaRemote` (el del Centro de control), cargado en tiempo de ejecución con `dlopen`/`dlsym`, para leer título, artista, carátula y estado de lo que suene en cualquier app y enviar reproducir/pausar/siguiente/anterior.
+
+- **Solo uso personal.** App Store rechaza apps con APIs privadas; hay que quitarlo (o no ofrecerlo) antes de publicar.
+- **Puede no funcionar.** Apple restringe este acceso a procesos con permisos internos; es muy posible que en iOS 17+ las consultas vuelvan vacías y las órdenes se ignoren. Si no se puede cargar, aparece «no disponible»; si se carga pero iOS no da datos, «sin información». No se inventa ninguna canción.
+- **Sin sondeo:** se actualiza con las notificaciones del propio sistema.
+- **Sin verificar en iPhone.**

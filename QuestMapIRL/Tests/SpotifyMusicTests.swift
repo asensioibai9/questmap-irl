@@ -294,6 +294,7 @@ final class SpotifyMusicTests: XCTestCase {
     }
 
     func testOnlyRealIntegrationsAreOffered() {
-        XCTAssertEqual(MusicServiceID.allCases, [.appleMusic, .spotify])
+        XCTAssertEqual(MusicServiceID.allCases, [.appleMusic, .spotify, .systemExperimental])
+        XCTAssertTrue(MusicServiceID.systemExperimental.title.contains("experimental"), "no se presenta como integración garantizada")
     }
 }

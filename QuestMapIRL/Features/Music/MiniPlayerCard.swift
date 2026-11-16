@@ -99,7 +99,8 @@ struct MiniPlayerCard: View {
         case .playing, .paused:
             if let artist = model.track?.artist, !artist.isEmpty { return "\(name) · \(artist)" }
             return model.track == nil ? "\(name) · sin datos de la canción" : name
-        case .noPlaybackInfo: return "\(name) · inicia música en la app"
+        case .noPlaybackInfo:
+            return model.service == .systemExperimental ? "Si suena algo y no sale aquí, iOS bloquea esta vía" : "\(name) · inicia música en la app"
         case .notConfigured: return "Conecta \(name) para controlarla"
         case .connecting: return model.service == .spotify ? "Vuelve aquí tras aceptar en Spotify" : "Acepta el permiso del sistema"
         case .denied: return model.service == .appleMusic ? "Actívalo en Ajustes del iPhone" : "Spotify rechazó la autorización"
@@ -184,6 +185,8 @@ enum MusicServiceNotes {
         switch service {
         case .appleMusic:
             return "Controla lo que suena en la app Música del iPhone. Conectar solo pide permiso de lectura: no cambia tu cola ni inicia música. Para revocar el permiso, usa Ajustes del iPhone."
+        case .systemExperimental:
+            return "EXPERIMENTAL · usa una API privada de Apple (MediaRemote) para ver y controlar lo que suene en cualquier app (YouTube Music, podcasts, radio…). Solo para uso personal: App Store rechaza apps que la usan, puede dejar de funcionar con cualquier actualización de iOS y es muy posible que iOS 17 o posterior la bloquee y no muestre nada. Para saberlo hay que probarlo con música sonando."
         case .spotify:
             return "Controla la app de Spotify instalada (no reproduce dentro de esta app). Requisitos: la app de Spotify instalada y con sesión iniciada; un Client ID propio en Spotify for Developers con el Redirect URI questmap-irl://spotify-login-callback; en modo desarrollo, el dueño necesita Spotify Premium y solo pueden usarlo hasta 5 usuarios añadidos a la lista. Saltar canciones depende de lo que permita tu cuenta. La conexión se corta al salir de la app y se recupera al volver si Spotify está abierto."
         }

@@ -4,6 +4,8 @@ import UIKit
 enum MusicServiceID: String, CaseIterable, Identifiable {
     case appleMusic
     case spotify
+    /// EXPERIMENTAL: cualquier app vía API privada de Apple (solo uso personal; puede no funcionar).
+    case systemExperimental
 
     var id: String { rawValue }
 
@@ -11,6 +13,7 @@ enum MusicServiceID: String, CaseIterable, Identifiable {
         switch self {
         case .appleMusic: return "Apple Música"
         case .spotify: return "Spotify"
+        case .systemExperimental: return "Cualquier app (experimental)"
         }
     }
 
@@ -18,6 +21,7 @@ enum MusicServiceID: String, CaseIterable, Identifiable {
         switch self {
         case .appleMusic: return "music.note"
         case .spotify: return "dot.radiowaves.left.and.right"
+        case .systemExperimental: return "waveform"
         }
     }
 }
