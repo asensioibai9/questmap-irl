@@ -116,8 +116,17 @@ struct HomeView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             // Fuera de navegación, el GPS se apaga en segundo plano para ahorrar batería.
+            // Navegando, la voz y el GPS siguen en segundo plano; si no, se para todo.
             guard navigation == nil else { return }
-            if phase == .active { location.start(mode: .idle) } else { location.stop() }
+            if phase == .active {
+                location.start(mode: .idle)
+            } else {
+                location.stop()
+                environment.speech.stopImmediately()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
+            environment.speech.stopImmediately()
         }
         .onChange(of: location.smoothedLocation) { _, _ in pushUser() }
         .onChange(of: location.displayHeading) { _, _ in pushUser() }
@@ -583,7 +592,13 @@ struct HomeView: View {
         navDisplay = .map
         showFullRoute = false
         location.setMode(.idle)
-        environment.speech.stop()
+        if session.hasArrived {
+            // Llegada: deja terminar "Has llegado a tu destino" en vez de cortarla.
+            environment.speech.releaseAfterSpeaking()
+        } else {
+            // Cancelación o cambio de destino: se corta cualquier voz pendiente.
+            environment.speech.stopImmediately()
+        }
         UIApplication.shared.isIdleTimerDisabled = false
         clearRoute()
         detent = .compactPanel

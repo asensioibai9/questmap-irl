@@ -27,6 +27,7 @@ final class ActiveNavigationViewModel {
     private var lastLocation: CLLocation?
     private var traveledMeters: Double = 0
     private var lastRecalculation = Date.distantPast
+    private var hasStarted = false
 
     private let routeService: RouteServiceProtocol
     private let speech: SpeechService
@@ -72,6 +73,9 @@ final class ActiveNavigationViewModel {
     // MARK: - Ciclo
 
     func start() {
+        // Si se inicia dos veces, el aviso de inicio suena solo una.
+        guard !hasStarted else { return }
+        hasStarted = true
         speech.announce("Empezamos la ruta hacia \(destinationName).")
     }
 
@@ -106,8 +110,9 @@ final class ActiveNavigationViewModel {
         }
     }
 
+    /// Cancelar la navegación: se corta cualquier voz pendiente.
     func stop() {
-        speech.stop()
+        speech.stopImmediately()
         finished = true
     }
 
