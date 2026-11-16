@@ -13,6 +13,7 @@ struct ProfileSheetView: View {
 
     @State private var confirmErase = false
     @State private var erased = false
+    @State private var eraseFailed = false
 
     private var settings: UserSettings? { settingsRows.first }
     private var theme: MapTheme { ThemeCatalog.theme(for: settings?.themeID ?? .ciudadNocturna) }
@@ -86,12 +87,16 @@ struct ProfileSheetView: View {
         .tint(theme.accent)
         .confirmationDialog("¿Eliminar tus datos?", isPresented: $confirmErase, titleVisibility: .visible) {
             Button("Eliminar mis datos", role: .destructive) {
-                DataEraser.eraseAll(context: context, speech: environment.speech)
-                erased = true
+                if DataEraser.eraseAll(context: context, speech: environment.speech) { erased = true } else { eraseFailed = true }
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
             Text(DataEraser.explanation)
+        }
+        .alert("No se pudieron eliminar los datos", isPresented: $eraseFailed) {
+            Button("Entendido", role: .cancel) {}
+        } message: {
+            Text("No se ha borrado nada. Inténtalo de nuevo.")
         }
         .alert("Datos eliminados", isPresented: $erased) {
             Button("Entendido", role: .cancel) {}
@@ -115,16 +120,29 @@ struct ProfileSheetView: View {
 enum DataEraser {
     static let explanation = "Se eliminarán de este iPhone: Casa, Trabajo y lugares guardados, el historial de búsquedas, tus rutas y estadísticas, las zonas exploradas y tus preferencias (estilo de mapa, avatar, voz y ajustes). No afecta a datos que tengan los servicios externos de mapas, búsqueda y rutas."
 
+    /// Devuelve false si no se pudo borrar (no se muestra «Datos eliminados» en ese caso).
     @MainActor
-    static func eraseAll(context: ModelContext, speech: SpeechService) {
-        try? context.delete(model: SavedPlace.self)
-        try? context.delete(model: RecentSearch.self)
-        try? context.delete(model: TripRecord.self)
-        try? context.delete(model: VisitedCell.self)
-        try? context.delete(model: UserSettings.self)
-        context.insert(UserSettings())
-        try? context.save()
+    @discardableResult
+    static func eraseAll(context: ModelContext, speech: SpeechService) -> Bool {
+        do {
+            try eraseStoredData(context: context)
+        } catch {
+            return false
+        }
         speech.resetPreferences()
         speech.isMuted = false
+        return true
+    }
+
+    /// Borra casa, trabajo, favoritos, historial, viajes, zonas y ajustes, y guarda. Separado para poder probarlo.
+    @MainActor
+    static func eraseStoredData(context: ModelContext) throws {
+        try context.delete(model: SavedPlace.self)
+        try context.delete(model: RecentSearch.self)
+        try context.delete(model: TripRecord.self)
+        try context.delete(model: VisitedCell.self)
+        try context.delete(model: UserSettings.self)
+        context.insert(UserSettings())
+        try PersistenceCommit.save(context, operation: "erase-all")
     }
 }

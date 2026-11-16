@@ -43,6 +43,9 @@ struct HomeView: View {
     @State private var mapLoad: MapLoadState = .loading
     @State private var mapToken = 0
     @State private var pendingPlace: Place?
+    @State private var failedPersonalAction: PersonalAction?
+    @State private var failedFavoriteSave = false
+    @State private var showTemporaryStorageNotice = false
     @State private var locationNotice: LocationNotice?
     @State private var viewHeight: CGFloat = 800
     @State private var map = MapController()
@@ -427,7 +430,8 @@ struct HomeView: View {
                     onProfile: { modal = .profile },
                     onShowSaved: { modal = .saved },
                     onPickAddress: { kind in modal = .address(kind == .home ? .home : .work) },
-                    onChooseZone: { modal = .address(.zone) }
+                    onChooseZone: { modal = .address(.zone) },
+                    onDeletePlace: { kind in perform(.delete(kind)) }
                 )
             }
         }
@@ -440,6 +444,26 @@ struct HomeView: View {
         .preferredColorScheme(.dark)
         .tint(theme.accent)
         .sheet(item: $modal) { modalView($0) }
+        .alert("No se pudo guardar", isPresented: Binding(get: { failedPersonalAction != nil },
+                                                          set: { if !$0 { failedPersonalAction = nil } })) {
+            Button("Reintentar") { if let action = failedPersonalAction { perform(action) } }
+            Button("Cancelar", role: .cancel) { failedPersonalAction = nil }
+        } message: {
+            Text("El cambio en Casa/Trabajo no se ha guardado y tus datos anteriores siguen intactos. Puedes reintentarlo.")
+        }
+        .alert("No se pudo guardar el lugar", isPresented: $failedFavoriteSave) {
+            Button("Entendido", role: .cancel) {}
+        } message: {
+            Text("Inténtalo de nuevo en unos segundos.")
+        }
+        .alert("Almacenamiento temporal", isPresented: $showTemporaryStorageNotice) {
+            Button("Entendido", role: .cancel) {}
+        } message: {
+            Text("No se ha podido abrir el almacenamiento del iPhone. Lo que guardes ahora (Casa, Trabajo…) se perderá al cerrar la app. Reinicia el iPhone o libera espacio e inténtalo de nuevo.")
+        }
+        .onAppear {
+            if PersistenceStatus.shared.mode == .temporary { showTemporaryStorageNotice = true }
+        }
     }
 
     @ViewBuilder
@@ -777,11 +801,17 @@ struct HomeView: View {
 
     /// Casa y Trabajo: solo uno de cada; la dirección se guarda en la nota.
     private func saveSingle(kind: PlaceKind, place: Place) {
-        savedPlaces.filter { $0.kindRawValue == kind.rawValue }.forEach(modelContext.delete)
-        let address = place.subtitle.isEmpty ? place.name : "\(place.name), \(place.subtitle)"
-        modelContext.insert(SavedPlace(name: kind == .home ? "Casa" : "Trabajo", note: address,
-                                       iconName: kind == .home ? "house.fill" : "briefcase.fill",
-                                       kind: kind, latitude: place.latitude, longitude: place.longitude))
+        perform(.set(kind, place))
+    }
+
+    /// Guarda o borra Casa/Trabajo AL MOMENTO (no al cerrar la app). Si falla, se avisa y se puede reintentar.
+    private func perform(_ action: PersonalAction) {
+        do {
+            try PersonalPlaceStore(context: modelContext).apply(action)
+            failedPersonalAction = nil
+        } catch {
+            failedPersonalAction = action
+        }
     }
 
     private func save(kind: PlaceKind) {
@@ -792,6 +822,7 @@ struct HomeView: View {
         case .favorite, .pin:
             modelContext.insert(SavedPlace(name: destination.name, note: destination.subtitle, iconName: "star.fill",
                                            kind: kind, latitude: destination.latitude, longitude: destination.longitude))
+            do { try PersistenceCommit.save(modelContext, operation: "favorite") } catch { failedFavoriteSave = true }
         }
     }
 }

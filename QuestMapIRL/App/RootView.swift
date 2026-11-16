@@ -5,6 +5,7 @@ import SwiftData
 struct RootView: View {
     @AppStorage("questmap.onboardingDone") private var onboardingDone = false
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query private var settingsRows: [UserSettings]
 
     /// La animación de inicio se muestra una vez por arranque de la app (no al volver del segundo plano).
@@ -44,6 +45,15 @@ struct RootView: View {
             // Garantiza una única fila de ajustes antes de que la UI la edite.
             if settingsRows.isEmpty { modelContext.insert(UserSettings()) }
             environment.speech.isMuted = !(settings?.voiceEnabled ?? true)
+            // Casa/Trabajo: deja un único registro de cada uno y anota (sin datos personales) si se recuperaron.
+            let store = PersonalPlaceStore(context: modelContext)
+            store.normalizeDuplicates()
+            StorageDiagnostics.record(operation: "startup", outcome: "ok",
+                                      note: "modo=\(PersistenceStatus.shared.mode == .persistent ? "disco" : "temporal") \(store.presenceSummary)")
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Red de seguridad: al salir de primer plano se guarda cualquier cambio pendiente.
+            if phase != .active { PersistenceCommit.saveQuietly(modelContext, operation: "scene-\(phase)") }
         }
     }
 }

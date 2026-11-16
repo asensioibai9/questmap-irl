@@ -102,6 +102,7 @@ struct SavedPlacesView: View {
 
     let onSelect: (Place) -> Void
     let onShowOnMap: (Place) -> Void
+    @State private var deleteFailed = false
 
     private var favorites: [SavedPlace] {
         saved.filter { $0.kindRawValue == PlaceKind.favorite.rawValue || $0.kindRawValue == PlaceKind.pin.rawValue }
@@ -129,7 +130,10 @@ struct SavedPlacesView: View {
                                 .buttonStyle(PressableStyle())
                                 Menu {
                                     Button { onShowOnMap(item.asPlace); dismiss() } label: { Label("Ver en el mapa", systemImage: "map") }
-                                    Button(role: .destructive) { context.delete(item) } label: { Label("Eliminar", systemImage: "trash") }
+                                    Button(role: .destructive) {
+                                        context.delete(item)
+                                        do { try PersistenceCommit.save(context, operation: "favorite-delete") } catch { deleteFailed = true }
+                                    } label: { Label("Eliminar", systemImage: "trash") }
                                 } label: {
                                     Image(systemName: "ellipsis")
                                         .foregroundStyle(AppColor.textSecondary)
@@ -145,6 +149,11 @@ struct SavedPlacesView: View {
         }
         .background(AppColor.background.ignoresSafeArea())
         .preferredColorScheme(.dark)
+        .alert("No se pudo eliminar", isPresented: $deleteFailed) {
+            Button("Entendido", role: .cancel) {}
+        } message: {
+            Text("El lugar sigue guardado. Inténtalo de nuevo.")
+        }
     }
 }
 

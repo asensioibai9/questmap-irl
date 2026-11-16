@@ -32,8 +32,11 @@ struct SearchPanelView: View {
     var onShowSaved: () -> Void
     var onPickAddress: (PlaceKind) -> Void
     var onChooseZone: () -> Void
+    /// Borra solo Casa o solo Trabajo (la persistencia la hace quien llama, con guardado explícito).
+    var onDeletePlace: (PlaceKind) -> Void = { _ in }
 
     @FocusState private var focused: Bool
+    @State private var pendingDelete: PlaceKind?
     @State private var confirmClear = false
     @State private var showAllRecents = false
 
@@ -68,10 +71,24 @@ struct SearchPanelView: View {
             if phase == .results || phase == .empty || phase == .needsLocation { focused = false; detent = .medium }
         }
         .confirmationDialog("¿Borrar el historial de búsquedas?", isPresented: $confirmClear, titleVisibility: .visible) {
-            Button("Borrar historial", role: .destructive) { recents.forEach(context.delete) }
+            Button("Borrar historial", role: .destructive) {
+                recents.forEach(context.delete)
+                PersistenceCommit.saveQuietly(context, operation: "recents-clear")
+            }
             Button("Cancelar", role: .cancel) {}
         } message: {
             Text("Solo se borra el historial de este dispositivo.")
+        }
+        .confirmationDialog(pendingDelete == .home ? "¿Eliminar Casa?" : "¿Eliminar Trabajo?",
+                            isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+                            titleVisibility: .visible) {
+            Button(pendingDelete == .home ? "Eliminar Casa" : "Eliminar Trabajo", role: .destructive) {
+                if let kind = pendingDelete { onDeletePlace(kind) }
+                pendingDelete = nil
+            }
+            Button("Cancelar", role: .cancel) { pendingDelete = nil }
+        } message: {
+            Text("Solo se elimina este acceso; no afecta a tu otra ubicación guardada.")
         }
     }
 
@@ -126,7 +143,7 @@ struct SearchPanelView: View {
                 Button { onSelect(item.asPlace) } label: { Label("Ir ahora", systemImage: "arrow.triangle.turn.up.right.circle") }
                 Button { onShowOnMap(item.asPlace) } label: { Label("Ver en el mapa", systemImage: "map") }
                 Button { onPickAddress(kind) } label: { Label("Editar dirección", systemImage: "pencil") }
-                Button(role: .destructive) { context.delete(item) } label: { Label("Eliminar", systemImage: "trash") }
+                Button(role: .destructive) { pendingDelete = kind } label: { Label("Eliminar", systemImage: "trash") }
             }
         }
     }
@@ -155,7 +172,10 @@ struct SearchPanelView: View {
                                             distance: distance(to: item.place.coordinate))
                         }
                         .buttonStyle(PressableStyle())
-                        Button { context.delete(item) } label: {
+                        Button {
+                            context.delete(item)
+                            PersistenceCommit.saveQuietly(context, operation: "recent-delete")
+                        } label: {
                             Image(systemName: "xmark")
                                 .font(.footnote.weight(.bold))
                                 .foregroundStyle(AppColor.textSecondary)
@@ -294,6 +314,7 @@ struct SearchPanelView: View {
         recents.filter { $0.placeID == place.id }.forEach(context.delete)
         context.insert(RecentSearch(place: place))
         for old in recents.dropFirst(29) { context.delete(old) }
+        PersistenceCommit.saveQuietly(context, operation: "recent-add")
     }
 
     private func distance(to coordinate: CLLocationCoordinate2D) -> String? {
