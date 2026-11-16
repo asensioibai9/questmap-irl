@@ -75,6 +75,12 @@ struct HomeView: View {
     // MARK: - Cuerpo
 
     var body: some View {
+        settingsHandlers(routeHandlers(locationHandlers(screen)))
+    }
+
+    /// Pantalla sin reacciones a cambios de estado (se reparten en tres grupos para que el compilador
+    /// pueda comprobar los tipos en un tiempo razonable).
+    private var screen: some View {
         ZStack {
             mapLayer
             if let navigation {
@@ -111,6 +117,10 @@ struct HomeView: View {
         })
         .animation(.smooth, value: viewModel.destination != nil)
         .sheet(isPresented: $showPanel) { panelSheet }
+    }
+
+    private func locationHandlers<V: View>(_ view: V) -> some View {
+        view
         .onAppear(perform: setUp)
         .onChange(of: startupFinished) { _, finished in if finished { afterStartup() } }
         .onChange(of: location.authState) { _, state in
@@ -140,6 +150,10 @@ struct HomeView: View {
             guard let reading, let navigation else { return }
             navigation.update(with: reading)
         }
+    }
+
+    private func routeHandlers<V: View>(_ view: V) -> some View {
+        view
         .onChange(of: navigation?.finished) { _, finished in
             if finished == true { endNavigation() }
         }
@@ -171,6 +185,10 @@ struct HomeView: View {
                 recenter()
             }
         }
+    }
+
+    private func settingsHandlers<V: View>(_ view: V) -> some View {
+        view
         .onChange(of: settings?.headingUp) { _, value in
             guard let value else { return }
             viewModel.headingUp = value
