@@ -134,7 +134,7 @@ final class ServiceClientTests: XCTestCase {
                                        code: nil, httpStatus: 200, durationMs: i, attempt: 1, note: nil))
         }
         XCTAssertEqual(log.events.map(\.operation), ["op2", "op3", "op4"])
-        Thread.sleep(forTimeInterval: 0.3)                       // escritura en segundo plano
+        log.flush()                                              // espera a la escritura en segundo plano
         XCTAssertEqual(DiagnosticsLog(fileURL: file, capacity: 3).events.map(\.operation), ["op2", "op3", "op4"])
         XCTAssertTrue(log.report(header: ["cabecera"]).contains("cabecera"))
     }

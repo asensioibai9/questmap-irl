@@ -72,6 +72,11 @@ final class DiagnosticsLog: @unchecked Sendable {
         persist(snapshot)
     }
 
+    /// Espera a que terminen las escrituras pendientes en disco (útil en pruebas y antes de exportar).
+    func flush() {
+        writeQueue.sync {}
+    }
+
     func clear() {
         lock.lock(); stored.removeAll(); lock.unlock()
         persist([])
