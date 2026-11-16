@@ -141,7 +141,9 @@ final class ActiveNavigationViewModel {
         announced = (snapshot.upcomingIndex, band)
         // Una maniobra lejana solo se anuncia al empezar (después, al acercarse).
         if band == 3 && !isFirstAnnouncement { return }
-        speech.announce(ManeuverFormatter.spoken(instruction: currentInstruction, distance: distance, metric: useMetric))
+        // La primera indicación se encola tras "Empezamos la ruta"; las demás cancelan la anterior.
+        speech.announce(ManeuverFormatter.spoken(instruction: currentInstruction, distance: distance, metric: useMetric),
+                        interrupt: !isFirstAnnouncement)
     }
 
     private func recalculate(from origin: CLLocationCoordinate2D) async {

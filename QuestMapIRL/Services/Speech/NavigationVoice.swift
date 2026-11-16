@@ -177,7 +177,7 @@ final class NavigationVoice {
     @ObservationIgnored private let synthesizer: SpeechSynthesizing
     @ObservationIgnored private let session: AudioSessionControlling
     @ObservationIgnored private let voices: () -> [VoiceInfo]
-    @ObservationIgnored private let delegate = SynthesizerDelegate()
+    @ObservationIgnored private let delegate: SynthesizerDelegate
     @ObservationIgnored private var lastSpoken: String?
     @ObservationIgnored private var pending = 0
 
@@ -185,6 +185,8 @@ final class NavigationVoice {
          synthesizer: SpeechSynthesizing? = nil,
          session: AudioSessionControlling = SystemAudioSession(),
          voices: @escaping () -> [VoiceInfo] = NavigationVoice.installedVoices) {
+        let delegate = SynthesizerDelegate()
+        self.delegate = delegate
         self.defaults = defaults
         self.session = session
         self.voices = voices
@@ -204,7 +206,7 @@ final class NavigationVoice {
         try? session.configure()
     }
 
-    static func installedVoices() -> [VoiceInfo] {
+    nonisolated static func installedVoices() -> [VoiceInfo] {
         AVSpeechSynthesisVoice.speechVoices().map(VoiceInfo.init)
     }
 

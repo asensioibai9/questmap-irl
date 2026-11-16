@@ -181,9 +181,10 @@ struct NavigationSettingsView: View {
                     get: { settings.voiceEnabled },
                     set: { settings.voiceEnabled = $0; speech.isMuted = !$0 }
                 ))
-                Picker("Voz", selection: $speech.style) {
-                    ForEach(SpeechService.VoiceStyle.allCases) { Text($0.title).tag($0) }
+                Picker("Voz de navegación", selection: $speech.gender) {
+                    ForEach(NavigationVoiceGender.allCases) { Text($0.title).tag($0) }
                 }
+                .pickerStyle(.segmented)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text("Volumen")
@@ -192,14 +193,23 @@ struct NavigationSettingsView: View {
                     }
                     Slider(value: Binding(get: { Double(speech.volume) }, set: { speech.volume = Float($0) }), in: 0.2...1)
                 }
-                Button("Probar voz") {
-                    speech.announce("En doscientos metros, gira a la derecha.", interrupt: true)
+                Button { speech.playTest() } label: {
+                    Label("Escuchar prueba de voz", systemImage: "speaker.wave.2.fill")
                 }
-                .disabled(!settings.voiceEnabled)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(speech.statusText)
+                        .font(.footnote)
+                        .foregroundStyle(AppColor.textSecondary)
+                    if let warning = speech.warning {
+                        Label(warning, systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
+                }
             } header: {
-                Text("Voz")
+                Text("Voz de navegación")
             } footer: {
-                Text("Las indicaciones se dicen en español con las voces del sistema. El volumen se aplica sobre el volumen del iPhone.")
+                Text("Las indicaciones se dicen en español con las voces instaladas en el iPhone. El volumen se aplica sobre el volumen del sistema. El botón de prueba suena aunque las indicaciones estén desactivadas.")
             }
 
             Section("Mapa") {
