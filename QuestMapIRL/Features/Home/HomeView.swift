@@ -46,6 +46,7 @@ struct HomeView: View {
     @State private var failedPersonalAction: PersonalAction?
     @State private var failedFavoriteSave = false
     @State private var showTemporaryStorageNotice = false
+    @State private var storeSetAside = false
     @State private var locationNotice: LocationNotice?
     @State private var viewHeight: CGFloat = 800
     @State private var map = MapController()
@@ -458,8 +459,14 @@ struct HomeView: View {
         }
         .alert("Almacenamiento temporal", isPresented: $showTemporaryStorageNotice) {
             Button("Entendido", role: .cancel) {}
+            Button("Apartar datos y reiniciar", role: .destructive) { setAsideBrokenStore() }
         } message: {
-            Text("No se ha podido abrir el almacenamiento del iPhone. Lo que guardes ahora (Casa, Trabajo…) se perderá al cerrar la app. Reinicia el iPhone o libera espacio e inténtalo de nuevo.")
+            Text("No se ha podido abrir el almacenamiento de la app. Lo que guardes ahora se perderá al cerrarla. Tus datos antiguos NO se han borrado: hay una copia en la app. Código: \(PersistenceStatus.shared.lastError ?? "desconocido"). «Apartar datos y reiniciar» mueve el archivo antiguo a una carpeta de copias (no lo borra) para empezar limpio al volver a abrir la app.")
+        }
+        .alert("Datos apartados", isPresented: $storeSetAside) {
+            Button("Entendido", role: .cancel) {}
+        } message: {
+            Text("Cierra la app del todo y vuelve a abrirla.")
         }
         .onAppear {
             if PersistenceStatus.shared.mode == .temporary { showTemporaryStorageNotice = true }
@@ -811,6 +818,15 @@ struct HomeView: View {
             failedPersonalAction = nil
         } catch {
             failedPersonalAction = action
+        }
+    }
+
+    private func setAsideBrokenStore() {
+        do {
+            _ = try StoreBackup.setAside()
+            storeSetAside = true
+        } catch {
+            StorageDiagnostics.record(operation: "set-aside", outcome: "error", note: StorageErrorInfo.describe(error))
         }
     }
 

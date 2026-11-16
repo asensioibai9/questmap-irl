@@ -102,4 +102,32 @@ final class LegacyStoreMigrationTests: XCTestCase {
         let second = try open()
         XCTAssertEqual(try ModelContext(second).fetch(FetchDescriptor<SavedPlace>()).count, 1)
     }
+
+    // MARK: Copias de seguridad (nunca se borra el original)
+
+    func testBackupCopiesStoreOncePerVersionAndKeepsOriginal() throws {
+        try writeVersion0Store()
+        let defaults = UserDefaults(suiteName: "questmap-test-\(UUID().uuidString)")!
+        let backups = directory.appendingPathComponent("backups")
+        let first = StoreBackup.backupIfNeeded(storeURL: storeURL, tag: "1.0-1", defaults: defaults, backupsDirectory: backups)
+        XCTAssertNotNil(first)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: try XCTUnwrap(first).appendingPathComponent("default.store").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: storeURL.path), "el original sigue en su sitio")
+        XCTAssertNil(StoreBackup.backupIfNeeded(storeURL: storeURL, tag: "1.0-1", defaults: defaults, backupsDirectory: backups),
+                     "no se repite para la misma versión")
+    }
+
+    func testSetAsideMovesFilesWithoutDeletingThem() throws {
+        try writeVersion0Store()
+        let backups = directory.appendingPathComponent("backups")
+        let folder = try StoreBackup.setAside(storeURL: storeURL, backupsDirectory: backups)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storeURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("default.store").path))
+    }
+
+    func testErrorInfoHasDomainAndCodeOnly() {
+        let error = NSError(domain: "NSCocoaErrorDomain", code: 134110,
+                            userInfo: [NSUnderlyingErrorKey: NSError(domain: "NSSQLiteErrorDomain", code: 1)])
+        XCTAssertTrue(StorageErrorInfo.describe(error).hasPrefix("NSCocoaErrorDomain#134110 > NSSQLiteErrorDomain#1"))
+    }
 }

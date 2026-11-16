@@ -2,16 +2,17 @@ import Foundation
 import SwiftData
 
 /// Ajustes del usuario (una sola fila). Se guarda en SwiftData, en el dispositivo.
-/// Las propiedades añadidas después de la primera versión llevan valor por defecto para que la
-/// migración automática no falle.
+/// REGLA: toda propiedad lleva valor por defecto EN EL MODELO (no solo en el init). Sin él, la migración
+/// automática de un almacén creado por una versión anterior falla («loadIssueModelContainer») y la app
+/// no puede abrir los datos guardados. Cubierto por LegacyStoreMigrationTests.
 @Model
 final class UserSettings {
-    var themeRawValue: String
-    var useMetricUnits: Bool
-    var voiceEnabled: Bool
+    var themeRawValue: String = MapThemeID.ciudadNocturna.rawValue
+    var useMetricUnits: Bool = true
+    var voiceEnabled: Bool = true
     var nightModeOverride: String = "auto"   // sin uso en la interfaz; se conserva por compatibilidad
-    var headingUp: Bool             // true: el mapa gira con el rumbo; false: norte arriba
-    var showCompass: Bool
+    var headingUp: Bool = true      // true: el mapa gira con el rumbo; false: norte arriba
+    var showCompass: Bool = true
     var mapAvatarRaw: String = MapAvatar.arrow.rawValue
     var saveSearchHistory: Bool = true
     var defaultModeRaw: String = RouteMode.driving.rawValue
