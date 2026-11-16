@@ -108,6 +108,7 @@ struct HomeView: View {
                     miniMap: miniMap,
                     useMetric: useMetric,
                     onRecenter: recenter,
+                    music: environment.music,
                     supports3D: supports3D,
                     is3D: view3D,
                     onToggle3D: toggle3D,
@@ -150,9 +151,12 @@ struct HomeView: View {
             case .active:
                 location.start(mode: .idle)
                 location.refreshNow()          // lectura fresca al volver a la app
+                environment.music.activate()
+                environment.music.refresh()
             case .background:
                 location.stop()
                 environment.speech.stopImmediately()
+                environment.music.deactivate()
             default:
                 break                          // .inactive (diálogo del sistema, centro de control): no se para el GPS
             }
@@ -211,6 +215,8 @@ struct HomeView: View {
             recenter()
         }
         .onChange(of: settings?.mapAvatar) { _, avatar in applyAvatar(avatar) }
+        .onChange(of: settings?.showMiniPlayer) { _, _ in applyMusicSettings() }
+        .onChange(of: settings?.musicConnected) { _, _ in applyMusicSettings() }
         .onChange(of: settings?.showSpeedLimit) { _, value in navigation?.setShowsSpeedLimit(value ?? true) }
         .onChange(of: supports3D) { _, _ in apply3D(animated: false) }
         .onChange(of: settings?.view3D) { _, _ in apply3D(animated: true) }
@@ -278,6 +284,23 @@ struct HomeView: View {
                 }
             }
             .ignoresSafeArea()
+
+            if environment.music.isVisible && detent != .large {
+                GeometryReader { proxy in
+                    VStack {
+                        Spacer()
+                        HStack {
+                            MiniPlayerCard(model: environment.music)
+                                .frame(maxWidth: min(340, proxy.size.width - 100))
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.leading, 12)
+                        .padding(.bottom, attributionBottomInset(screenHeight: proxy.size.height) + 28)
+                    }
+                }
+                .ignoresSafeArea()
+                .animation(.smooth, value: detent)
+            }
 
             HStack {
                 Spacer()
@@ -653,6 +676,13 @@ struct HomeView: View {
         }
         map.onFollowCancelled = { viewModel.isFollowing = false }
         applyAvatar(settings?.mapAvatar)
+        let context = modelContext
+        environment.music.onConnectedChanged = { connected in
+            guard let stored = try? context.fetch(FetchDescriptor<UserSettings>()).first else { return }
+            stored.musicConnected = connected
+            PersistenceCommit.saveQuietly(context, operation: "music-connected")
+        }
+        applyMusicSettings()
         apply3D(animated: false)
         pushSavedPlaces()
         if startupFinished { afterStartup() } else { location.start(mode: .idle) }
@@ -672,6 +702,12 @@ struct HomeView: View {
             try? await Task.sleep(for: .seconds(delay))
             if navigation == nil, startupFinished { showPanel = true }
         }
+    }
+
+    /// Aplica los ajustes de música guardados. No pide permisos ni inicia música.
+    private func applyMusicSettings() {
+        environment.music.configure(enabled: settings?.showMiniPlayer ?? false, connected: settings?.musicConnected ?? false)
+        environment.music.activate()
     }
 
     private func applyAvatar(_ avatar: MapAvatar?) {

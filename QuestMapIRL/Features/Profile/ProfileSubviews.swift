@@ -265,6 +265,8 @@ struct NavigationSettingsView: View {
                 Text("El límite se obtiene de OpenStreetMap a través de un servicio público (Valhalla): al activarlo, la geometría de la ruta se envía a ese servicio. Solo aparece cuando hay dato fiable del tramo; puede estar incompleto o desactualizado y prevalece la señalización real. Desactivado, no se hace ninguna consulta.")
             }
 
+            musicSection(settings)
+
             Section("Mapa") {
                 Picker("Orientación", selection: $settings.headingUp) {
                     Text("Rumbo arriba").tag(true)
@@ -313,6 +315,34 @@ struct NavigationSettingsView: View {
         }
         .scrollContentBackground(.hidden)
         .preferredColorScheme(.dark)
+    }
+
+    @ViewBuilder
+    private func musicSection(_ settings: UserSettings) -> some View {
+        @Bindable var settings = settings
+        let music = environment.music
+        Section {
+            Toggle("Mostrar minirreproductor", isOn: $settings.showMiniPlayer)
+                .onChange(of: settings.showMiniPlayer) { _, _ in PersistenceCommit.saveQuietly(context, operation: "mini-player-setting") }
+            Picker("Servicio", selection: $settings.musicServiceRaw) {
+                Text("Apple Música").tag("appleMusic")
+            }
+            LabeledContent("Estado", value: music.statusText)
+            if music.isConnected {
+                Button("Desconectar", role: .destructive) { music.disconnect() }
+            } else if music.status == .denied {
+                Button("Abrir Ajustes del sistema") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                }
+            } else {
+                Button("Conectar Apple Música") { Task { await music.connect() } }
+                    .disabled(music.status == .connecting || music.status == .restricted)
+            }
+        } header: {
+            Text("Música")
+        } footer: {
+            Text("Muestra y controla lo que suena en la app Música del iPhone. No controla Spotify ni otras apps (todavía no hay una integración compatible). Conectar solo pide permiso de lectura: no cambia tu cola ni inicia música. Para revocar el permiso, usa Ajustes del iPhone. Las indicaciones de voz bajan el volumen de la música y luego lo recuperan.")
+        }
     }
 
     private var permissionText: String {

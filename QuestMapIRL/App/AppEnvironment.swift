@@ -11,6 +11,7 @@ final class AppEnvironment {
     let speech: SpeechService
     let network: NetworkMonitor
     let speedLimits: SpeedLimitProviding
+    let music: MusicPlayerModel
 
     /// Servicios reales de producción.
     init() {
@@ -21,6 +22,7 @@ final class AppEnvironment {
         self.speech = SpeechService()
         self.network = NetworkMonitor()
         self.speedLimits = ValhallaSpeedLimitService()
+        self.music = MusicPlayerModel(backend: AppleMusicBackend())
     }
 
     /// Inyección explícita para previews y tests.
@@ -30,7 +32,8 @@ final class AppEnvironment {
          nearby: NearbySearchProviding,
          speech: SpeechService,
          network: NetworkMonitor,
-         speedLimits: SpeedLimitProviding = ValhallaSpeedLimitService()) {
+         speedLimits: SpeedLimitProviding = ValhallaSpeedLimitService(),
+         music: MusicPlayerModel? = nil) {
         self.locationService = locationService
         self.routeService = routeService
         self.placeSearch = placeSearch
@@ -38,5 +41,6 @@ final class AppEnvironment {
         self.speech = speech
         self.network = network
         self.speedLimits = speedLimits
+        self.music = music ?? MusicPlayerModel(backend: AppleMusicBackend())
     }
 }

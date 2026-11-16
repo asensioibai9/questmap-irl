@@ -23,6 +23,7 @@ struct NavigationOverlay: View {
     let miniMap: MapController
     let useMetric: Bool
     let onRecenter: () -> Void
+    var music: MusicPlayerModel?
     var supports3D = false
     var is3D = false
     var onToggle3D: () -> Void = {}
@@ -43,6 +44,11 @@ struct NavigationOverlay: View {
                     Spacer()
                     sideButtons
                 }
+            }
+
+            // El reproductor va en su propia fila, encima del panel: no tapa la ruta, la maniobra ni la señal de velocidad.
+            if let music, music.isVisible {
+                MiniPlayerCard(model: music)
             }
 
             bottomPanel

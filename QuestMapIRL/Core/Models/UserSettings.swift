@@ -20,6 +20,11 @@ final class UserSettings {
     var view3D: Bool = false
     /// Mostrar la señal de límite de velocidad durante la navegación.
     var showSpeedLimit: Bool = true
+    /// Minirreproductor de música: oculto hasta que el usuario lo active.
+    var showMiniPlayer: Bool = false
+    /// El usuario conectó el servicio (el permiso real lo concede y revoca el sistema).
+    var musicConnected: Bool = false
+    var musicServiceRaw: String = "appleMusic"
 
     init(themeRawValue: String = MapThemeID.ciudadNocturna.rawValue,
          useMetricUnits: Bool = true,

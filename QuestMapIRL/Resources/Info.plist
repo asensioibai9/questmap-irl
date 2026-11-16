@@ -63,6 +63,8 @@
     <!-- Permisos -->
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>QuestMap IRL usa tu ubicación para mostrarte en el mapa, calcular rutas y guiarte paso a paso.</string>
+    <key>NSAppleMusicUsageDescription</key>
+    <string>QuestMap IRL muestra qué suena en la app Música y te deja pausar o cambiar de canción mientras navegas. No cambia tu cola ni inicia música por su cuenta.</string>
     <key>NSLocationTemporaryUsageDescriptionDictionary</key>
     <dict>
         <key>Navigation</key>
