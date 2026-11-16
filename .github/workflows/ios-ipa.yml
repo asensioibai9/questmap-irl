@@ -22,6 +22,9 @@ jobs:
         run: xcodegen generate
 
       - name: Build for device (unsigned)
+        env:
+          # Solo sustituye al Client ID de project.yml si existe la variable de repositorio SPOTIFY_CLIENT_ID.
+          SPOTIFY_ID: ${{ vars.SPOTIFY_CLIENT_ID }}
         run: |
           xcodebuild build \
             -project QuestMapIRL.xcodeproj \
@@ -34,7 +37,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
-            SPOTIFY_CLIENT_ID="${{ vars.SPOTIFY_CLIENT_ID }}"
+            ${SPOTIFY_ID:+SPOTIFY_CLIENT_ID="$SPOTIFY_ID"}
 
       - name: Package .ipa
         run: |

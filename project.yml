@@ -49,9 +49,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.questmapirl.app
-        # Client ID de Spotify (no es secreto). Vacío por defecto: la app compila y muestra «Falta configurar Spotify».
-        # En GitHub Actions se rellena con la variable del repositorio SPOTIFY_CLIENT_ID.
-        SPOTIFY_CLIENT_ID: ""
+        # Client ID de Spotify (identificador público de la app en Spotify for Developers; NO es el client secret, que no
+        # se usa). Si existe la variable de repositorio SPOTIFY_CLIENT_ID en GitHub Actions, el IPA usa esa en su lugar.
+        SPOTIFY_CLIENT_ID: "2f82be4c14494a1a9f56ccf56a11cb20"
         # IMPORTANTE: usamos nuestro propio Info.plist (permisos, modos de fondo,
         # launch screen). No usar la clave `info:` de XcodeGen, que lo regeneraría vacío.
         INFOPLIST_FILE: QuestMapIRL/Resources/Info.plist
