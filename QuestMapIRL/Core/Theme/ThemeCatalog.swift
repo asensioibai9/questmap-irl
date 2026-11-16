@@ -27,15 +27,16 @@ enum ThemeCatalog {
         accent: Color(hex: 0xF2C14E),
         textPrimary: Color(hex: 0xF5F5F0),
         textSecondary: Color(hex: 0xA3A8B3),
-        routeCore: Color(hex: 0xB6FF3B), routeBorder: Color(hex: 0x07090D),
-        destination: Color(hex: 0xFF3D71), player: Color(hex: 0x4CC9F0),
+        routeCore: Color(hex: 0xA855E8), routeBorder: Color(hex: 0x0F0F0F),
+        destination: Color(hex: 0xFFD400), player: Color(hex: 0x4CC9F0),
         titleDesign: .default, iconWeight: .bold, cornerRadius: 14,
         poiIcons: [.fuel: "fuelpump.fill", .food: "fork.knife", .parking: "parkingsign", .hospital: "cross.fill",
                    .police: "shield.lefthalf.filled", .shop: "bag.fill", .poi: "star.fill", .quest: "flag.fill"],
         cartography: CartographyStyle(
             resourceName: "style-ciudad-nocturna", backgroundHex: 0x17191D, userArrowHex: 0xFFFFFF,
             defaultZoom: 15.5, navigationZoom: 17, navigationPitch: 35,
-            minimapZoom: 16.5, minimapShape: .fadedRectangle, minimapBorderHex: 0x0A0B0D, attribution: attribution)
+            minimapZoom: 16.5, minimapShape: .fadedRectangle, minimapBorderHex: 0x0A0B0D, attribution: attribution,
+            poiIconSet: .gameBadges)
     )
 
     static let minimalistaPro = MapTheme(

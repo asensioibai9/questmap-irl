@@ -11,6 +11,8 @@ final class HomeViewModel {
     }
 
     var destination: Place?
+    /// Lugar tocado en el mapa: se muestra su ficha, pero NO se calcula ninguna ruta hasta confirmar "Cómo llegar".
+    var selection: Place?
     var routes: [Route] = []
     var selectedRouteID: UUID?
     var mode: RouteMode = .driving
@@ -74,6 +76,22 @@ final class HomeViewModel {
                 routeState = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
             }
         }
+    }
+
+    /// Solo hay una selección activa; la nueva sustituye a la anterior. No toca el destino ni la ruta existentes.
+    func select(_ place: Place) {
+        selection = place
+    }
+
+    func clearSelection() {
+        selection = nil
+    }
+
+    /// "Cómo llegar": ahora sí se fija el destino (sustituyendo al anterior) y se calculan las rutas.
+    func confirmSelection() {
+        guard let place = selection else { return }
+        selection = nil
+        setDestination(place)
     }
 
     func clearRoute() {

@@ -211,9 +211,10 @@ def build_style(cfg):
 
     # ---- Carreteras en superficie: primero contornos, luego rellenos ----
     road_k = cfg.get("road_k", 1.0)
+    tier_k = cfg.get("tier_k", {})
 
     def casing(tier, brunnel, ramps, ident):
-        widths = scaled(ROAD_WIDTH[tier], road_k)
+        widths = scaled(ROAD_WIDTH[tier], road_k * tier_k.get(tier, 1.0))
         k = 0.7 if ramps else 1.0
         stops = [(z, round(w * k + max(p["casing_min"], w * k * p["casing_ratio"]), 3)) for z, w in widths]
         return {"id": ident, "type": "line", "source": "openmaptiles", "source-layer": "transportation",
@@ -223,7 +224,7 @@ def build_style(cfg):
                 "paint": {"line-color": p["casing"], "line-width": interp(stops)}}
 
     def fill(tier, brunnel, ramps, ident):
-        widths = scaled(ROAD_WIDTH[tier], road_k)
+        widths = scaled(ROAD_WIDTH[tier], road_k * tier_k.get(tier, 1.0))
         k = 0.7 if ramps else 1.0
         return {"id": ident, "type": "line", "source": "openmaptiles", "source-layer": "transportation",
                 "minzoom": ROAD_MINZOOM[tier] + (0.5 if ramps else 0),
@@ -280,16 +281,34 @@ def build_style(cfg):
     poi_filter = ["all", is_in("class", poi_classes),
                   ["<=", ["coalesce", ["get", "rank"], 99], interp_rank()]]
     poi_name = ["coalesce", ["get", "name:es"], ["get", "name"]]
-    add({"id": "poi-icon", "type": "symbol", "source": "openmaptiles", "source-layer": "poi",
-         "minzoom": 15, "filter": poi_filter,
-         "layout": {"icon-image": match("class", poi_icons, "poi-shop"),
-                    "icon-size": interp([(15, 0.55), (17, 0.85), (19, 1.1)]),
-                    "icon-allow-overlap": False, "icon-padding": 3,
-                    "text-field": ["step", ["zoom"], "", 16.5, poi_name],
-                    **text_layout({"text-size": interp([(16.5, 10.5), (19, 12.5)]),
-                                   "text-offset": [0, 1.15], "text-anchor": "top", "text-max-width": 7,
-                                   "text-optional": True})},
-         "paint": {"text-color": p["poi_text"], "text-halo-color": p["halo"], "text-halo-width": halo_w}})
+    if cfg.get("poi_tiers"):
+        # Menos saturación: lo importante aparece antes; comida y comercio solo muy cerca. Las paradas
+        # de autobús se omiten (hay miles). Los nombres aparecen un nivel de zoom después que el icono.
+        for tier_id, classes, icon_zoom, label_zoom in cfg["poi_tiers"]:
+            add({"id": f"poi-icon-{tier_id}", "type": "symbol", "source": "openmaptiles", "source-layer": "poi",
+                 "minzoom": icon_zoom,
+                 "filter": ["all", is_in("class", classes), ["!=", ["get", "subclass"], "bus_stop"],
+                            ["<=", ["coalesce", ["get", "rank"], 99], interp_rank()]],
+                 "layout": {"icon-image": match("class", poi_icons, "poi-shop"),
+                            "icon-size": interp([(14.5, 0.5), (17, 0.72), (19, 0.92)]),
+                            "icon-allow-overlap": False, "icon-padding": 6,
+                            "symbol-sort-key": ["coalesce", ["get", "rank"], 99],
+                            "text-field": ["step", ["zoom"], "", label_zoom, poi_name],
+                            **text_layout({"text-size": interp([(16.5, 10), (19, 11.5)]),
+                                           "text-offset": [0, 1.1], "text-anchor": "top", "text-max-width": 7,
+                                           "text-padding": 4, "text-optional": True})},
+                 "paint": {"text-color": p["poi_text"], "text-halo-color": p["halo"], "text-halo-width": halo_w}})
+    else:
+        add({"id": "poi-icon", "type": "symbol", "source": "openmaptiles", "source-layer": "poi",
+             "minzoom": 15, "filter": poi_filter,
+             "layout": {"icon-image": match("class", poi_icons, "poi-shop"),
+                        "icon-size": interp([(15, 0.55), (17, 0.85), (19, 1.1)]),
+                        "icon-allow-overlap": False, "icon-padding": 3,
+                        "text-field": ["step", ["zoom"], "", 16.5, poi_name],
+                        **text_layout({"text-size": interp([(16.5, 10.5), (19, 12.5)]),
+                                       "text-offset": [0, 1.15], "text-anchor": "top", "text-max-width": 7,
+                                       "text-optional": True})},
+             "paint": {"text-color": p["poi_text"], "text-halo-color": p["halo"], "text-halo-width": halo_w}})
 
     # ---- Etiquetas -------------------------------------------------------
     road_label_zoom = [("motorway", 10.5), ("trunk", 11), ("primary", 11.5), ("secondary", 12.5),
@@ -313,8 +332,9 @@ def build_style(cfg):
          "minzoom": 12, "maxzoom": 17,
          "filter": is_in("class", ["suburb", "quarter", "neighbourhood", "village", "hamlet"]),
          "layout": {"text-field": ["coalesce", ["get", "name:es"], ["get", "name"]], "text-font": FONT,
-                    "text-size": interp([(12, 10), (16, 14)]), "text-transform": "uppercase",
-                    "text-letter-spacing": 0.14, "text-max-width": 8},
+                    "text-size": interp([(12, 10), (16, 14)]),
+                    **({"text-transform": "uppercase"} if cfg.get("place_upper", True) else {}),
+                    "text-letter-spacing": 0.14 if cfg.get("place_upper", True) else 0.04, "text-max-width": 8},
          "paint": {"text-color": p["place_text"], "text-halo-color": p["halo"], "text-halo-width": 1.4,
                    "text-opacity": interp([(12, 0.65), (16, 0.9)])}})
     add({"id": "label-place-city", "type": "symbol", "source": "openmaptiles", "source-layer": "place",
@@ -341,12 +361,30 @@ def build_style(cfg):
          "paint": {"text-color": p["city_text"], "text-halo-color": p["halo"], "text-halo-width": 1.8}})
 
     # ---- Destino y usuario (siempre encima) -----------------------------
-    add({"id": "destination-halo", "type": "circle", "source": "destination",
-         "paint": {"circle-color": cfg["destination"]["color"], "circle-opacity": 0.28,
-                   "circle-radius": interp([(8, 14), (16, 26)])}})
-    add({"id": "destination-core", "type": "circle", "source": "destination",
-         "paint": {"circle-color": cfg["destination"]["color"], "circle-radius": interp([(8, 6), (16, 10)]),
-                   "circle-stroke-color": cfg["destination"]["stroke"], "circle-stroke-width": 2.5}})
+    if cfg.get("saved_places"):
+        # Casa y Trabajo guardados por el usuario (iconos propios, visibles desde zoom medio).
+        add({"id": "saved-places", "type": "symbol", "source": "saved", "minzoom": 9,
+             "layout": {"icon-image": ["get", "icon"], "icon-size": interp([(9, 0.5), (15, 0.75), (18, 0.9)]),
+                        "icon-allow-overlap": True, "icon-ignore-placement": True}})
+    if cfg.get("selection"):
+        # Cuatro flechas alrededor del punto seleccionado. Imagen única anclada a la coordenada: sigue al
+        # punto al mover, rotar o ampliar, y conserva el tamaño en pantalla.
+        add({"id": "selection-arrows", "type": "symbol", "source": "selection",
+             "layout": {"icon-image": "selection-arrows", "icon-size": 1, "icon-allow-overlap": True,
+                        "icon-ignore-placement": True, "icon-rotation-alignment": "viewport",
+                        "icon-pitch-alignment": "viewport"},
+             "paint": {"icon-opacity": 1, "icon-opacity-transition": {"duration": 220, "delay": 0}}})
+    if cfg["destination"].get("icon"):
+        add({"id": "destination-core", "type": "symbol", "source": "destination",
+             "layout": {"icon-image": cfg["destination"]["icon"], "icon-size": 0.8, "icon-anchor": "bottom",
+                        "icon-allow-overlap": True, "icon-ignore-placement": True}})
+    else:
+        add({"id": "destination-halo", "type": "circle", "source": "destination",
+             "paint": {"circle-color": cfg["destination"]["color"], "circle-opacity": 0.28,
+                       "circle-radius": interp([(8, 14), (16, 26)])}})
+        add({"id": "destination-core", "type": "circle", "source": "destination",
+             "paint": {"circle-color": cfg["destination"]["color"], "circle-radius": interp([(8, 6), (16, 10)]),
+                       "circle-stroke-color": cfg["destination"]["stroke"], "circle-stroke-width": 2.5}})
     add({"id": "user-halo", "type": "circle", "source": "user",
          "paint": {"circle-color": cfg["user"]["halo"], "circle-opacity": 0.22,
                    "circle-radius": interp([(8, 16), (16, 30)])}})
@@ -373,6 +411,8 @@ def build_style(cfg):
             "route": {"type": "geojson", "data": empty},
             "results": {"type": "geojson", "data": empty},
             "destination": {"type": "geojson", "data": empty},
+            **({"selection": {"type": "geojson", "data": empty}} if cfg.get("selection") else {}),
+            **({"saved": {"type": "geojson", "data": empty}} if cfg.get("saved_places") else {}),
             "user": {"type": "geojson", "data": empty},
         },
         "layers": layers,
@@ -387,27 +427,41 @@ def interp_rank():
 NOIR = {
     "id": "ciudadNocturna",
     "name": "Ciudad nocturna",
-    "reference": "Lenguaje visual de mapa urbano de videojuego nocturno. Referencia principal: captura aportada por el usuario (casco urbano costero). Comparación píxel a píxel NO realizada.",
-    "road_k": 1.35,
-    "labels": {"font": FONT_BOLD, "upper": True, "halo": 3.0, "road_size": 14.5, "spacing": 260},
+    "reference": "Lenguaje visual de mapa urbano de videojuego nocturno. Referencias: captura del mapa de pausa aportada por el usuario (carreteras gris medio, manzanas gris oscuro, ruta violeta) y captura anterior de casco urbano. Los HEX son una propuesta de partida afinada a ojo: NO son colores extraídos exactamente. Comparación píxel a píxel NO realizada.",
+    "road_k": 1.3,
+    # Calles secundarias y caminos más finos que las principales, sin que desaparezcan.
+    "tier_k": {"motorway": 1.15, "trunk": 1.1, "primary": 1.0, "secondary": 0.9, "tertiary": 0.8, "minor": 0.68, "service": 0.55},
+    # Etiquetas menos dominantes: texto normal (con tildes y mayúsculas originales), fuente regular y poco halo.
+    "labels": {"font": FONT, "upper": False, "halo": 1.6, "road_size": 11, "spacing": 340},
     "palette": {
-        # Casi monocromo: fondo casi negro, edificios gris oscuro, vías claras, agua azul grisácea.
-        "land": "#161616", "grass": "#1b1b1b", "wood": "#1a1a1a", "sand": "#202020", "farm": "#1a1a1a",
-        "rock": "#212121", "residential": "#181818", "commercial": "#1c1c1c", "industrial": "#191919",
-        "institution": "#1e1e1e", "sports": "#1e1e1e", "cemetery": "#1b1b1b", "military": "#1d1b1d",
-        "water": "#2b3844", "water_edge": "#44586a", "water_text": "#a9bfd0",
-        "runway": "#2c2c2c",
-        "building": "#414141", "building_edge": "#5c5c5c", "building_opacity": 1.0,
-        "pedestrian": "#333333", "path": "#8a8a8a", "rail": "#7a7a7a", "tunnel": "#8a8a8a",
-        "casing": "#0b0b0b", "casing_min": 1.0, "casing_ratio": 0.22,
-        "road": {"motorway": "#ececec", "trunk": "#e0e0e0", "primary": "#d2d2d2", "secondary": "#c2c2c2",
-                 "tertiary": "#b3b3b3", "minor": "#a3a3a3", "service": "#868686"},
-        "road_text": "#ffffff", "halo": "#000000", "place_text": "#d4d4d4", "city_text": "#ffffff",
-        "poi_text": "#ffffff",
+        "land": "#191919", "grass": "#1c1c1c", "wood": "#1a1a1a", "sand": "#202020", "farm": "#1b1b1b",
+        "rock": "#202020", "residential": "#1a1a1a", "commercial": "#1d1d1d", "industrial": "#1b1b1b",
+        "institution": "#1e1e1e", "sports": "#1e1e1e", "cemetery": "#1b1b1b", "military": "#1c1b1c",
+        "water": "#26343A", "water_edge": "#34464d", "water_text": "#8fa3ab",
+        "runway": "#2a2a2a",
+        "building": "#303030", "building_edge": "#3b3b3b", "building_opacity": 1.0,
+        "pedestrian": "#2a2a2a", "path": "#686868", "rail": "#5a5a5a", "tunnel": "#6a6a6a",
+        "casing": "#0f0f0f", "casing_min": 0.7, "casing_ratio": 0.18,
+        "road": {"motorway": "#A6A6A6", "trunk": "#A6A6A6", "primary": "#A6A6A6", "secondary": "#858585",
+                 "tertiary": "#7a7a7a", "minor": "#707070", "service": "#5a5a5a"},
+        "road_text": "#b5b5b5", "halo": "#121212", "place_text": "#8a8a8a", "city_text": "#c4c4c4",
+        "poi_text": "#b0b0b0",
     },
-    "route": {"core": "#f23fc4", "casing": "#0a0b0d", "glow": "#f23fc4", "glow_opacity": 0.3},
-    "destination": {"color": "#ffd400", "stroke": "#0a0b0d"},
-    "results": {"color": "#38e1ff", "stroke": "#0a0b0d"},
+    # Niveles de aparición (id, clases, zoom del icono, zoom del nombre): lo importante antes, comida y comercio muy cerca.
+    "poi_tiers": [
+        ("a", ["fuel", "hospital", "police", "railway", "bus"], 14.5, 16.5),
+        ("b", ["parking", "pharmacy", "doctors", "dentist", "veterinary", "bank", "atm", "lodging", "grocery",
+               "museum", "attraction", "castle", "monument", "theatre", "cinema", "art_gallery", "library",
+               "fire_station", "prison"], 16, 17.2),
+        ("c", ["restaurant", "fast_food", "cafe", "bakery", "ice_cream", "bar", "pub", "beer", "shop",
+               "clothing_store", "butcher", "alcohol_shop", "laundry", "hairdresser"], 17, 18),
+    ],
+    "place_upper": False,       # barrios con mayúsculas y tildes originales, sin forzar versalitas
+    "selection": True,
+    "saved_places": True,
+    "route": {"core": "#A855E8", "casing": "#0f0f0f", "glow": "#A855E8", "glow_opacity": 0.28},
+    "destination": {"color": "#ffd400", "stroke": "#0a0b0d", "icon": "poi-destination"},
+    "results": {"color": "#5AA9FF", "stroke": "#0f0f0f"},
     "user": {"halo": "#ffffff", "size": 1.35},
 }
 

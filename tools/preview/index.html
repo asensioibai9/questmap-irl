@@ -24,7 +24,7 @@ const num = (k, d) => q.has(k) ? parseFloat(q.get(k)) : d;
 const styleName = q.get('style') || 'ciudad-nocturna';
 if (q.get('minimap')) document.body.classList.add('minimap');
 
-fetch(`../../QuestMapIRL/Resources/style-${styleName}.json`)
+fetch(q.get('url') || `../../QuestMapIRL/Resources/style-${styleName}.json`)
   .then(r => r.text())
   .then(txt => {
     txt = txt.replace('{{TILES_URL}}', 'https://tiles.openfreemap.org/planet')
@@ -39,7 +39,18 @@ fetch(`../../QuestMapIRL/Resources/style-${styleName}.json`)
     window.map = map;
     // Texturas del estilo (fill-pattern): se cargan bajo demanda desde el catálogo de recursos de la app.
     const wanted = (style.metadata && style.metadata['questmap:images']) || [];
+    // Iconos propios del estilo GTA (la app los registra desde el catálogo de recursos con @3x).
+    const GTA = {'poi-fuel':'fuel','poi-parking':'parking','poi-health':'hospital','poi-police':'police','poi-food':'food',
+      'poi-cafe':'cafe','poi-bar':'bar','poi-grocery':'shop','poi-shop':'shop','poi-culture':'bank','poi-bank':'bank',
+      'poi-lodging':'lodging','poi-transit':'transit','poi-destination':'destination','poi-home':'home','poi-work':'work',
+      'selection-arrows':'selection-arrows'};
     map.on('styleimagemissing', async e => {
+      if (GTA[e.id] && (styleName === 'ciudad-nocturna' || q.get('icons') === 'gta')) {
+        const n = GTA[e.id];
+        const res = await map.loadImage(`../../QuestMapIRL/Resources/Assets.xcassets/gta-poi-${n}.imageset/gta-poi-${n}.png`);
+        if (!map.hasImage(e.id)) map.addImage(e.id, res.data, {pixelRatio: 3});
+        return;
+      }
       if (!wanted.includes(e.id)) return;
       const res = await map.loadImage(`../../QuestMapIRL/Resources/Assets.xcassets/${e.id}.imageset/${e.id}.png`);
       if (!map.hasImage(e.id)) map.addImage(e.id, res.data);
@@ -53,6 +64,10 @@ fetch(`../../QuestMapIRL/Resources/style-${styleName}.json`)
             map.getSource('route').setData({type: 'Feature', geometry: g, properties: {}});
             map.getSource('destination').setData({type: 'Feature', geometry: {type: 'Point', coordinates: g.coordinates.at(-1)}, properties: {}});
           }).catch(() => {});
+      }
+      if (q.get('select') && map.getSource('selection')) {
+        const [sl, so] = q.get('select').split(',').map(parseFloat);
+        map.getSource('selection').setData({type: 'Feature', geometry: {type: 'Point', coordinates: [so, sl]}, properties: {}});
       }
       map.getSource('user').setData({type: 'Feature', geometry: {type: 'Point', coordinates: [num('lon', -3.7038), num('lat', 40.4168)]}, properties: {heading: num('bearing', 0)}});
     });

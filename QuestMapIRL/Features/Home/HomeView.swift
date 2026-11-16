@@ -151,8 +151,14 @@ struct HomeView: View {
         .onChange(of: viewModel.destination) { _, place in
             map.setDestination(place?.coordinate)
             miniMap.setDestination(place?.coordinate)
-            if navigation == nil { detent = place == nil ? .compactPanel : .medium }
+            if navigation == nil { detent = place == nil && viewModel.selection == nil ? .compactPanel : .medium }
         }
+        .onChange(of: viewModel.selection) { _, place in
+            map.setSelection(place?.coordinate)
+            guard navigation == nil else { return }
+            if place != nil { detent = .medium } else if viewModel.destination == nil { detent = .compactPanel }
+        }
+        .onChange(of: savedSignature) { _, _ in pushSavedPlaces() }
         .onChange(of: viewModel.selectedRouteID) { _, _ in
             guard navigation == nil else { return }
             map.setRoute(viewModel.selectedRoute?.coordinates ?? [])
@@ -191,8 +197,10 @@ struct HomeView: View {
                 showsCompass: showCompass,
                 onLongPress: { coordinate in
                     guard navigation == nil else { return }
-                    viewModel.setDestination(.pin(at: coordinate))
+                    // Mantener pulsado también solo SELECCIONA: la ruta se calcula al confirmar "Cómo llegar".
+                    viewModel.select(.pin(at: coordinate))
                 },
+                onTap: handleMapTap,
                 onStateChange: { mapLoad = $0 }
             )
             .id(mapToken)
@@ -384,6 +392,11 @@ struct HomeView: View {
         Group {
             if viewModel.destination != nil {
                 routePanel
+            } else if let selection = viewModel.selection {
+                PlacePreviewPanel(place: selection, distance: distanceText(to: selection),
+                                  replacesRoute: false,
+                                  onDirections: { viewModel.confirmSelection() },
+                                  onClose: { viewModel.clearSelection() })
             } else {
                 SearchPanelView(
                     model: panel,
@@ -459,6 +472,12 @@ struct HomeView: View {
     private var routePanel: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                if let pending = viewModel.selection {
+                    PlacePreviewPanel(place: pending, distance: distanceText(to: pending), replacesRoute: true,
+                                      onDirections: { viewModel.confirmSelection() },
+                                      onClose: { viewModel.clearSelection() })
+                        .padding(.top, 14)
+                }
                 if let destination = viewModel.destination {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(destination.name).font(.title2.weight(.bold)).lineLimit(2)
@@ -565,6 +584,7 @@ struct HomeView: View {
         }
         map.onFollowCancelled = { viewModel.isFollowing = false }
         applyAvatar(settings?.mapAvatar)
+        pushSavedPlaces()
         if startupFinished { afterStartup() } else { location.start(mode: .idle) }
         pushUser()
         map.setFollow(followMode, zoom: theme.activeCartography.defaultZoom, pitch: 0, bottomInset: 0)
@@ -634,11 +654,45 @@ struct HomeView: View {
         map.focus(on: place.coordinate)
     }
 
+    // MARK: - Selección en el mapa
+
+    /// Toque sencillo: sobre un icono selecciona ese lugar; sobre una zona vacía quita la selección.
+    /// Solo hay una selección. Nunca calcula una ruta ni borra la existente.
+    private func handleMapTap(_ tap: MapTap) {
+        guard navigation == nil else { return }
+        if tap.feature != nil {
+            viewModel.select(PoiClassTitles.place(from: tap))
+        } else if viewModel.selection != nil {
+            viewModel.clearSelection()
+        }
+    }
+
+    private func distanceText(to place: Place) -> String? {
+        guard let here = location.currentLocation else { return nil }
+        let meters = here.distance(from: CLLocation(latitude: place.latitude, longitude: place.longitude))
+        return Formatters.distance(meters, metric: useMetric)
+    }
+
+    /// Cambia cuando cambian Casa o Trabajo (para volver a dibujarlos).
+    private var savedSignature: String {
+        savedPlaces.filter { $0.kindRawValue == PlaceKind.home.rawValue || $0.kindRawValue == PlaceKind.work.rawValue }
+            .map { "\($0.kindRawValue):\($0.latitude),\($0.longitude)" }.sorted().joined(separator: "|")
+    }
+
+    private func pushSavedPlaces() {
+        let items: [(coordinate: CLLocationCoordinate2D, icon: String)] = savedPlaces.compactMap { saved in
+            guard let kind = PlaceKind(rawValue: saved.kindRawValue), let icon = GameIcons.savedIconName(for: kind) else { return nil }
+            return (saved.coordinate, icon)
+        }
+        map.setSavedPlaces(items)
+    }
+
     private func startNavigation(_ route: Route) {
         guard let destination = viewModel.destination else { return }
         let style = theme.activeCartography
         panel.closeCategory()
         panel.clearQuery()
+        viewModel.clearSelection()
         showPanel = false
         location.setMode(.navigating)
         let session = ActiveNavigationViewModel(

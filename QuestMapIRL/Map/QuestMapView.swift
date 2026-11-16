@@ -16,6 +16,8 @@ struct QuestMapView: UIViewRepresentable {
     var interactive = true
     var showsCompass = false
     var onLongPress: ((CLLocationCoordinate2D) -> Void)?
+    /// Toque sencillo: devuelve el punto y, si hay un icono bajo el dedo, sus datos.
+    var onTap: ((MapTap) -> Void)?
     var onStateChange: ((MapLoadState) -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -44,6 +46,12 @@ struct QuestMapView: UIViewRepresentable {
                 press.require(toFail: recognizer)
             }
             mapView.addGestureRecognizer(press)
+
+            let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
+            for recognizer in mapView.gestureRecognizers ?? [] {
+                if let other = recognizer as? UITapGestureRecognizer, other.numberOfTapsRequired > 1 { tap.require(toFail: other) }
+            }
+            mapView.addGestureRecognizer(tap)
         }
 
         context.coordinator.load(style, into: mapView)
@@ -115,7 +123,12 @@ struct QuestMapView: UIViewRepresentable {
             for name in parent.style.textures {
                 if let image = UIImage(named: name) { style.setImage(image, forName: name) }
             }
-            PoiIcons.register(in: style, fillHex: parent.style.poiIconHex, outlineHex: parent.style.poiOutlineHex)
+            switch parent.style.poiIconSet {
+            case .systemSymbols:
+                PoiIcons.register(in: style, fillHex: parent.style.poiIconHex, outlineHex: parent.style.poiOutlineHex)
+            case .gameBadges:
+                GameIcons.register(in: style)
+            }
             parent.controller.styleDidLoad(style, arrowHex: parent.style.userArrowHex)
             report(.ready)
         }
@@ -132,6 +145,38 @@ struct QuestMapView: UIViewRepresentable {
         }
 
         // MARK: Gestos
+
+        /// Toque sencillo: busca iconos propios (POI, Casa/Trabajo) en un área de 44 pt alrededor del dedo.
+        @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            guard gesture.state == .ended, let mapView = gesture.view as? MLNMapView else { return }
+            let point = gesture.location(in: mapView)
+            let coordinate = mapView.convert(point, toCoordinateFrom: mapView)
+            let ids = Set((mapView.style?.layers ?? []).map(\.identifier)
+                .filter { $0.hasPrefix("poi-icon") || $0 == "saved-places" })
+            var feature: MapTappedFeature?
+            var tapped = coordinate
+            if !ids.isEmpty {
+                let area = CGRect(x: point.x - 22, y: point.y - 22, width: 44, height: 44)
+                let here = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                let nearest = mapView.visibleFeatures(in: area, styleLayerIdentifiers: ids)
+                    .compactMap { $0 as? MLNPointFeature }
+                    .min { a, b in
+                        here.distance(from: CLLocation(latitude: a.coordinate.latitude, longitude: a.coordinate.longitude))
+                            < here.distance(from: CLLocation(latitude: b.coordinate.latitude, longitude: b.coordinate.longitude))
+                    }
+                if let nearest {
+                    tapped = nearest.coordinate
+                    let attributes = nearest.attributes
+                    let name = (attributes["name:es"] as? String) ?? (attributes["name"] as? String)
+                    if let icon = attributes["icon"] as? String {
+                        feature = MapTappedFeature(name: name, kind: icon, isSavedPlace: true)
+                    } else {
+                        feature = MapTappedFeature(name: name, kind: attributes["class"] as? String)
+                    }
+                }
+            }
+            parent.onTap?(MapTap(coordinate: tapped, feature: feature))
+        }
 
         @objc func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
             guard gesture.state == .began, let mapView = gesture.view as? MLNMapView else { return }

@@ -38,6 +38,13 @@ enum MinimapShape: Equatable {
     case fadedRectangle
 }
 
+/// Qué iconos se registran en el estilo para los puntos de interés.
+enum PoiIconSet: Equatable {
+    case systemSymbols
+    /// Familia propia con contorno marcado (`GameIcons`).
+    case gameBadges
+}
+
 /// Cómo se dibuja el MAPA REAL de este tema. El estilo vectorial vive en un JSON (capas, colores,
 /// anchos por zoom, etiquetas) y se renderiza con MapLibre; aquí solo van los parámetros de
 /// cámara y de los elementos que dibuja la app.
@@ -57,6 +64,8 @@ struct CartographyStyle: Equatable {
     /// Color del símbolo de los puntos de interés y de su contorno.
     var poiIconHex: UInt32 = 0xFFFFFF
     var poiOutlineHex: UInt32 = 0x0A0B0D
+    /// Familia de iconos de los puntos de interés: símbolos del sistema o iconos propios del estilo.
+    var poiIconSet: PoiIconSet = .systemSymbols
     /// Texturas del catálogo de recursos que usa el estilo (`fill-pattern`). Deben coincidir con
     /// `metadata["questmap:images"]` del JSON (lo comprueba un test).
     var textures: [String] = []

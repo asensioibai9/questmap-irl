@@ -22,6 +22,8 @@ final class MapController {
     private var destination: CLLocationCoordinate2D?
     private var user: (coordinate: CLLocationCoordinate2D, heading: Double)?
     private var markers: [Place] = []
+    private var selection: CLLocationCoordinate2D?
+    private var savedMarkers: [(coordinate: CLLocationCoordinate2D, icon: String)] = []
     private var avatar: MapAvatar = .arrow
     private var arrowColorHex: UInt32 = 0xFFFFFF
 
@@ -57,6 +59,8 @@ final class MapController {
         pushRoute()
         pushDestination()
         pushMarkers()
+        pushSelection(animated: false)
+        pushSaved()
         pushUser()
         applyFollow(animated: false)
     }
@@ -73,6 +77,20 @@ final class MapController {
     func setMarkers(_ places: [Place]) {
         markers = places
         pushMarkers()
+    }
+
+    /// Punto seleccionado (cuatro flechas alrededor). Solo hay una selección: la nueva sustituye a la anterior;
+    /// nil la quita. Las flechas siguen ancladas a la coordenada al mover, rotar o ampliar el mapa.
+    func setSelection(_ coordinate: CLLocationCoordinate2D?) {
+        let changed = selection?.latitude != coordinate?.latitude || selection?.longitude != coordinate?.longitude
+        selection = coordinate
+        pushSelection(animated: changed && coordinate != nil)
+    }
+
+    /// Casa y Trabajo guardados, dibujados con sus iconos.
+    func setSavedPlaces(_ places: [(coordinate: CLLocationCoordinate2D, icon: String)]) {
+        savedMarkers = places
+        pushSaved()
     }
 
     /// Centra el mapa en un punto sin seguir al usuario.
@@ -178,6 +196,38 @@ final class MapController {
         } else {
             source.shape = nil
         }
+    }
+
+    private func pushSelection(animated: Bool) {
+        guard let source = shapeSource("selection") else { return }
+        guard let selection else {
+            source.shape = nil
+            return
+        }
+        let feature = MLNPointFeature()
+        feature.coordinate = selection
+        source.shape = feature
+        // Aparición breve y suave (sin parpadeo continuo); con "Reducir movimiento" aparece directamente.
+        guard animated, !UIAccessibility.isReduceMotionEnabled,
+              let layer = mapView?.style?.layer(withIdentifier: "selection-arrows") as? MLNSymbolStyleLayer else { return }
+        layer.iconOpacityTransition = MLNTransition(duration: 0.22, delay: 0)
+        layer.iconOpacity = NSExpression(forConstantValue: 0)
+        DispatchQueue.main.async { layer.iconOpacity = NSExpression(forConstantValue: 1) }
+    }
+
+    private func pushSaved() {
+        guard let source = shapeSource("saved") else { return }
+        if savedMarkers.isEmpty {
+            source.shape = nil
+            return
+        }
+        let features: [MLNPointFeature] = savedMarkers.map { item in
+            let feature = MLNPointFeature()
+            feature.coordinate = item.coordinate
+            feature.attributes = ["icon": item.icon]
+            return feature
+        }
+        source.shape = MLNShapeCollectionFeature(shapes: features)
     }
 
     private func pushMarkers() {
