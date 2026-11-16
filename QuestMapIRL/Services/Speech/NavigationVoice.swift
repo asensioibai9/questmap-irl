@@ -1,5 +1,6 @@
 import AVFoundation
 import Observation
+import UIKit
 
 // MARK: - Voz elegida por el usuario
 
@@ -11,8 +12,9 @@ enum NavigationVoiceGender: String, CaseIterable, Identifiable {
     var title: String { self == .girl ? "Chica" : "Chico" }
     /// Texto en minúscula para frases ("Voz actual: española — chica").
     var label: String { self == .girl ? "chica" : "chico" }
-    /// Tono (pitchMultiplier): algo más agudo para chica y algo más grave para chico.
-    var pitch: Float { self == .girl ? 1.08 : 0.9 }
+    /// Tono (pitchMultiplier). Se usa el tono NATURAL de la voz para las dos opciones: cambiar el
+    /// tono para "simular" chica o chico empeora la naturalidad. El género lo da la voz elegida.
+    var pitch: Float { 1.0 }
 }
 
 // MARK: - Catálogo y selección de voces (lógica pura, comprobable sin dispositivo)
@@ -51,6 +53,24 @@ struct VoiceInfo: Equatable {
         self.init(identifier: voice.identifier, name: voice.name, language: voice.language, quality: quality, gender: gender)
     }
 
+    /// "Estándar", "Mejorada" o "Premium" (la calidad que declara iOS para esa voz).
+    var qualityLabel: String {
+        switch quality {
+        case 3: return "Premium"
+        case 2: return "Mejorada"
+        default: return "Estándar"
+        }
+    }
+
+    /// Idioma y región como los devuelve iOS (p. ej. "es-ES").
+    var languageLabel: String { language }
+
+    /// Voces de efecto o broma que iOS instala en español y que no valen para dar indicaciones.
+    var isNovelty: Bool {
+        ["grandma", "grandpa", "bubbles", "bahh", "bells", "boing", "cellos", "organ", "whisper", "wobble",
+         "zarvox", "trinoids", "jester", "superstar", "deranged", "hysterical"].contains { name.lowercased().contains($0) }
+    }
+
     /// Respaldo cuando el sistema no declara el género: nombres de voces españolas de Apple conocidos.
     static func genderFromName(_ name: String) -> NavigationVoiceGender? {
         let lower = name.lowercased()
@@ -69,6 +89,10 @@ struct VoiceSelection: Equatable {
         case exact
         /// Voz del género pedido, pero de otra variante del español (México, Argentina…).
         case exactOutsideSpain
+        /// Voz elegida a mano por el usuario, cuyo género coincide con el pedido.
+        case chosen
+        /// Voz elegida a mano cuyo género iOS no declara: la responsabilidad de la elección es del usuario.
+        case chosenGenderUnknown
         /// Hay voces de España, pero ninguna del género pedido.
         case fallbackSpain
         /// Solo hay voces españolas de otras regiones y ninguna del género pedido.
@@ -79,27 +103,59 @@ struct VoiceSelection: Equatable {
 
     let voice: VoiceInfo?
     let match: Match
+    /// La voz que el usuario había elegido ya no está instalada (se usa la automática).
+    var preferredMissing = false
 }
 
 enum VoiceSelector {
-    /// Prefiere es-ES del género pedido; luego mejor calidad. Si no existe, la mejor voz española
-    /// disponible, y lo indica en `match` para que la interfaz avise.
-    static func select(from voices: [VoiceInfo], gender: NavigationVoiceGender) -> VoiceSelection {
-        let spain = voices.filter { $0.language == "es-ES" }
-        let spanish = voices.filter { $0.language.hasPrefix("es") }
-
-        if let voice = best(spain.filter { $0.gender == gender }) { return VoiceSelection(voice: voice, match: .exact) }
-        if let voice = best(spanish.filter { $0.gender == gender }) { return VoiceSelection(voice: voice, match: .exactOutsideSpain) }
-        if let voice = best(spain) { return VoiceSelection(voice: voice, match: .fallbackSpain) }
-        if let voice = best(spanish) { return VoiceSelection(voice: voice, match: .fallbackSpanish) }
-        return VoiceSelection(voice: nil, match: .noSpanishVoice)
+    /// Voces españolas útiles para navegar (sin voces de efecto), ordenadas: España primero,
+    /// después mayor calidad y por último nombre.
+    static func spanishVoices(_ voices: [VoiceInfo]) -> [VoiceInfo] {
+        voices.filter { $0.language.hasPrefix("es") && !$0.isNovelty }.sorted {
+            let aSpain = $0.language == "es-ES", bSpain = $1.language == "es-ES"
+            if aSpain != bSpain { return aSpain }
+            if $0.quality != $1.quality { return $0.quality > $1.quality }
+            return ($0.name, $0.identifier) < ($1.name, $1.identifier)
+        }
     }
 
-    private static func best(_ voices: [VoiceInfo]) -> VoiceInfo? {
-        voices.sorted {
-            if $0.quality != $1.quality { return $0.quality > $1.quality }
-            return $0.identifier < $1.identifier       // desempate estable
-        }.first
+    /// Voces que el usuario puede elegir para un género: las que iOS declara de ese género y, aparte,
+    /// las de género no declarado. Nunca se incluyen voces del género contrario.
+    static func choices(from voices: [VoiceInfo], gender: NavigationVoiceGender) -> (matching: [VoiceInfo], unspecified: [VoiceInfo]) {
+        let spanish = spanishVoices(voices)
+        return (spanish.filter { $0.gender == gender }, spanish.filter { $0.gender == nil })
+    }
+
+    /// Prefiere la voz elegida a mano (si sigue instalada y no es del género contrario); si no, es-ES del
+    /// género pedido con mayor calidad; si tampoco existe, la mejor voz española disponible, y lo indica
+    /// en `match` para que la interfaz avise.
+    static func select(from voices: [VoiceInfo], gender: NavigationVoiceGender, preferredID: String? = nil) -> VoiceSelection {
+        let spanish = spanishVoices(voices)
+        var missing = false
+
+        if let preferredID {
+            if let chosen = spanish.first(where: { $0.identifier == preferredID }),
+               chosen.gender == gender || chosen.gender == nil {
+                return VoiceSelection(voice: chosen, match: chosen.gender == nil ? .chosenGenderUnknown : .chosen)
+            }
+            missing = true
+        }
+
+        let spain = spanish.filter { $0.language == "es-ES" }
+        var result: VoiceSelection
+        if let voice = spain.first(where: { $0.gender == gender }) {
+            result = VoiceSelection(voice: voice, match: .exact)
+        } else if let voice = spanish.first(where: { $0.gender == gender }) {
+            result = VoiceSelection(voice: voice, match: .exactOutsideSpain)
+        } else if let voice = spain.first {
+            result = VoiceSelection(voice: voice, match: .fallbackSpain)
+        } else if let voice = spanish.first {
+            result = VoiceSelection(voice: voice, match: .fallbackSpanish)
+        } else {
+            result = VoiceSelection(voice: nil, match: .noSpanishVoice)
+        }
+        result.preferredMissing = missing
+        return result
     }
 }
 
@@ -173,6 +229,8 @@ final class NavigationVoice {
     static let genderKey = "questmap.navigationVoiceGender"
     static let volumeKey = "questmap.voiceVolume"
 
+    static func voiceKey(for gender: NavigationVoiceGender) -> String { "questmap.voiceID.\(gender.rawValue)" }
+
     var isMuted = false
 
     /// true mientras suena la frase del botón "Escuchar prueba de voz".
@@ -180,6 +238,9 @@ final class NavigationVoice {
 
     /// Mensaje si no se pudo activar el audio del iPhone (la voz podría no oírse).
     private(set) var audioProblem: String?
+
+    /// Cambia cuando se actualiza la lista de voces instaladas (al volver a la app o al descargar una).
+    private(set) var voiceRevision = 0
 
     /// Chica o chico. Se guarda al instante y se aplica a la siguiente indicación.
     var gender: NavigationVoiceGender {
@@ -197,6 +258,8 @@ final class NavigationVoice {
     @ObservationIgnored private let voices: () -> [VoiceInfo]
     @ObservationIgnored private let delegate: SynthesizerDelegate
     @ObservationIgnored private var lastSpoken: String?
+    /// Identificador de la última voz pedida al sintetizador (para comprobar que coincide con la mostrada).
+    @ObservationIgnored private(set) var lastRequestedVoiceID: String?
     /// Frases lanzadas que aún no han terminado ni se han cancelado (por identidad).
     @ObservationIgnored private var active: [ObjectIdentifier: AVSpeechUtterance] = [:]
     @ObservationIgnored private var testUtterance: ObjectIdentifier?
@@ -207,7 +270,8 @@ final class NavigationVoice {
     init(defaults: UserDefaults = .standard,
          synthesizer: SpeechSynthesizing? = nil,
          session: AudioSessionControlling = SystemAudioSession(),
-         voices: @escaping () -> [VoiceInfo] = NavigationVoice.installedVoices) {
+         voices: @escaping () -> [VoiceInfo] = NavigationVoice.installedVoices,
+         observeSystemEvents: Bool = true) {
         let delegate = SynthesizerDelegate()
         self.delegate = delegate
         self.defaults = defaults
@@ -227,7 +291,21 @@ final class NavigationVoice {
             Task { @MainActor in self?.utteranceEnded(utterance) }
         }
         try? session.configure()
+
+        if observeSystemEvents {
+            // La lista de voces se vuelve a leer al volver a la app y cuando iOS avisa de cambios.
+            let center = NotificationCenter.default
+            center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in self?.refreshVoices() }
+            }
+            center.addObserver(forName: AVSpeechSynthesizer.availableVoicesDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in self?.refreshVoices() }
+            }
+        }
     }
+
+    /// Fuerza a la interfaz a releer las voces instaladas.
+    func refreshVoices() { voiceRevision += 1 }
 
     nonisolated static func installedVoices() -> [VoiceInfo] {
         AVSpeechSynthesisVoice.speechVoices().map(VoiceInfo.init)
@@ -235,31 +313,73 @@ final class NavigationVoice {
 
     // MARK: Estado para la interfaz
 
-    var selection: VoiceSelection { VoiceSelector.select(from: voices(), gender: gender) }
+    /// Voz elegida a mano para un género (nil = automática).
+    func preferredVoiceID(for gender: NavigationVoiceGender) -> String? {
+        defaults.string(forKey: Self.voiceKey(for: gender))
+    }
 
-    /// "Voz actual: española — chica".
+    /// Elige una voz concreta para un género (nil vuelve a la automática). Se aplica a la siguiente frase.
+    func setPreferredVoice(_ identifier: String?, for gender: NavigationVoiceGender) {
+        if let identifier { defaults.set(identifier, forKey: Self.voiceKey(for: gender)) }
+        else { defaults.removeObject(forKey: Self.voiceKey(for: gender)) }
+        voiceRevision += 1
+    }
+
+    /// Voces instaladas entre las que elegir para el género actual.
+    var voiceChoices: (matching: [VoiceInfo], unspecified: [VoiceInfo]) {
+        _ = voiceRevision
+        return VoiceSelector.choices(from: voices(), gender: gender)
+    }
+
+    /// Voz real que se usará, calculada con la misma lógica que `makeUtterance`.
+    var selection: VoiceSelection {
+        _ = voiceRevision
+        return VoiceSelector.select(from: voices(), gender: gender, preferredID: preferredVoiceID(for: gender))
+    }
+
+    /// Solo hay voces de calidad estándar de España (las más robóticas) para el género actual.
+    var onlyBasicVoicesInstalled: Bool {
+        let spain = VoiceSelector.spanishVoices(voices()).filter { $0.language == "es-ES" }
+        return !spain.isEmpty && !spain.contains { $0.quality >= 2 }
+    }
+
+    /// "Voz actual: española — chica (Mónica)".
     var statusText: String {
         let current = selection
         guard let voice = current.voice else { return "Voz actual: predeterminada del sistema" }
         switch current.match {
-        case .exact: return "Voz actual: española — \(gender.label) (\(voice.name))"
+        case .exact, .chosen: return "Voz actual: española — \(gender.label) (\(voice.name))"
         case .exactOutsideSpain: return "Voz actual: española de otra región — \(gender.label) (\(voice.name))"
         default: return "Voz actual: española (\(voice.name))"
         }
     }
 
+    /// Nombre, idioma y calidad REALES de la voz que se va a usar (lo mismo que recibe el sintetizador).
+    var voiceDetails: String? {
+        guard let voice = selection.voice else { return nil }
+        return "\(voice.name) · \(voice.languageLabel) · \(voice.qualityLabel)"
+    }
+
     /// Aviso claro cuando la voz usada no coincide exactamente con lo elegido; nil si coincide.
     var warning: String? {
-        switch selection.match {
-        case .exact:
-            return nil
-        case .exactOutsideSpain:
-            return "No hay una voz de \(gender.label) de España instalada. Se está usando una voz de \(gender.label) de otra variante del español."
-        case .fallbackSpain, .fallbackSpanish:
-            return "No hay una voz de \(gender.label) en español instalada. Se está usando la mejor voz española disponible."
-        case .noSpanishVoice:
-            return "No hay ninguna voz en español instalada. Se está usando la voz predeterminada del sistema, que puede leer mal las indicaciones."
+        let current = selection
+        var parts: [String] = []
+        if current.preferredMissing {
+            parts.append("La voz que habías elegido ya no está instalada. Se usa la automática.")
         }
+        switch current.match {
+        case .exact, .chosen:
+            break
+        case .chosenGenderUnknown:
+            parts.append("iOS no indica si esta voz es de \(gender.label) o del otro género: la has elegido tú.")
+        case .exactOutsideSpain:
+            parts.append("No hay una voz de \(gender.label) de España instalada. Se está usando una voz de \(gender.label) de otra variante del español.")
+        case .fallbackSpain, .fallbackSpanish:
+            parts.append("No hay una voz de \(gender.label) en español instalada. Se está usando la mejor voz española disponible.")
+        case .noSpanishVoice:
+            parts.append("No hay ninguna voz en español instalada. Se está usando la voz predeterminada del sistema, que puede leer mal las indicaciones.")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 
     /// Cómo conseguir mejores voces (se muestra junto al aviso).
@@ -277,6 +397,11 @@ final class NavigationVoice {
     /// Botón "Escuchar prueba de voz": suena siempre, aunque las indicaciones estén desactivadas.
     func playTest() {
         speak(Self.testPhrase, interrupt: true, allowRepeat: true, isTest: true)
+    }
+
+    /// Escucha una voz concreta de la lista sin cambiar la elegida.
+    func preview(_ voice: VoiceInfo) {
+        speak(Self.testPhrase, interrupt: true, allowRepeat: true, isTest: true, voiceOverride: voice)
     }
 
     /// El botón de prueba alterna entre reproducir y parar.
@@ -323,15 +448,19 @@ final class NavigationVoice {
         volume = 1
         defaults.removeObject(forKey: Self.genderKey)
         defaults.removeObject(forKey: Self.volumeKey)
+        for g in NavigationVoiceGender.allCases { defaults.removeObject(forKey: Self.voiceKey(for: g)) }
+        voiceRevision += 1
     }
 
     // MARK: Privado
 
     /// Utterance con la voz, velocidad, tono y volumen vigentes. Se lee en cada indicación, así que
     /// un cambio de voz se aplica a la siguiente.
-    func makeUtterance(_ text: String) -> AVSpeechUtterance {
+    func makeUtterance(_ text: String, voiceOverride: VoiceInfo? = nil) -> AVSpeechUtterance {
         let utterance = AVSpeechUtterance(string: text)
-        if let info = selection.voice, let voice = AVSpeechSynthesisVoice(identifier: info.identifier) {
+        let info = voiceOverride ?? selection.voice
+        lastRequestedVoiceID = info?.identifier
+        if let info, let voice = AVSpeechSynthesisVoice(identifier: info.identifier) {
             utterance.voice = voice
         } else {
             utterance.voice = AVSpeechSynthesisVoice(language: "es-ES")
@@ -343,7 +472,7 @@ final class NavigationVoice {
         return utterance
     }
 
-    private func speak(_ text: String, interrupt: Bool, allowRepeat: Bool, isTest: Bool = false) {
+    private func speak(_ text: String, interrupt: Bool, allowRepeat: Bool, isTest: Bool = false, voiceOverride: VoiceInfo? = nil) {
         if !allowRepeat, text == lastSpoken { return }
         lastSpoken = text
         do {
@@ -359,7 +488,7 @@ final class NavigationVoice {
             testUtterance = nil
             isPlayingTest = false
         }
-        let utterance = makeUtterance(text)
+        let utterance = makeUtterance(text, voiceOverride: voiceOverride)
         active[ObjectIdentifier(utterance)] = utterance
         if isTest {
             testUtterance = ObjectIdentifier(utterance)

@@ -20,7 +20,8 @@ final class NavigationVoiceTests: XCTestCase {
 
     private func makeVoice(voices: [VoiceInfo] = [], synthesizer: FakeSynthesizer = FakeSynthesizer(),
                            session: FakeSession = FakeSession()) -> NavigationVoice {
-        NavigationVoice(defaults: defaults, synthesizer: synthesizer, session: session, voices: { voices })
+        NavigationVoice(defaults: defaults, synthesizer: synthesizer, session: session, voices: { voices },
+                        observeSystemEvents: false)
     }
 
     // MARK: Preferencia
@@ -63,13 +64,14 @@ final class NavigationVoiceTests: XCTestCase {
 
     func testChangingVoiceAppliesToTheNextAnnouncement() {
         let synthesizer = FakeSynthesizer()
-        let voice = makeVoice(synthesizer: synthesizer)
+        let voice = makeVoice(voices: [testVoice("girl-1", gender: .girl), testVoice("boy-1", gender: .boy)],
+                              synthesizer: synthesizer)
         voice.announce("Gira a la derecha.")
+        XCTAssertEqual(voice.lastRequestedVoiceID, "girl-1")
         voice.gender = .boy
         voice.announce("Gira a la izquierda.")
+        XCTAssertEqual(voice.lastRequestedVoiceID, "boy-1")
         XCTAssertEqual(synthesizer.spoken.count, 2)
-        XCTAssertEqual(synthesizer.spoken[0].pitchMultiplier, NavigationVoiceGender.girl.pitch, accuracy: 0.001)
-        XCTAssertEqual(synthesizer.spoken[1].pitchMultiplier, NavigationVoiceGender.boy.pitch, accuracy: 0.001)
     }
 
     // MARK: Frase y parámetros
@@ -85,9 +87,15 @@ final class NavigationVoiceTests: XCTestCase {
         XCTAssertEqual(utterance.rate, 0.48, accuracy: 0.0001)
     }
 
-    func testBoyPitchIsLowerThanGirlPitch() {
-        XCTAssertLessThan(NavigationVoiceGender.boy.pitch, 1)
-        XCTAssertGreaterThan(NavigationVoiceGender.girl.pitch, 1)
+    func testPitchIsNaturalForBothVoices() {
+        // No se simula chico/chica cambiando el tono: eso empeora la naturalidad.
+        XCTAssertEqual(NavigationVoiceGender.girl.pitch, 1.0)
+        XCTAssertEqual(NavigationVoiceGender.boy.pitch, 1.0)
+        let synthesizer = FakeSynthesizer()
+        let voice = makeVoice(synthesizer: synthesizer)
+        voice.gender = .boy
+        voice.announce("Hola.")
+        XCTAssertEqual(synthesizer.spoken[0].pitchMultiplier, 1.0, accuracy: 0.0001)
     }
 
     func testTestButtonSoundsEvenWhenGuidanceIsMuted() {
@@ -353,5 +361,123 @@ final class NavigationVoiceTests: XCTestCase {
         XCTAssertEqual(VoiceInfo.genderFromName("Mónica"), .girl)
         XCTAssertEqual(VoiceInfo.genderFromName("Jorge"), .boy)
         XCTAssertNil(VoiceInfo.genderFromName("Desconocida"))
+    }
+
+    // MARK: Voz real elegida
+
+    func testDisplayedVoiceIsTheVoiceRequestedFromTheSynthesizer() {
+        let list = [testVoice("basic", name: "Mónica", quality: 1, gender: .girl),
+                    testVoice("enhanced", name: "Paulina", quality: 2, gender: .girl),
+                    testVoice("boy", name: "Jorge", quality: 3, gender: .boy)]
+        let synthesizer = FakeSynthesizer()
+        let service = makeVoice(voices: list, synthesizer: synthesizer)
+        for gender in NavigationVoiceGender.allCases {
+            service.gender = gender
+            service.announce("Frase de \(gender.rawValue).")
+            XCTAssertEqual(service.lastRequestedVoiceID, service.selection.voice?.identifier)
+        }
+        service.gender = .girl
+        XCTAssertEqual(service.voiceDetails, "Paulina · es-ES · Mejorada")       // la mejorada gana a la básica
+    }
+
+    func testQualityLabelsAndLanguageAreReal() {
+        XCTAssertEqual(testVoice("a", quality: 1, gender: .girl).qualityLabel, "Estándar")
+        XCTAssertEqual(testVoice("a", quality: 2, gender: .girl).qualityLabel, "Mejorada")
+        XCTAssertEqual(testVoice("a", quality: 3, gender: .girl).qualityLabel, "Premium")
+        XCTAssertEqual(testVoice("a", lang: "es-MX", gender: .girl).languageLabel, "es-MX")
+    }
+
+    func testUserChosenVoiceWinsAndPersistsPerGender() {
+        let list = [testVoice("auto", name: "Auto", quality: 3, gender: .girl),
+                    testVoice("mine", name: "Mía", quality: 1, gender: .girl),
+                    testVoice("boy", name: "Jorge", gender: .boy)]
+        let service = makeVoice(voices: list)
+        service.setPreferredVoice("mine", for: .girl)
+        XCTAssertEqual(service.selection.voice?.identifier, "mine")
+        XCTAssertEqual(service.selection.match, .chosen)
+        XCTAssertNil(service.warning)
+
+        service.gender = .boy                                          // la elección es por género
+        XCTAssertEqual(service.selection.voice?.identifier, "boy")
+
+        XCTAssertEqual(makeVoice(voices: list).preferredVoiceID(for: .girl), "mine")   // persiste entre ejecuciones
+        service.setPreferredVoice(nil, for: .girl)
+        XCTAssertNil(makeVoice(voices: list).preferredVoiceID(for: .girl))
+    }
+
+    func testChosenVoiceThatDisappearedFallsBackAndSaysSo() {
+        let service = makeVoice(voices: [testVoice("a", name: "Mónica", gender: .girl)])
+        service.setPreferredVoice("desinstalada", for: .girl)
+        XCTAssertEqual(service.selection.voice?.identifier, "a")
+        XCTAssertTrue(service.selection.preferredMissing)
+        XCTAssertTrue(service.warning?.contains("ya no está instalada") ?? false)
+    }
+
+    func testAVoiceOfTheOtherGenderIsNeverPresentedAsMatching() {
+        let list = [testVoice("girl", gender: .girl), testVoice("boy", gender: .boy)]
+        // Una voz de chico guardada para "chica" se rechaza: no cumpliría la selección.
+        let selection = VoiceSelector.select(from: list, gender: .girl, preferredID: "boy")
+        XCTAssertEqual(selection.voice?.identifier, "girl")
+        XCTAssertTrue(selection.preferredMissing)
+
+        let choices = VoiceSelector.choices(from: list, gender: .girl)
+        XCTAssertEqual(choices.matching.map { $0.identifier }, ["girl"])
+        XCTAssertTrue(choices.unspecified.isEmpty)
+    }
+
+    func testUnspecifiedGenderVoiceIsOfferedSeparatelyAndFlagged() {
+        let list = [testVoice("girl", gender: .girl), testVoice("mystery", name: "Eddy", gender: nil)]
+        let choices = VoiceSelector.choices(from: list, gender: .boy)
+        XCTAssertTrue(choices.matching.isEmpty)
+        XCTAssertEqual(choices.unspecified.map { $0.identifier }, ["mystery"])
+
+        let service = makeVoice(voices: list)
+        service.gender = .boy
+        service.setPreferredVoice("mystery", for: .boy)
+        XCTAssertEqual(service.selection.match, .chosenGenderUnknown)
+        XCTAssertTrue(service.warning?.contains("no indica") ?? false)
+    }
+
+    func testNoveltyVoicesAreNeverOffered() {
+        let list = [testVoice("grandma", name: "Grandma", gender: .girl), testVoice("ok", name: "Mónica", gender: .girl)]
+        XCTAssertEqual(VoiceSelector.choices(from: list, gender: .girl).matching.map { $0.identifier }, ["ok"])
+        XCTAssertEqual(VoiceSelector.select(from: [list[0]], gender: .girl).match, .noSpanishVoice)
+    }
+
+    func testBasicVoicesOnlyIsDetected() {
+        XCTAssertTrue(makeVoice(voices: [testVoice("a", quality: 1, gender: .girl)]).onlyBasicVoicesInstalled)
+        XCTAssertFalse(makeVoice(voices: [testVoice("a", quality: 1, gender: .girl), testVoice("b", quality: 2, gender: .boy)]).onlyBasicVoicesInstalled)
+        XCTAssertFalse(makeVoice(voices: []).onlyBasicVoicesInstalled)
+    }
+
+    func testRefreshingVoicesUpdatesTheRevisionAndPicksUpNewVoices() {
+        var installed = [testVoice("basic", quality: 1, gender: .girl)]
+        let service = NavigationVoice(defaults: defaults, synthesizer: FakeSynthesizer(), session: FakeSession(),
+                                      voices: { installed }, observeSystemEvents: false)
+        XCTAssertEqual(service.selection.voice?.identifier, "basic")
+        let before = service.voiceRevision
+        installed.append(testVoice("premium", quality: 3, gender: .girl))          // el usuario descarga una voz
+        service.refreshVoices()
+        XCTAssertGreaterThan(service.voiceRevision, before)
+        XCTAssertEqual(service.selection.voice?.identifier, "premium")
+    }
+
+    func testPreviewPlaysTheGivenVoiceWithoutChangingTheChosenOne() {
+        let list = [testVoice("a", gender: .girl), testVoice("b", gender: .girl)]
+        let synthesizer = FakeSynthesizer()
+        let service = makeVoice(voices: list, synthesizer: synthesizer)
+        service.preview(list[1])
+        XCTAssertEqual(service.lastRequestedVoiceID, "b")
+        XCTAssertNil(service.preferredVoiceID(for: .girl))
+        XCTAssertTrue(service.isPlayingTest)
+    }
+
+    func testResetRemovesChosenVoices() {
+        let service = makeVoice(voices: [testVoice("a", gender: .girl)])
+        service.setPreferredVoice("a", for: .girl)
+        service.setPreferredVoice("a", for: .boy)
+        service.resetPreferences()
+        XCTAssertNil(service.preferredVoiceID(for: .girl))
+        XCTAssertNil(service.preferredVoiceID(for: .boy))
     }
 }

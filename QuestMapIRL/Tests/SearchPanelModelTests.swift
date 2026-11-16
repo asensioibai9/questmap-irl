@@ -94,7 +94,7 @@ final class SearchPanelModelTests: XCTestCase {
         await nearby.waitForPending(1)
         nearby.resume(0, with: .success([]))
         await nearby.waitForPending(2)
-        XCTAssertEqual(nearby.calls.map(\.1), SearchPanelModel.radii)
+        XCTAssertEqual(nearby.calls.map { $0.1 }, SearchPanelModel.radii)
         nearby.resume(1, with: .success([]))
         await settle()
         XCTAssertEqual(model.categoryPhase, .empty)

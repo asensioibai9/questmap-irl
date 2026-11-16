@@ -187,6 +187,16 @@ struct NavigationSettingsView: View {
                     ForEach(NavigationVoiceGender.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
+                NavigationLink {
+                    VoicePickerView(speech: speech)
+                } label: {
+                    HStack {
+                        Text("Elegir voz")
+                        Spacer()
+                        Text(speech.preferredVoiceID(for: speech.gender) == nil ? "Automática" : (speech.selection.voice?.name ?? "—"))
+                            .foregroundStyle(AppColor.textSecondary)
+                    }
+                }
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text("Volumen")
@@ -207,6 +217,17 @@ struct NavigationSettingsView: View {
                     Text(speech.statusText)
                         .font(.footnote)
                         .foregroundStyle(AppColor.textSecondary)
+                    if let details = speech.voiceDetails {
+                        Text("Se usa: \(details)")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(AppColor.textPrimary)
+                    }
+                    if speech.onlyBasicVoicesInstalled {
+                        Label("Solo hay voces básicas de España instaladas; suenan más robóticas. Descarga una voz Mejorada o Premium en Ajustes › Accesibilidad › Contenido hablado › Voces › Español (tu iPhone tiene iOS \(UIDevice.current.systemVersion)).",
+                              systemImage: "arrow.down.circle")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
                     if let warning = speech.warning {
                         Label(warning, systemImage: "exclamationmark.triangle.fill")
                             .font(.footnote)
@@ -452,4 +473,83 @@ struct LegalDocumentView: View {
         ("Gratuita",
          "Todas las funciones están disponibles sin pagos, suscripciones ni anuncios."),
     ]
+}
+
+// MARK: - Elegir voz
+
+/// Lista las voces españolas realmente instaladas, con su calidad, para escucharlas y elegir una.
+/// La lista se vuelve a leer al volver a la app (por ejemplo después de descargar una voz).
+struct VoicePickerView: View {
+    @Bindable var speech: SpeechService
+
+    var body: some View {
+        let choices = speech.voiceChoices
+        let chosenID = speech.preferredVoiceID(for: speech.gender)
+        List {
+            Section {
+                Button {
+                    speech.setPreferredVoice(nil, for: speech.gender)
+                } label: {
+                    row(title: "Automática", detail: "La mejor voz de \(speech.gender.label) disponible",
+                        selected: chosenID == nil, action: nil)
+                }
+            } footer: {
+                Text("Se elige la voz de España de mayor calidad disponible para \(speech.gender.label).")
+            }
+
+            Section {
+                if choices.matching.isEmpty {
+                    Text("iOS no declara ninguna voz de \(speech.gender.label) en español instalada.")
+                        .font(.footnote).foregroundStyle(.orange)
+                }
+                ForEach(choices.matching, id: \.identifier) { voice in voiceRow(voice, chosenID: chosenID) }
+            } header: {
+                Text("Voces de \(speech.gender.label) instaladas")
+            }
+
+            if !choices.unspecified.isEmpty {
+                Section {
+                    ForEach(choices.unspecified, id: \.identifier) { voice in voiceRow(voice, chosenID: chosenID) }
+                } header: {
+                    Text("Género no indicado por iOS")
+                } footer: {
+                    Text("iOS no dice si estas voces son de chica o de chico. Si eliges una, es decisión tuya.")
+                }
+            }
+
+            Section {
+                Text("Para más voces: Ajustes › Accesibilidad › Contenido hablado › Voces › Español, y descarga las versiones Mejorada o Premium. Al volver a la app, la lista se actualiza sola. Solo aparecen las voces que iOS permite usar a las apps.")
+                    .font(.footnote).foregroundStyle(AppColor.textSecondary)
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(AppColor.background.ignoresSafeArea())
+        .navigationTitle("Elegir voz")
+        .navigationBarTitleDisplayMode(.inline)
+        .preferredColorScheme(.dark)
+        .onAppear { speech.refreshVoices() }
+        .onDisappear { speech.stopTestIfPlaying() }
+    }
+
+    private func voiceRow(_ voice: VoiceInfo, chosenID: String?) -> some View {
+        Button {
+            speech.setPreferredVoice(voice.identifier, for: speech.gender)
+            speech.preview(voice)
+        } label: {
+            row(title: voice.name, detail: "\(voice.languageLabel) · \(voice.qualityLabel)",
+                selected: chosenID == voice.identifier, action: nil)
+        }
+        .accessibilityHint("Elige esta voz y la reproduce")
+    }
+
+    private func row(title: String, detail: String, selected: Bool, action: (() -> Void)?) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).foregroundStyle(AppColor.textPrimary)
+                Text(detail).font(.caption).foregroundStyle(AppColor.textSecondary)
+            }
+            Spacer()
+            if selected { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
+        }
+    }
 }

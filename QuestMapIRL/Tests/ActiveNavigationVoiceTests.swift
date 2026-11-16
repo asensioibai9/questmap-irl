@@ -33,7 +33,8 @@ final class ActiveNavigationVoiceTests: XCTestCase {
     ]
 
     private func makeNavigation() -> ActiveNavigationViewModel {
-        let voice = NavigationVoice(defaults: defaults, synthesizer: synthesizer, session: session, voices: { [] })
+        let voice = NavigationVoice(defaults: defaults, synthesizer: synthesizer, session: session, voices: { [] },
+                                   observeSystemEvents: false)
         let route = Route(
             name: "Prueba", coordinates: points, distanceMeters: 1110, durationSeconds: 120,
             steps: [
