@@ -23,6 +23,9 @@ struct NavigationOverlay: View {
     let miniMap: MapController
     let useMetric: Bool
     let onRecenter: () -> Void
+    var supports3D = false
+    var is3D = false
+    var onToggle3D: () -> Void = {}
     let onSearch: () -> Void
     let onEnd: () -> Void
 
@@ -112,6 +115,10 @@ struct NavigationOverlay: View {
                 headingUp.toggle()
                 showFullRoute = false
                 onRecenter()
+            }
+            if supports3D {
+                MapRoundButton(theme: theme, systemImage: is3D ? "view.3d" : "view.2d",
+                               label: is3D ? "Cambiar a vista 2D" : "Cambiar a vista 3D", isActive: is3D) { onToggle3D() }
             }
             MapRoundButton(theme: theme, systemImage: "location.fill", label: "Recentrar") {
                 showFullRoute = false

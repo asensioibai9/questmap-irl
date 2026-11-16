@@ -36,7 +36,7 @@ enum ThemeCatalog {
             resourceName: "style-ciudad-nocturna", backgroundHex: 0x17191D, userArrowHex: 0xFFFFFF,
             defaultZoom: 15.5, navigationZoom: 17, navigationPitch: 35,
             minimapZoom: 16.5, minimapShape: .fadedRectangle, minimapBorderHex: 0x0A0B0D, attribution: attribution,
-            poiIconSet: .gameBadges)
+            poiIconSet: .gameBadges, supportsBuildings3D: true)
     )
 
     static let minimalistaPro = MapTheme(

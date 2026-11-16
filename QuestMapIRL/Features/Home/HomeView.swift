@@ -73,8 +73,17 @@ struct HomeView: View {
     private var location: LocationServiceProtocol { environment.locationService }
     private var followMode: FollowMode { viewModel.headingUp ? .headingUp : .northUp }
     private var navigationBottomInset: CGFloat { viewHeight * 0.22 }
-    /// La cámara inclinada solo se usa conduciendo; a pie se mantiene cenital.
-    private var navigationPitch: Double { viewModel.mode == .driving ? theme.activeCartography.navigationPitch : 0 }
+    /// El control 2D/3D solo existe en estilos con edificios extruidos.
+    private var supports3D: Bool { theme.activeCartography.supportsBuildings3D }
+    private var view3D: Bool { supports3D && (settings?.view3D ?? false) }
+    /// Exploración: cenital (2D) o en perspectiva (3D).
+    private var explorePitch: Double { view3D ? 50 : 0 }
+    /// Navegación: en estilos con 3D manda la preferencia del usuario (2D = cenital siempre; 3D = perspectiva
+    /// moderada, más suave a pie). En el resto de estilos se mantiene el comportamiento anterior.
+    private var navigationPitch: Double {
+        if supports3D { return view3D ? (viewModel.mode == .driving ? 45 : 30) : 0 }
+        return viewModel.mode == .driving ? theme.activeCartography.navigationPitch : 0
+    }
 
     // MARK: - Cuerpo
 
@@ -99,6 +108,9 @@ struct HomeView: View {
                     miniMap: miniMap,
                     useMetric: useMetric,
                     onRecenter: recenter,
+                    supports3D: supports3D,
+                    is3D: view3D,
+                    onToggle3D: toggle3D,
                     onSearch: { showNavSearch = true },
                     onEnd: { navigation.stop() }
                 )
@@ -199,6 +211,8 @@ struct HomeView: View {
             recenter()
         }
         .onChange(of: settings?.mapAvatar) { _, avatar in applyAvatar(avatar) }
+        .onChange(of: supports3D) { _, _ in apply3D(animated: false) }
+        .onChange(of: settings?.view3D) { _, _ in apply3D(animated: true) }
         .onChange(of: panel.markers) { _, places in map.setMarkers(places) }
         .onChange(of: navDisplay) { _, _ in
             // El mapa grande se recrea al volver desde el modo HUD: recupera su cámara de seguimiento.
@@ -292,6 +306,11 @@ struct HomeView: View {
                 viewModel.headingUp.toggle()
                 settings?.headingUp = viewModel.headingUp
                 recenter()
+            }
+            if supports3D {
+                CircleIconButton(systemImage: view3D ? "view.3d" : "view.2d",
+                                 label: view3D ? "Vista 3D activa. Cambiar a vista 2D" : "Vista 2D activa. Cambiar a vista 3D con edificios",
+                                 size: 48, isActive: view3D, accent: theme.accent, floating: true) { toggle3D() }
             }
             CircleIconButton(systemImage: viewModel.isFollowing ? "location.fill" : "location",
                              label: "Recentrar en mi ubicación",
@@ -633,10 +652,11 @@ struct HomeView: View {
         }
         map.onFollowCancelled = { viewModel.isFollowing = false }
         applyAvatar(settings?.mapAvatar)
+        apply3D(animated: false)
         pushSavedPlaces()
         if startupFinished { afterStartup() } else { location.start(mode: .idle) }
         pushUser()
-        map.setFollow(followMode, zoom: theme.activeCartography.defaultZoom, pitch: 0, bottomInset: 0)
+        map.setFollow(followMode, zoom: theme.activeCartography.defaultZoom, pitch: explorePitch, bottomInset: 0)
     }
 
     /// Después de la animación de inicio: ahora sí se puede pedir el permiso (con contexto) y abrir el panel.
@@ -673,8 +693,22 @@ struct HomeView: View {
             map.setFollow(followMode, zoom: style.navigationZoom, pitch: navigationPitch, bottomInset: navigationBottomInset)
             miniMap.setFollow(followMode, zoom: style.minimapZoom, pitch: 0, bottomInset: 0)
         } else {
-            map.setFollow(followMode, zoom: style.defaultZoom, pitch: 0, bottomInset: 0)
+            map.setFollow(followMode, zoom: style.defaultZoom, pitch: explorePitch, bottomInset: 0)
         }
+    }
+
+    /// Alterna 2D/3D sin mover el centro, la ruta ni el destino; la preferencia se guarda al momento.
+    private func toggle3D() {
+        guard supports3D, let settings else { return }
+        settings.view3D.toggle()
+        PersistenceCommit.saveQuietly(modelContext, operation: "view3d")
+        apply3D(animated: true)
+    }
+
+    /// Edificios y cámara según la preferencia. Durante la navegación usa la inclinación de navegación.
+    private func apply3D(animated: Bool) {
+        map.setBuildings3D(view3D)
+        map.setPerspective(navigation != nil ? navigationPitch : explorePitch, animated: animated)
     }
 
     private func routeInsets(bottom: CGFloat) -> UIEdgeInsets {

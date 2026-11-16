@@ -30,6 +30,7 @@ final class MapController {
     private(set) var followMode: FollowMode = .northUp
     private var followZoom: Double = 15.5
     private var followPitch: Double = 0
+    private var buildings3D = false
     private var bottomInset: CGFloat = 0
     private var hasCenteredOnUser = false
 
@@ -62,6 +63,8 @@ final class MapController {
         pushSelection(animated: false)
         pushSaved()
         pushUser()
+        applyBuildings()
+        applyPitch(animated: false)
         applyFollow(animated: false)
     }
 
@@ -91,6 +94,20 @@ final class MapController {
     func setSavedPlaces(_ places: [(coordinate: CLLocationCoordinate2D, icon: String)]) {
         savedMarkers = places
         pushSaved()
+    }
+
+    /// Edificios 3D encendidos/apagados. Solo cambia la visibilidad de la capa `building-3d` (que ya está en el
+    /// estilo): no se reconstruye ni se recarga nada. Se vuelve a aplicar tras cada carga de estilo.
+    func setBuildings3D(_ enabled: Bool) {
+        buildings3D = enabled
+        applyBuildings()
+    }
+
+    /// Inclinación de la cámara (0 = cenital). Transición suave; conserva centro, zoom y rumbo, y por tanto
+    /// ruta, destino y marcadores. Se recuerda para aplicarla también tras cambiar de estilo.
+    func setPerspective(_ pitch: Double, animated: Bool = true) {
+        followPitch = pitch
+        applyPitch(animated: animated)
     }
 
     /// Centra el mapa en un punto sin seguir al usuario.
@@ -163,6 +180,19 @@ final class MapController {
     }
 
     // MARK: - Privado
+
+    private func applyBuildings() {
+        guard styleReady, let layer = mapView?.style?.layer(withIdentifier: "building-3d") else { return }
+        layer.isVisible = buildings3D
+    }
+
+    private func applyPitch(animated: Bool) {
+        guard let mapView, styleReady else { return }
+        let camera = mapView.camera
+        guard abs(Double(camera.pitch) - followPitch) > 0.5 else { return }
+        camera.pitch = CGFloat(followPitch)
+        mapView.setCamera(camera, withDuration: animated ? 0.6 : 0, animationTimingFunction: CAMediaTimingFunction(name: .easeInEaseOut))
+    }
 
     private func applyFollow(animated: Bool) {
         guard let mapView, let user, followMode != .off else { return }

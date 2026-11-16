@@ -69,6 +69,8 @@ struct CartographyStyle: Equatable {
     /// Texturas del catálogo de recursos que usa el estilo (`fill-pattern`). Deben coincidir con
     /// `metadata["questmap:images"]` del JSON (lo comprueba un test).
     var textures: [String] = []
+    /// El JSON del estilo incluye la capa `building-3d` (edificios extruidos). Sin ella no se muestra el control 2D/3D.
+    var supportsBuildings3D: Bool = false
 }
 
 /// Tokens del tema: HUD (paneles, texto, iconos) y cartografía. Cambiar de tema nunca altera

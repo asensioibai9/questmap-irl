@@ -16,6 +16,8 @@ final class UserSettings {
     var mapAvatarRaw: String = MapAvatar.arrow.rawValue
     var saveSearchHistory: Bool = true
     var defaultModeRaw: String = RouteMode.driving.rawValue
+    /// Vista con edificios 3D (solo en estilos que la admiten). Por defecto, vista cenital 2D.
+    var view3D: Bool = false
 
     init(themeRawValue: String = MapThemeID.ciudadNocturna.rawValue,
          useMetricUnits: Bool = true,

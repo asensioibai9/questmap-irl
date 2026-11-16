@@ -247,6 +247,27 @@ def build_style(cfg):
     for tier in TIERS:
         add(fill(tier, "bridge", False, f"bridge-{tier}"))
 
+    # ---- Edificios 3D (extrusión de huellas) ------------------------------
+    # Datos: capa `building` de OpenMapTiles (render_height, render_min_height, hide_3d). La altura sale de las
+    # etiquetas height / building:levels de OSM; si faltan, el propio esquema aporta un valor estimado (4-5 m).
+    # Va DESPUÉS de las carreteras (los edificios no se pintan bajo ellas) y ANTES de la ruta, etiquetas e iconos,
+    # que se dibujan por encima: ningún edificio tapa la ruta ni la maniobra. Empieza oculta: la app la activa.
+    b3 = cfg.get("buildings_3d")
+    if b3:
+        height = ["max", b3.get("min_height", 3), ["min", b3.get("max_height", 120),
+                  ["to-number", ["coalesce", ["get", "render_height"], 6], 6]]]
+        base = ["max", 0, ["to-number", ["coalesce", ["get", "render_min_height"], 0], 0]]
+        add({"id": "building-3d", "type": "fill-extrusion", "source": "openmaptiles", "source-layer": "building",
+             "minzoom": 15, "layout": {"visibility": "none"},
+             "filter": ["!=", ["coalesce", ["get", "hide_3d"], False], True],
+             "paint": {
+                 "fill-extrusion-color": ["interpolate", ["linear"], height] + [x for z, c in b3["colors"] for x in (z, c)],
+                 # Crecen suavemente entre z15 y z16 para evitar saltos bruscos al acercar.
+                 "fill-extrusion-height": interp([(15, 0), (16, height)]),
+                 "fill-extrusion-base": interp([(15, 0), (16, base)]),
+                 "fill-extrusion-opacity": b3.get("opacity", 1.0),
+                 "fill-extrusion-vertical-gradient": True}})
+
     # ---- Capas de navegación bajo las etiquetas -------------------------
     add({"id": "route-glow", "type": "line", "source": "route",
          "layout": {"line-cap": "round", "line-join": "round"},
@@ -415,6 +436,7 @@ def build_style(cfg):
             **({"saved": {"type": "geojson", "data": empty}} if cfg.get("saved_places") else {}),
             "user": {"type": "geojson", "data": empty},
         },
+        **({"light": cfg["buildings_3d"]["light"]} if cfg.get("buildings_3d") else {}),
         "layers": layers,
     }
 
@@ -459,6 +481,9 @@ NOIR = {
     "place_upper": False,       # barrios con mayúsculas y tildes originales, sin forzar versalitas
     "selection": True,
     "saved_places": True,
+    # Volumen gris oscuro: más claro cuanto más alto. Tejado distinto de fachada por la luz y el degradado vertical.
+    "buildings_3d": {"colors": [(0, "#2b2b2b"), (40, "#383838"), (120, "#464646")], "max_height": 120,
+                     "light": {"anchor": "viewport", "color": "#ffffff", "intensity": 0.45, "position": [1.15, 205, 40]}},
     "route": {"core": "#A855E8", "casing": "#0f0f0f", "glow": "#A855E8", "glow_opacity": 0.28},
     "destination": {"color": "#ffd400", "stroke": "#0a0b0d", "icon": "poi-destination"},
     "results": {"color": "#5AA9FF", "stroke": "#0f0f0f"},
