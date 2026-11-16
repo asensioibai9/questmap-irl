@@ -60,4 +60,34 @@ final class Buildings3DTests: XCTestCase {
     func testPreferenceDefaultsTo2D() {
         XCTAssertFalse(UserSettings().view3D)
     }
+
+    // MARK: Fase 3: Isla y Mundo de bloques
+
+    func testIslaUsesSimplifiedSteppedVolumesWithWarmColors() throws {
+        let layer = try XCTUnwrap(try layers("style-isla").first { $0["id"] as? String == "building-3d" })
+        let paint = String(describing: layer["paint"] as Any)
+        XCTAssertTrue(paint.contains("round"), "alturas escalonadas (volúmenes simplificados)")
+        XCTAssertTrue(paint.contains("fill-extrusion-color"))
+    }
+
+    func testBlockWorldUsesBlockHeightsAndPlankTextureButIsNotVoxelized() throws {
+        let layer = try XCTUnwrap(try layers("style-bloques").first { $0["id"] as? String == "building-3d" })
+        let paint = try XCTUnwrap(layer["paint"] as? [String: Any])
+        XCTAssertEqual(paint["fill-extrusion-pattern"] as? String, "tex-block-planks")
+        XCTAssertTrue(String(describing: paint["fill-extrusion-height"] as Any).contains("round"), "alturas en múltiplos de bloque")
+        XCTAssertEqual(layer["source-layer"] as? String, "building", "una huella extruida por edificio: no hay voxels")
+        let bundle = Bundle(for: AppEnvironment.self)
+        let url = try XCTUnwrap(bundle.url(forResource: "style-bloques", withExtension: "json"))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let images = (json["metadata"] as? [String: Any])?["questmap:images"] as? [String]
+        XCTAssertTrue(images?.contains("tex-block-planks") ?? false, "la textura se registra en el estilo")
+        XCTAssertTrue(ThemeCatalog.mundoBloques.cartography?.textures.contains("tex-block-planks") ?? false)
+    }
+
+    func testAllThreeGameStylesOfferTheControlAndMinimalistDoesNot() {
+        XCTAssertTrue(ThemeCatalog.ciudadNocturna.activeCartography.supportsBuildings3D)
+        XCTAssertTrue(ThemeCatalog.islaRoyale.activeCartography.supportsBuildings3D)
+        XCTAssertTrue(ThemeCatalog.mundoBloques.activeCartography.supportsBuildings3D)
+        XCTAssertFalse(ThemeCatalog.minimalistaPro.activeCartography.supportsBuildings3D)
+    }
 }

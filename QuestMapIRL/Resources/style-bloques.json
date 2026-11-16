@@ -84,6 +84,16 @@
    }
   }
  },
+ "light": {
+  "anchor": "viewport",
+  "color": "#e9dcc4",
+  "intensity": 0.55,
+  "position": [
+   1.15,
+   215,
+   35
+  ]
+ },
  "layers": [
   {
    "id": "background",
@@ -4070,6 +4080,121 @@
      20,
      72.0
     ]
+   }
+  },
+  {
+   "id": "building-3d",
+   "type": "fill-extrusion",
+   "source": "openmaptiles",
+   "source-layer": "building",
+   "minzoom": 15,
+   "layout": {
+    "visibility": "none"
+   },
+   "filter": [
+    "!=",
+    [
+     "coalesce",
+     [
+      "get",
+      "hide_3d"
+     ],
+     false
+    ],
+    true
+   ],
+   "paint": {
+    "fill-extrusion-height": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0,
+     16,
+     [
+      "max",
+      3,
+      [
+       "*",
+       3,
+       [
+        "round",
+        [
+         "/",
+         [
+          "max",
+          3,
+          [
+           "min",
+           60,
+           [
+            "to-number",
+            [
+             "coalesce",
+             [
+              "get",
+              "render_height"
+             ],
+             6
+            ],
+            6
+           ]
+          ]
+         ],
+         3
+        ]
+       ]
+      ]
+     ]
+    ],
+    "fill-extrusion-base": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0,
+     16,
+     [
+      "*",
+      3,
+      [
+       "round",
+       [
+        "/",
+        [
+         "max",
+         0,
+         [
+          "to-number",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_min_height"
+           ],
+           0
+          ],
+          0
+         ]
+        ],
+        3
+       ]
+      ]
+     ]
+    ],
+    "fill-extrusion-opacity": 1.0,
+    "fill-extrusion-vertical-gradient": true,
+    "fill-extrusion-pattern": "tex-block-planks"
    }
   },
   {

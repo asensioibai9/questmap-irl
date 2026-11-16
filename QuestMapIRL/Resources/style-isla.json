@@ -45,6 +45,16 @@
    }
   }
  },
+ "light": {
+  "anchor": "viewport",
+  "color": "#fff6e0",
+  "intensity": 0.5,
+  "position": [
+   1.15,
+   215,
+   50
+  ]
+ },
  "layers": [
   {
    "id": "background",
@@ -4017,6 +4027,169 @@
      19.8,
      20,
      49.5
+    ]
+   }
+  },
+  {
+   "id": "building-3d",
+   "type": "fill-extrusion",
+   "source": "openmaptiles",
+   "source-layer": "building",
+   "minzoom": 15,
+   "layout": {
+    "visibility": "none"
+   },
+   "filter": [
+    "!=",
+    [
+     "coalesce",
+     [
+      "get",
+      "hide_3d"
+     ],
+     false
+    ],
+    true
+   ],
+   "paint": {
+    "fill-extrusion-height": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0,
+     16,
+     [
+      "max",
+      6,
+      [
+       "*",
+       6,
+       [
+        "round",
+        [
+         "/",
+         [
+          "max",
+          3,
+          [
+           "min",
+           72,
+           [
+            "to-number",
+            [
+             "coalesce",
+             [
+              "get",
+              "render_height"
+             ],
+             6
+            ],
+            6
+           ]
+          ]
+         ],
+         6
+        ]
+       ]
+      ]
+     ]
+    ],
+    "fill-extrusion-base": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0,
+     16,
+     [
+      "*",
+      6,
+      [
+       "round",
+       [
+        "/",
+        [
+         "max",
+         0,
+         [
+          "to-number",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_min_height"
+           ],
+           0
+          ],
+          0
+         ]
+        ],
+        6
+       ]
+      ]
+     ]
+    ],
+    "fill-extrusion-opacity": 1.0,
+    "fill-extrusion-vertical-gradient": true,
+    "fill-extrusion-color": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "max",
+      6,
+      [
+       "*",
+       6,
+       [
+        "round",
+        [
+         "/",
+         [
+          "max",
+          3,
+          [
+           "min",
+           72,
+           [
+            "to-number",
+            [
+             "coalesce",
+             [
+              "get",
+              "render_height"
+             ],
+             6
+            ],
+            6
+           ]
+          ]
+         ],
+         6
+        ]
+       ]
+      ]
+     ],
+     0,
+     "#f3ecda",
+     24,
+     "#f2d27a",
+     48,
+     "#eca35c",
+     90,
+     "#d0674a"
     ]
    }
   },

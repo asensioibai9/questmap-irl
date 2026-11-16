@@ -3954,38 +3954,6 @@
     true
    ],
    "paint": {
-    "fill-extrusion-color": [
-     "interpolate",
-     [
-      "linear"
-     ],
-     [
-      "max",
-      3,
-      [
-       "min",
-       120,
-       [
-        "to-number",
-        [
-         "coalesce",
-         [
-          "get",
-          "render_height"
-         ],
-         6
-        ],
-        6
-       ]
-      ]
-     ],
-     0,
-     "#2b2b2b",
-     40,
-     "#383838",
-     120,
-     "#464646"
-    ],
     "fill-extrusion-height": [
      "interpolate",
      [
@@ -4049,7 +4017,39 @@
      ]
     ],
     "fill-extrusion-opacity": 1.0,
-    "fill-extrusion-vertical-gradient": true
+    "fill-extrusion-vertical-gradient": true,
+    "fill-extrusion-color": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "max",
+      3,
+      [
+       "min",
+       120,
+       [
+        "to-number",
+        [
+         "coalesce",
+         [
+          "get",
+          "render_height"
+         ],
+         6
+        ],
+        6
+       ]
+      ]
+     ],
+     0,
+     "#2b2b2b",
+     40,
+     "#383838",
+     120,
+     "#464646"
+    ]
    }
   },
   {

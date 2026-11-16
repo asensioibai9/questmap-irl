@@ -80,7 +80,8 @@ enum ThemeCatalog {
             resourceName: "style-isla", backgroundHex: 0x74A83A, userArrowHex: 0xFFFFFF,
             defaultZoom: 15.5, navigationZoom: 16.5, navigationPitch: 0,
             minimapZoom: 16, minimapShape: .roundedSquare, minimapBorderHex: 0xFFFFFF, attribution: attribution,
-            poiIconHex: 0xFFFFFF, poiOutlineHex: 0x18290F, textures: ["tex-canopy", "tex-grass"])
+            poiIconHex: 0xFFFFFF, poiOutlineHex: 0x18290F, textures: ["tex-canopy", "tex-grass"],
+            supportsBuildings3D: true)
     )
 
     static let mundoBloques = MapTheme(
@@ -101,7 +102,8 @@ enum ThemeCatalog {
             minimapZoom: 16, minimapShape: .roundedSquare, minimapBorderHex: 0x3B2A1E, attribution: attribution,
             poiIconHex: 0xFFFFFF, poiOutlineHex: 0x1D1D1D,
             textures: ["tex-block-grass", "tex-block-leaves", "tex-block-sand", "tex-block-path",
-                       "tex-block-stone", "tex-block-water", "tex-block-planks"])
+                       "tex-block-stone", "tex-block-water", "tex-block-planks"],
+            supportsBuildings3D: true)
     )
 
     static let mapaFantasia = MapTheme(

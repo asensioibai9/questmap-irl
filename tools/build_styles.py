@@ -254,19 +254,28 @@ def build_style(cfg):
     # que se dibujan por encima: ningún edificio tapa la ruta ni la maniobra. Empieza oculta: la app la activa.
     b3 = cfg.get("buildings_3d")
     if b3:
-        height = ["max", b3.get("min_height", 3), ["min", b3.get("max_height", 120),
-                  ["to-number", ["coalesce", ["get", "render_height"], 6], 6]]]
+        raw = ["max", b3.get("min_height", 3), ["min", b3.get("max_height", 120),
+               ["to-number", ["coalesce", ["get", "render_height"], 6], 6]]]
+        step = b3.get("height_step")
+        # Alturas escalonadas (múltiplos de `height_step` m): volúmenes simplificados / bloques de altura fija.
+        height = ["max", step, ["*", step, ["round", ["/", raw, step]]]] if step else raw
         base = ["max", 0, ["to-number", ["coalesce", ["get", "render_min_height"], 0], 0]]
+        if step:
+            base = ["*", step, ["round", ["/", base, step]]]
+        paint = {
+            # Crecen suavemente entre z15 y z16 para evitar saltos bruscos al acercar.
+            "fill-extrusion-height": interp([(15, 0), (16, height)]),
+            "fill-extrusion-base": interp([(15, 0), (16, base)]),
+            "fill-extrusion-opacity": b3.get("opacity", 1.0),
+            "fill-extrusion-vertical-gradient": b3.get("vertical_gradient", True)}
+        if b3.get("pattern"):
+            paint["fill-extrusion-pattern"] = b3["pattern"]
+        else:
+            paint["fill-extrusion-color"] = ["interpolate", ["linear"], height] + [x for z, c in b3["colors"] for x in (z, c)]
         add({"id": "building-3d", "type": "fill-extrusion", "source": "openmaptiles", "source-layer": "building",
              "minzoom": 15, "layout": {"visibility": "none"},
              "filter": ["!=", ["coalesce", ["get", "hide_3d"], False], True],
-             "paint": {
-                 "fill-extrusion-color": ["interpolate", ["linear"], height] + [x for z, c in b3["colors"] for x in (z, c)],
-                 # Crecen suavemente entre z15 y z16 para evitar saltos bruscos al acercar.
-                 "fill-extrusion-height": interp([(15, 0), (16, height)]),
-                 "fill-extrusion-base": interp([(15, 0), (16, base)]),
-                 "fill-extrusion-opacity": b3.get("opacity", 1.0),
-                 "fill-extrusion-vertical-gradient": True}})
+             "paint": paint})
 
     # ---- Capas de navegación bajo las etiquetas -------------------------
     add({"id": "route-glow", "type": "line", "source": "route",
@@ -543,6 +552,10 @@ ISLA = {
         "road_text": "#ffffff", "halo": "#18290f", "place_text": "#ffffff", "city_text": "#ffffff",
         "poi_text": "#ffffff",
     },
+    # Volúmenes simplificados: alturas en escalones de 6 m, tope bajo y colores cálidos y claros sobre el verde.
+    "buildings_3d": {"colors": [(0, "#f3ecda"), (24, "#f2d27a"), (48, "#eca35c"), (90, "#d0674a")], "max_height": 72,
+                     "height_step": 6,
+                     "light": {"anchor": "viewport", "color": "#fff6e0", "intensity": 0.5, "position": [1.15, 215, 50]}},
     "route": {"core": "#ff2e93", "casing": "#ffffff", "glow": "#ff2e93", "glow_opacity": 0.35},
     "destination": {"color": "#ffe600", "stroke": "#18290f"},
     "results": {"color": "#00e5ff", "stroke": "#18290f"},
@@ -582,6 +595,10 @@ BLOQUES = {
         "road_text": "#ffffff", "halo": "#1d1d1d", "place_text": "#ffffff", "city_text": "#ffffff",
         "poi_text": "#ffffff",
     },
+    # Prismas rectangulares con alturas en múltiplos de 3 m y la textura de tablones en las paredes.
+    # NO son voxels: la huella real del edificio se extruye tal cual (ver docs/17).
+    "buildings_3d": {"pattern": "tex-block-planks", "max_height": 60, "height_step": 3,
+                     "light": {"anchor": "viewport", "color": "#e9dcc4", "intensity": 0.55, "position": [1.15, 215, 35]}},
     "route": {"core": "#ffe14d", "casing": "#1d1d1d", "glow": "#ffe14d", "glow_opacity": 0.3},
     "destination": {"color": "#ff4d4d", "stroke": "#1d1d1d"},
     "results": {"color": "#4dd9ff", "stroke": "#1d1d1d"},
