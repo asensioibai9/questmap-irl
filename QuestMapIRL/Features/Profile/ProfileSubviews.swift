@@ -171,6 +171,8 @@ struct NavigationSettingsView: View {
         .background(AppColor.background.ignoresSafeArea())
         .navigationTitle("Ajustes de navegación")
         .navigationBarTitleDisplayMode(.inline)
+        // Al salir de esta pantalla no debe quedarse sonando la prueba.
+        .onDisappear { speech.stopTestIfPlaying() }
     }
 
     private func form(_ settings: UserSettings) -> some View {
@@ -193,15 +195,28 @@ struct NavigationSettingsView: View {
                     }
                     Slider(value: Binding(get: { Double(speech.volume) }, set: { speech.volume = Float($0) }), in: 0.2...1)
                 }
-                Button { speech.playTest() } label: {
-                    Label("Escuchar prueba de voz", systemImage: "speaker.wave.2.fill")
+                Button { speech.toggleTest() } label: {
+                    if speech.isPlayingTest {
+                        Label("Reproduciendo… (toca para parar)", systemImage: "waveform")
+                    } else {
+                        Label("Escuchar prueba de voz", systemImage: "speaker.wave.2.fill")
+                    }
                 }
+                .accessibilityLabel(speech.isPlayingTest ? "Reproduciendo la prueba de voz. Toca para parar" : "Escuchar prueba de voz")
                 VStack(alignment: .leading, spacing: 6) {
                     Text(speech.statusText)
                         .font(.footnote)
                         .foregroundStyle(AppColor.textSecondary)
                     if let warning = speech.warning {
                         Label(warning, systemImage: "exclamationmark.triangle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                        Text(NavigationVoice.downloadHint)
+                            .font(.footnote)
+                            .foregroundStyle(AppColor.textSecondary)
+                    }
+                    if let problem = speech.audioProblem {
+                        Label(problem, systemImage: "speaker.slash.fill")
                             .font(.footnote)
                             .foregroundStyle(.orange)
                     }

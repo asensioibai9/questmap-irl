@@ -120,21 +120,33 @@ protocol AudioSessionControlling {
     func deactivate()
 }
 
+/// Lo mínimo de `AVAudioSession` que usa la voz. Permite comprobar en tests qué se configura
+/// sin depender de que el simulador deje modificar la sesión real.
+protocol AudioSessionDriver {
+    func setCategory(_ category: AVAudioSession.Category, mode: AVAudioSession.Mode,
+                     options: AVAudioSession.CategoryOptions) throws
+    func setActive(_ active: Bool, options: AVAudioSession.SetActiveOptions) throws
+}
+
+extension AVAudioSession: AudioSessionDriver {}
+
 /// Sesión de audio real del sistema.
 struct SystemAudioSession: AudioSessionControlling {
+    var driver: AudioSessionDriver = AVAudioSession.sharedInstance()
+
     func configure() throws {
-        try AVAudioSession.sharedInstance().setCategory(
-            NavigationVoice.audioCategory, mode: NavigationVoice.audioMode, options: NavigationVoice.audioOptions)
+        try driver.setCategory(NavigationVoice.audioCategory, mode: NavigationVoice.audioMode,
+                               options: NavigationVoice.audioOptions)
     }
 
     func activate() throws {
         try configure()
-        try AVAudioSession.sharedInstance().setActive(true)
+        try driver.setActive(true, options: [])
     }
 
     /// Devuelve el volumen a la música que se hubiera bajado.
     func deactivate() {
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        try? driver.setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
 
@@ -163,6 +175,12 @@ final class NavigationVoice {
 
     var isMuted = false
 
+    /// true mientras suena la frase del botón "Escuchar prueba de voz".
+    private(set) var isPlayingTest = false
+
+    /// Mensaje si no se pudo activar el audio del iPhone (la voz podría no oírse).
+    private(set) var audioProblem: String?
+
     /// Chica o chico. Se guarda al instante y se aplica a la siguiente indicación.
     var gender: NavigationVoiceGender {
         didSet { defaults.set(gender.rawValue, forKey: Self.genderKey) }
@@ -179,7 +197,12 @@ final class NavigationVoice {
     @ObservationIgnored private let voices: () -> [VoiceInfo]
     @ObservationIgnored private let delegate: SynthesizerDelegate
     @ObservationIgnored private var lastSpoken: String?
-    @ObservationIgnored private var pending = 0
+    /// Frases lanzadas que aún no han terminado ni se han cancelado (por identidad).
+    @ObservationIgnored private var active: [ObjectIdentifier: AVSpeechUtterance] = [:]
+    @ObservationIgnored private var testUtterance: ObjectIdentifier?
+    @ObservationIgnored private var watchdog: Task<Void, Never>?
+    /// Segundos que se espera a que el sintetizador avise de que terminó antes de dar la frase por perdida.
+    @ObservationIgnored var watchdogSeconds: (String) -> Double = { max(8, Double($0.count) * 0.25 + 4) }
 
     init(defaults: UserDefaults = .standard,
          synthesizer: SpeechSynthesizing? = nil,
@@ -200,8 +223,8 @@ final class NavigationVoice {
             real.delegate = delegate
             self.synthesizer = real
         }
-        delegate.onFinish = { [weak self] in
-            Task { @MainActor in self?.utteranceEnded() }
+        delegate.onFinish = { [weak self] utterance in
+            Task { @MainActor in self?.utteranceEnded(utterance) }
         }
         try? session.configure()
     }
@@ -225,16 +248,22 @@ final class NavigationVoice {
         }
     }
 
-    /// Aviso cuando no se puede cumplir exactamente lo pedido.
+    /// Aviso claro cuando la voz usada no coincide exactamente con lo elegido; nil si coincide.
     var warning: String? {
-        let tip = "Puedes descargar más voces en Ajustes › Accesibilidad › Contenido hablado › Voces › Español."
         switch selection.match {
-        case .exact: return nil
-        case .exactOutsideSpain: return "No hay una voz de \(gender.label) de España instalada; se usa una de otra región. \(tip)"
-        case .fallbackSpain, .fallbackSpanish: return "No hay una voz de \(gender.label) instalada; se usa la mejor voz española disponible. \(tip)"
-        case .noSpanishVoice: return "No hay voces en español instaladas; se usa la voz predeterminada del sistema. \(tip)"
+        case .exact:
+            return nil
+        case .exactOutsideSpain:
+            return "No hay una voz de \(gender.label) de España instalada. Se está usando una voz de \(gender.label) de otra variante del español."
+        case .fallbackSpain, .fallbackSpanish:
+            return "No hay una voz de \(gender.label) en español instalada. Se está usando la mejor voz española disponible."
+        case .noSpanishVoice:
+            return "No hay ninguna voz en español instalada. Se está usando la voz predeterminada del sistema, que puede leer mal las indicaciones."
         }
     }
+
+    /// Cómo conseguir mejores voces (se muestra junto al aviso).
+    static let downloadHint = "Puedes descargar más voces en Ajustes › Accesibilidad › Contenido hablado › Voces › Español."
 
     // MARK: Hablar
 
@@ -247,19 +276,45 @@ final class NavigationVoice {
 
     /// Botón "Escuchar prueba de voz": suena siempre, aunque las indicaciones estén desactivadas.
     func playTest() {
-        speak(Self.testPhrase, interrupt: true, allowRepeat: true)
+        speak(Self.testPhrase, interrupt: true, allowRepeat: true, isTest: true)
     }
 
-    func stop() {
+    /// El botón de prueba alterna entre reproducir y parar.
+    func toggleTest() {
+        if isPlayingTest { stopImmediately() } else { playTest() }
+    }
+
+    /// Para YA cualquier voz (también las pendientes) y libera la sesión de audio.
+    func stopImmediately() {
         synthesizer.stopSpeaking(at: .immediate)
+        active.removeAll()           // las cancelaciones tardías de estas frases se ignoran
+        testUtterance = nil
+        isPlayingTest = false
         lastSpoken = nil
-        pending = 0
+        watchdog?.cancel()
+        watchdog = nil
         session.deactivate()
+    }
+
+    /// Nombre histórico.
+    func stop() { stopImmediately() }
+
+    /// Si solo está sonando la prueba, la corta (p. ej. al salir de la pantalla de ajustes).
+    func stopTestIfPlaying() {
+        if isPlayingTest { stopImmediately() }
+    }
+
+    /// Fin de navegación sin cortar la frase que esté sonando (p. ej. "Has llegado a tu destino"):
+    /// olvida la última frase para que la próxima ruta pueda repetirla. La sesión de audio se
+    /// libera sola cuando termine la frase.
+    func releaseAfterSpeaking() {
+        lastSpoken = nil
+        if active.isEmpty { session.deactivate() }
     }
 
     func toggleMute() {
         isMuted.toggle()
-        if isMuted { stop() }
+        if isMuted { stopImmediately() }
     }
 
     /// Borra las preferencias guardadas y vuelve a los valores iniciales.
@@ -288,27 +343,84 @@ final class NavigationVoice {
         return utterance
     }
 
-    private func speak(_ text: String, interrupt: Bool, allowRepeat: Bool) {
+    private func speak(_ text: String, interrupt: Bool, allowRepeat: Bool, isTest: Bool = false) {
         if !allowRepeat, text == lastSpoken { return }
         lastSpoken = text
-        try? session.activate()
-        if interrupt { synthesizer.stopSpeaking(at: .immediate) }
-        pending += 1
-        synthesizer.speak(makeUtterance(text))
+        do {
+            try session.activate()
+            audioProblem = nil
+        } catch {
+            // Se intenta hablar igualmente, pero se avisa en la interfaz.
+            audioProblem = "No se pudo activar el audio del iPhone, así que puede que la voz no se oiga."
+        }
+        if interrupt {
+            synthesizer.stopSpeaking(at: .immediate)
+            active.removeAll()
+            testUtterance = nil
+            isPlayingTest = false
+        }
+        let utterance = makeUtterance(text)
+        active[ObjectIdentifier(utterance)] = utterance
+        if isTest {
+            testUtterance = ObjectIdentifier(utterance)
+            isPlayingTest = true
+        }
+        synthesizer.speak(utterance)
+        armWatchdog(for: text)
     }
 
-    private func utteranceEnded() {
-        pending = max(0, pending - 1)
-        if pending == 0 { session.deactivate() }
+    /// Una frase terminó o se canceló. Si ya no queda ninguna, se libera la sesión de audio.
+    func utteranceEnded(_ utterance: AVSpeechUtterance) {
+        let id = ObjectIdentifier(utterance)
+        guard active.removeValue(forKey: id) != nil else { return }   // cancelación tardía de una frase ya descartada
+        if testUtterance == id {
+            testUtterance = nil
+            isPlayingTest = false
+        }
+        if active.isEmpty {
+            watchdog?.cancel()
+            watchdog = nil
+            session.deactivate()
+        }
+    }
+
+    /// AVSpeechSynthesizer no informa de errores: si no avisa de que terminó en un tiempo razonable
+    /// y deja de hablar, se da la frase por perdida para no quedar en "Reproduciendo…" ni con la
+    /// sesión de audio activa para siempre.
+    private func armWatchdog(for text: String) {
+        watchdog?.cancel()
+        let seconds = watchdogSeconds(text)
+        watchdog = Task { [weak self] in
+            for _ in 0..<3 {
+                try? await Task.sleep(for: .seconds(seconds))
+                guard !Task.isCancelled, let self else { return }
+                if self.active.isEmpty { return }
+                if !self.synthesizer.isSpeaking {
+                    self.recoverFromStall()
+                    return
+                }
+            }
+            self?.recoverFromStall()   // sigue "hablando" mucho más de lo razonable
+        }
+    }
+
+    private func recoverFromStall() {
+        synthesizer.stopSpeaking(at: .immediate)
+        active.removeAll()
+        testUtterance = nil
+        isPlayingTest = false
+        lastSpoken = nil
+        watchdog = nil
+        session.deactivate()
     }
 }
 
 /// Avisa de que una frase terminó o se canceló, para liberar la sesión de audio.
 private final class SynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
-    var onFinish: (() -> Void)?
+    var onFinish: ((AVSpeechUtterance) -> Void)?
 
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) { onFinish?() }
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) { onFinish?() }
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) { onFinish?(utterance) }
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) { onFinish?(utterance) }
 }
 
 /// Nombre histórico usado por el resto de la app.
