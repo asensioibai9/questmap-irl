@@ -10,6 +10,7 @@ sobre un anillo de ruta magenta. Diseño propio, sin texto ni elementos de otras
 Requisitos de destino: icono de iOS 1024x1024 px, sin canal alfa y sin esquinas redondeadas
 (iOS aplica la máscara). Dependencias: Pillow y numpy.
 """
+import json
 import math
 from pathlib import Path
 
@@ -27,6 +28,14 @@ ARROW = [(0.5, 0.285), (0.592, 0.525), (0.5, 0.462), (0.408, 0.525)]
 BG_CENTER, BG_EDGE = (0x1D, 0x22, 0x33), (0x0A, 0x0A, 0x1A)   # coincide con LaunchBackground
 GOLD_TOP, GOLD_BOTTOM = (0xFF, 0xDF, 0x7A), (0xF0, 0xA2, 0x2E)
 MAGENTA = (0xF2, 0x3F, 0xC4)
+
+SCHEMES = {
+    "default": dict(bg_center=BG_CENTER, bg_edge=BG_EDGE, top=GOLD_TOP, bottom=GOLD_BOTTOM, ring=MAGENTA, arrow=BG_EDGE),
+    "light": dict(bg_center=(0xFF, 0xFF, 0xFF), bg_edge=(0xDD, 0xE1, 0xEC), top=(0xFF, 0xC8, 0x3D), bottom=(0xF0, 0x8A, 0x1E),
+                  ring=(0xE0, 0x2E, 0xAE), arrow=(0x0A, 0x0A, 0x1A)),
+    "mono": dict(bg_center=(0x1A, 0x1A, 0x1A), bg_edge=(0x00, 0x00, 0x00), top=(0xFF, 0xFF, 0xFF), bottom=(0xB9, 0xBC, 0xC8),
+                 ring=(0xFF, 0xFF, 0xFF), arrow=(0x00, 0x00, 0x00)),
+}
 
 
 def pin_polygon(samples: int = 96):
@@ -56,21 +65,23 @@ def vertical_gradient(size, top, bottom, y0, y1):
     return Image.fromarray(arr.astype(np.uint8), "RGB")
 
 
-def radial_background(size):
+def radial_background(size, scheme=None):
+    c0 = (scheme or SCHEMES["default"])["bg_center"]; c1 = (scheme or SCHEMES["default"])["bg_edge"]
     ys, xs = np.mgrid[0:size, 0:size].astype(np.float32) / size
     dist = np.clip(np.sqrt((xs - 0.5) ** 2 + (ys - 0.42) ** 2) / 0.75, 0, 1)
     arr = np.zeros((size, size, 3), dtype=np.float32)
     for c in range(3):
-        arr[:, :, c] = BG_CENTER[c] * (1 - dist) + BG_EDGE[c] * dist
+        arr[:, :, c] = c0[c] * (1 - dist) + c1[c] * dist
     return Image.fromarray(arr.astype(np.uint8), "RGB")
 
 
-def draw_mark(size, with_background):
+def draw_mark(size, with_background, scheme_name="default"):
+    sc = SCHEMES[scheme_name]
     """Dibuja ring + pin + flecha a `size` px. Devuelve RGBA."""
     big = size * 4
     canvas = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     if with_background:
-        canvas.paste(radial_background(big).convert("RGBA"))
+        canvas.paste(radial_background(big, sc).convert("RGBA"))
 
     # Anillo de ruta
     ring = Image.new("L", (big, big), 0)
@@ -79,19 +90,19 @@ def draw_mark(size, with_background):
     rx, ry, w = RING_RX * big, RING_RY * big, RING_W * big
     rd.ellipse([cx - rx - w / 2, cy - ry - w / 2, cx + rx + w / 2, cy + ry + w / 2], fill=255)
     rd.ellipse([cx - rx + w / 2, cy - ry + w / 2, cx + rx - w / 2, cy + ry - w / 2], fill=0)
-    canvas.paste(Image.new("RGBA", (big, big), MAGENTA + (255,)), mask=ring)
+    canvas.paste(Image.new("RGBA", (big, big), sc["ring"] + (255,)), mask=ring)
 
     # Chincheta con degradado dorado
     pin_mask = Image.new("L", (big, big), 0)
     ImageDraw.Draw(pin_mask).polygon(scaled(pin_polygon(), big), fill=255)
-    gold = vertical_gradient(big, GOLD_TOP, GOLD_BOTTOM, CY - R, TIP_Y).convert("RGBA")
+    gold = vertical_gradient(big, sc["top"], sc["bottom"], CY - R, TIP_Y).convert("RGBA")
     canvas.paste(gold, mask=pin_mask)
 
     # Flecha de navegación recortada (transparente o color de fondo)
     arrow_mask = Image.new("L", (big, big), 0)
     ImageDraw.Draw(arrow_mask).polygon(scaled(ARROW, big), fill=255)
     if with_background:
-        canvas.paste(Image.new("RGBA", (big, big), BG_EDGE + (255,)), mask=arrow_mask)
+        canvas.paste(Image.new("RGBA", (big, big), sc["arrow"] + (255,)), mask=arrow_mask)
     else:
         alpha = canvas.getchannel("A")
         alpha.paste(0, mask=arrow_mask)
@@ -131,6 +142,24 @@ def main():
     out = ASSETS / "AppIcon.appiconset"
     out.mkdir(parents=True, exist_ok=True)
     icon.save(out / "AppIcon.png", "PNG")
+
+    # Iconos alternativos (seleccionables en Perfil > Icono de la app) y sus vistas previas.
+    for scheme_name, set_name in (("light", "AppIconLight"), ("mono", "AppIconMono")):
+        alt = draw_mark(1024, with_background=True, scheme_name=scheme_name).convert("RGB")
+        folder = ASSETS / f"{set_name}.appiconset"
+        folder.mkdir(parents=True, exist_ok=True)
+        alt.save(folder / f"{set_name}.png", "PNG")
+        contents = {"images": [{"filename": f"{set_name}.png", "idiom": "universal", "platform": "ios", "size": "1024x1024"}],
+                    "info": {"author": "xcode", "version": 1}}
+        (folder / "Contents.json").write_text(json.dumps(contents, indent=2), encoding="utf-8")
+    for scheme_name, set_name in (("default", "IconPreviewDefault"), ("light", "IconPreviewLight"), ("mono", "IconPreviewMono")):
+        prev = draw_mark(256, with_background=True, scheme_name=scheme_name).convert("RGB")
+        folder = ASSETS / f"{set_name}.imageset"
+        folder.mkdir(parents=True, exist_ok=True)
+        prev.save(folder / f"{set_name}.png", "PNG")
+        contents = {"images": [{"filename": f"{set_name}.png", "idiom": "universal"}],
+                    "info": {"author": "xcode", "version": 1}}
+        (folder / "Contents.json").write_text(json.dumps(contents, indent=2), encoding="utf-8")
 
     # Marca de lanzamiento: pin + flecha transparente, SIN anillo (la animación lo dibuja).
     launch_dir = ASSETS / "LaunchMark.imageset"

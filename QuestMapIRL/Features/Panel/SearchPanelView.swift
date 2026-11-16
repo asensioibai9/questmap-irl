@@ -33,6 +33,7 @@ struct SearchPanelView: View {
 
     @FocusState private var focused: Bool
     @State private var confirmClear = false
+    @State private var showAllRecents = false
 
     private var settings: UserSettings? { settingsRows.first }
     private var metric: Bool { settings?.useMetricUnits ?? true }
@@ -98,9 +99,9 @@ struct SearchPanelView: View {
     private var quickAccess: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
-                placeChip(.home, icon: "house.fill", set: "Casa", unset: "Añadir casa")
-                placeChip(.work, icon: "briefcase.fill", set: "Trabajo", unset: "Añadir trabajo")
-                QuickAccessChip(systemImage: "star.fill", title: "Guardados",
+                placeChip(.home, icon: "house", set: "Casa", unset: "Añadir casa")
+                placeChip(.work, icon: "briefcase", set: "Trabajo", unset: "Añadir trabajo")
+                QuickAccessChip(systemImage: "bookmark", title: "Guardados",
                                 subtitle: favoriteCount == 0 ? nil : "\(favoriteCount)") { onShowSaved() }
             }
             .padding(.vertical, 2)
@@ -130,9 +131,21 @@ struct SearchPanelView: View {
 
     private var recentSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(text: "Recientes", trailingTitle: "Borrar") { confirmClear = true }
+            HStack {
+                Button { withAnimation(.smooth) { showAllRecents.toggle() } } label: {
+                    HStack(spacing: 6) {
+                        Text("Búsquedas recientes").font(.title3.weight(.bold))
+                        Image(systemName: showAllRecents ? "chevron.down" : "chevron.right").font(.footnote.weight(.bold))
+                    }
+                    .foregroundStyle(AppColor.textPrimary)
+                }
+                .accessibilityLabel(showAllRecents ? "Mostrar menos búsquedas recientes" : "Mostrar todas las búsquedas recientes")
+                Spacer()
+                Button("Borrar") { confirmClear = true }
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(AppColor.textSecondary)
+            }
             VStack(spacing: 0) {
-                ForEach(Array(recents.prefix(5).enumerated()), id: \.element.persistentModelID) { index, item in
+                ForEach(Array(recents.prefix(showAllRecents ? 30 : 3).enumerated()), id: \.element.persistentModelID) { index, item in
                     if index > 0 { RowDivider() }
                     HStack(spacing: 0) {
                         Button { open(item.place) } label: {

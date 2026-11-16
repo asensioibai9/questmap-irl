@@ -34,6 +34,8 @@ struct ProfileSheetView: View {
                         link("trophy.fill", "Estadísticas y logros") { ExplorerStatsView() }
                         RowDivider()
                         link("sparkles", "Novedades", value: "v\(AppConfig.version)") { WhatsNewView() }
+                        RowDivider()
+                        link("app.fill", "Icono de la app") { AppIconPickerView() }
                     }
 
                     SettingsGroup {

@@ -205,12 +205,17 @@ struct CategoryTile: View {
         Button(action: action) {
             VStack(spacing: 10) {
                 ZStack {
-                    Image(systemName: systemImage)
-                        .font(.system(size: 30, weight: .semibold))
-                        .opacity(isBusy ? 0.25 : 1)
-                    if isBusy { ProgressView() }
+                    RoundedRectangle(cornerRadius: 22, style: .continuous).fill(AppColor.surface)
+                    ZStack {
+                        Circle().fill(AppColor.surfaceRaised)
+                        Image(systemName: systemImage)
+                            .font(.system(size: 28, weight: .semibold))
+                            .opacity(isBusy ? 0.2 : 1)
+                        if isBusy { ProgressView() }
+                    }
+                    .frame(width: 66, height: 66)
                 }
-                .frame(height: 38)
+                .frame(height: 98)
                 Text(title)
                     .font(.footnote.weight(.semibold))
                     .lineLimit(1)
@@ -218,8 +223,6 @@ struct CategoryTile: View {
             }
             .foregroundStyle(AppColor.textPrimary)
             .frame(maxWidth: .infinity)
-            .frame(height: 96)
-            .background(AppColor.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel(title)
