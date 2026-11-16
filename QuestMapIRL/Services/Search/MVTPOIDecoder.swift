@@ -95,7 +95,7 @@ enum MVTPOIDecoder {
             let label = value(for: nameEsKey) ?? value(for: nameKey)
             let subclass = value(for: subclassKey)
 
-            for (px, py) in points(from: geometry) {
+            for (px, py) in pointPositions(from: geometry) {
                 let n = pow(2.0, Double(z))
                 let lon = (Double(x) + Double(px) / Double(extent)) / n * 360 - 180
                 let merc = Double.pi * (1 - 2 * (Double(y) + Double(py) / Double(extent)) / n)
@@ -107,7 +107,7 @@ enum MVTPOIDecoder {
     }
 
     /// Geometría de puntos: `MoveTo` (comando 1) seguido de pares (dx, dy) en zigzag, acumulados.
-    private static func points(from geometry: [UInt32]) -> [(Int, Int)] {
+    private static func pointPositions(from geometry: [UInt32]) -> [(Int, Int)] {
         var result: [(Int, Int)] = []
         var i = 0, x = 0, y = 0
         while i < geometry.count {
