@@ -7,47 +7,29 @@ import CoreLocation
 /// usan los nombres locales que devuelve por defecto.
 struct PhotonSearchService: PlaceSearchProviding {
     var endpoints = ServiceEndpoints.default
-    var session: URLSession = .shared
+    var client = ServiceClient(service: "photon")
 
     func search(_ query: String, near: CLLocationCoordinate2D?, category: PlaceCategory?) async throws -> [Place] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= 2 else { return [] }
 
         guard var components = URLComponents(url: endpoints.geocoder, resolvingAgainstBaseURL: false) else {
-            throw SearchError.server
+            throw SearchError.configuration
         }
         var items = [URLQueryItem(name: "q", value: trimmed), URLQueryItem(name: "limit", value: "12")]
         if let near {
             items.append(URLQueryItem(name: "lat", value: String(format: "%.5f", near.latitude)))
             items.append(URLQueryItem(name: "lon", value: String(format: "%.5f", near.longitude)))
         }
-        if let category { items.append(URLQueryItem(name: "osm_tag", value: category.osmTag)) }
         components.queryItems = items
-        guard let url = components.url else { throw SearchError.server }
+        guard let url = components.url else { throw SearchError.configuration }
 
         var request = URLRequest(url: url)
-        request.timeoutInterval = 12
+        request.timeoutInterval = 10
         request.setValue("QuestMapIRL/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
 
-        do {
-            let (data, response) = try await session.data(for: request)
-            if let http = response as? HTTPURLResponse {
-                if http.statusCode == 429 { throw SearchError.rateLimited }
-                if !(200..<300).contains(http.statusCode) { throw SearchError.server }
-            }
-            return try Self.parse(data)
-        } catch let error as SearchError {
-            throw error
-        } catch let error as URLError {
-            switch error.code {
-            case .notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotFindHost, .cannotConnectToHost:
-                throw SearchError.offline
-            case .cancelled:
-                throw CancellationError()
-            default:
-                throw SearchError.server
-            }
-        }
+        let data = try await client.data(for: request, operation: "search")
+        return try Self.parse(data)
     }
 
     // MARK: - Decodificación (separada para poder probarla sin red)
@@ -57,7 +39,7 @@ struct PhotonSearchService: PlaceSearchProviding {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let response: PhotonResponse
         do { response = try decoder.decode(PhotonResponse.self, from: data) }
-        catch { throw SearchError.server }
+        catch { throw SearchError.decoding }
 
         var seenIDs = Set<String>()
         var seenLabels = Set<String>()

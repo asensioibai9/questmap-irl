@@ -4,6 +4,7 @@ enum RoutingError: LocalizedError, Equatable {
     case noRoute
     case offline
     case rateLimited
+    case timedOut
     case server
 
     var errorDescription: String? {
@@ -11,7 +12,20 @@ enum RoutingError: LocalizedError, Equatable {
         case .noRoute: return "No hemos encontrado ninguna ruta hasta ahí."
         case .offline: return "Sin conexión. Las rutas necesitan internet."
         case .rateLimited: return "Demasiadas peticiones al servicio de rutas. Espera unos segundos."
+        case .timedOut: return "El servicio de rutas tarda demasiado en responder. Inténtalo de nuevo."
         case .server: return "El servicio de rutas no responde. Inténtalo de nuevo."
+        }
+    }
+}
+
+extension RoutingError {
+    /// Traduce el error de red clasificado al error de rutas con su propio mensaje.
+    init(_ error: SearchError) {
+        switch error {
+        case .offline, .connectionLost: self = .offline
+        case .rateLimited: self = .rateLimited
+        case .timedOut: self = .timedOut
+        default: self = .server
         }
     }
 }

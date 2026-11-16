@@ -5,7 +5,7 @@ import CoreLocation
 /// Elegir una dirección real con el buscador: para Casa, Trabajo, una zona de búsqueda o un
 /// destino durante la navegación. Descarta respuestas antiguas y no sustituye el lugar elegido.
 struct AddressPickerView: View {
-    enum Phase: Equatable { case idle, loading, results, empty, failed(String) }
+    enum Phase: Equatable { case idle, loading, results, empty, failed(SearchError) }
 
     @Environment(\.dismiss) private var dismiss
 
@@ -39,8 +39,9 @@ struct AddressPickerView: View {
                     case .empty:
                         EmptyStateView(systemImage: "magnifyingglass", title: "Sin resultados",
                                        message: "Prueba con otra dirección.")
-                    case .failed(let message):
-                        InlineMessage(kind: .error, text: "\(message). Comprueba la conexión.", actionTitle: "Reintentar") { run() }
+                    case .failed(let error):
+                        InlineMessage(kind: error.isConnectionProblem ? .error : .warning, text: error.userMessage,
+                                      actionTitle: "Reintentar") { run() }
                     case .results:
                         ForEach(Array(results.enumerated()), id: \.element.id) { index, place in
                             if index > 0 { RowDivider() }
@@ -86,7 +87,7 @@ struct AddressPickerView: View {
             } catch is CancellationError {
             } catch {
                 guard !Task.isCancelled else { return }
-                phase = .failed((error as? LocalizedError)?.errorDescription ?? "No se pudo buscar")
+                phase = .failed(error as? SearchError ?? .unexpected)
             }
         }
     }

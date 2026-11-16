@@ -58,7 +58,7 @@ struct NavigationOverlay: View {
                 if viewModel.recalculationFailed {
                     chip("Vuelve a la ruta", "arrow.uturn.backward", .red)
                 }
-                if !network.isOnline {
+                if network.showsOfflineNotice {
                     chip("Sin conexión", "wifi.slash", .orange)
                 }
             }

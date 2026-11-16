@@ -256,8 +256,8 @@ struct HomeView: View {
 
     @ViewBuilder
     private var banners: some View {
-        if !environment.network.isOnline {
-            InlineMessage(kind: .warning, text: "Sin conexión: el mapa, la búsqueda y las rutas necesitan internet.")
+        if environment.network.showsOfflineNotice {
+            InlineMessage(kind: .warning, text: environment.network.noticeText)
         }
         if case .failed(let message) = mapLoad {
             InlineMessage(kind: .error, text: message, actionTitle: "Reintentar") { mapToken += 1 }
@@ -292,6 +292,22 @@ struct HomeView: View {
         }
     }
 
+    /// Por qué no hay ubicación, para explicarlo en la búsqueda por categorías.
+    private var categoryLocationHint: String? {
+        switch location.authState {
+        case .denied:
+            return "Has denegado el permiso de ubicación. Actívalo en Ajustes › QuestMap IRL › Ubicación, o elige una zona."
+        case .restricted:
+            return "La ubicación está restringida en este iPhone. Elige una zona."
+        case .servicesDisabled:
+            return "Los servicios de localización están desactivados. Actívalos en Ajustes o elige una zona."
+        case .notDetermined:
+            return "Aún no has respondido al permiso de ubicación. Permítelo o elige una zona."
+        case .authorizedWhenInUse, .authorizedAlways:
+            return location.currentLocation == nil ? "Aún no hay señal GPS. Espera unos segundos o elige una zona." : nil
+        }
+    }
+
     private func openSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
     }
@@ -308,6 +324,7 @@ struct HomeView: View {
                     detent: $detent,
                     near: location.currentLocation?.coordinate,
                     accent: theme.accent,
+                    locationHint: categoryLocationHint,
                     onSelect: { place in select(place) },
                     onShowOnMap: { place in showOnMap(place) },
                     onProfile: { modal = .profile },

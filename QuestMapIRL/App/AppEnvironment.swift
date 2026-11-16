@@ -16,7 +16,7 @@ final class AppEnvironment {
         self.locationService = LocationService()
         self.routeService = OSRMRouteService()
         self.placeSearch = PhotonSearchService()
-        self.nearby = OverpassNearbyService()
+        self.nearby = TilePOISearchService()
         self.speech = SpeechService()
         self.network = NetworkMonitor()
     }

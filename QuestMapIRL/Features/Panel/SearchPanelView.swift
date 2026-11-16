@@ -23,6 +23,8 @@ struct SearchPanelView: View {
     @Binding var detent: PresentationDetent
     let near: CLLocationCoordinate2D?
     let accent: Color
+    /// Por qué no hay ubicación (permiso denegado, GPS sin señal…), si se sabe.
+    var locationHint: String?
 
     var onSelect: (Place) -> Void
     var onShowOnMap: (Place) -> Void
@@ -210,8 +212,8 @@ struct SearchPanelView: View {
                            message: "Prueba con otra dirección, calle o nombre de lugar.")
         case .needsLocation:
             EmptyView()
-        case .failed(let message):
-            InlineMessage(kind: .error, text: "\(message). Comprueba la conexión e inténtalo de nuevo.",
+        case .failed(let error):
+            InlineMessage(kind: error.isConnectionProblem ? .error : .warning, text: error.userMessage,
                           actionTitle: "Reintentar") { model.queryChanged(near: near) }
         case .results:
             resultList(model.results, icon: "mappin.circle.fill")
@@ -243,13 +245,14 @@ struct SearchPanelView: View {
         case .needsLocation:
             EmptyStateView(systemImage: "location.slash",
                            title: "No tenemos tu ubicación",
-                           message: "Permite la ubicación en Ajustes o elige una zona para buscar a su alrededor.",
+                           message: locationHint ?? "Elige una zona para buscar a su alrededor.",
                            actionTitle: "Elegir zona", action: onChooseZone)
         case .empty:
             EmptyStateView(systemImage: category.symbol, title: "No hemos encontrado \(category.title.lowercased()) cerca",
                            message: "Prueba a elegir otra zona.", actionTitle: "Elegir zona", action: onChooseZone)
-        case .failed(let message):
-            InlineMessage(kind: .error, text: "\(message). Inténtalo de nuevo.", actionTitle: "Reintentar") {
+        case .failed(let error):
+            InlineMessage(kind: error.isConnectionProblem ? .error : .warning, text: error.userMessage,
+                          actionTitle: "Reintentar") {
                 model.reloadCategory(near: near)
             }
         case .results:

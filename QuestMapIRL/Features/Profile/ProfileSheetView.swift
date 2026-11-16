@@ -58,7 +58,7 @@ struct ProfileSheetView: View {
                             .buttonStyle(PressableStyle())
                         }
                         RowDivider()
-                        link("questionmark.circle.fill", "Centro de ayuda") { HelpView() }
+                        link("questionmark.circle.fill", "Centro de ayuda") { HelpView(environment: environment) }
                         RowDivider()
                         link("hand.raised.fill", "Política de privacidad") { LegalDocumentView(document: .privacy) }
                         RowDivider()

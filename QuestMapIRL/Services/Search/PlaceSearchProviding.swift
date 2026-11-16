@@ -63,28 +63,22 @@ enum PlaceCategory: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Filtros de OpenStreetMap (clave, valor) que definen la categoría. Se unen con "o".
-    var osmFilters: [(key: String, value: String)] {
+    /// Qué puntos de los tiles vectoriales (esquema OpenMapTiles, capa `poi`) cuentan como esta categoría.
+    var tileMatch: TileMatch {
         switch self {
-        case .fuel: return [("amenity", "fuel")]
-        case .food: return [("amenity", "restaurant")]
-        case .cafe: return [("amenity", "cafe")]
-        case .parking: return [("amenity", "parking")]
-        case .supermarket: return [("shop", "supermarket")]
-        case .pharmacy: return [("amenity", "pharmacy")]
-        case .hospital: return [("amenity", "hospital")]
-        case .atm: return [("amenity", "atm")]
-        case .hotel: return [("tourism", "hotel")]
-        case .transit: return [("railway", "station"), ("public_transport", "station")]
-        case .shop: return [("shop", "mall"), ("shop", "department_store")]
-        case .police: return [("amenity", "police")]
+        case .fuel: return TileMatch(classes: ["fuel"], subclasses: ["fuel"])           // excluye puntos de recarga
+        case .food: return TileMatch(classes: ["restaurant"])
+        case .cafe: return TileMatch(classes: ["cafe"])
+        case .parking: return TileMatch(classes: ["parking"], subclasses: ["parking"])
+        case .supermarket: return TileMatch(classes: ["grocery"], subclasses: ["supermarket"])
+        case .pharmacy: return TileMatch(classes: ["pharmacy"])
+        case .hospital: return TileMatch(classes: ["hospital"], subclasses: ["hospital"])
+        case .atm: return TileMatch(classes: ["atm"])
+        case .hotel: return TileMatch(classes: ["lodging"], subclasses: ["hotel", "motel"])
+        case .transit: return TileMatch(classes: ["railway"])
+        case .shop: return TileMatch(classes: ["shop", "grocery"], subclasses: ["mall", "department_store"])
+        case .police: return TileMatch(classes: ["police"])
         }
-    }
-
-    /// Etiqueta de OpenStreetMap para filtrar el geocodificador (solo la primera).
-    var osmTag: String {
-        let first = osmFilters[0]
-        return "\(first.key):\(first.value)"
     }
 
     var poiKind: POIKind {
@@ -100,16 +94,98 @@ enum PlaceCategory: String, CaseIterable, Identifiable {
     }
 }
 
+/// Por qué falló una petición a un servicio externo. Cada caso tiene su propio mensaje: un
+/// servidor lento o saturado NO se presenta como "sin conexión".
 enum SearchError: LocalizedError, Equatable {
+    /// El sistema informa de que no hay internet (o datos móviles denegados).
     case offline
+    /// La conexión se cortó a mitad de la petición.
+    case connectionLost
+    /// El servicio no respondió a tiempo.
+    case timedOut
+    /// El servicio respondió con un error del servidor (5xx) o no se pudo contactar.
+    case serviceUnavailable
+    /// El servicio limita las peticiones (429).
     case rateLimited
-    case server
+    /// Petición rechazada por configuración o autenticación (400, 401, 403, 404, TLS…).
+    case configuration
+    /// La respuesta llegó pero no se pudo interpretar.
+    case decoding
+    /// Cualquier otro error no clasificado.
+    case unexpected
 
-    var errorDescription: String? {
+    var errorDescription: String? { userMessage }
+
+    var userMessage: String {
         switch self {
-        case .offline: return "Sin conexión"
-        case .rateLimited: return "Demasiadas búsquedas seguidas"
-        case .server: return "No se pudo buscar"
+        case .offline: return "Sin conexión a internet. Comprueba tu conexión e inténtalo de nuevo."
+        case .connectionLost: return "Se ha cortado la conexión durante la búsqueda."
+        case .timedOut: return "El servicio de búsqueda tarda demasiado en responder."
+        case .serviceUnavailable: return "El servicio de búsqueda no está disponible en este momento."
+        case .rateLimited: return "Demasiadas búsquedas seguidas. Espera unos segundos."
+        case .configuration: return "El servicio de búsqueda ha rechazado la petición. Es un fallo de configuración, no de tu conexión."
+        case .decoding: return "El servicio de búsqueda ha devuelto una respuesta que no se puede leer."
+        case .unexpected: return "No se pudo completar la búsqueda."
+        }
+    }
+
+    /// Nombre estable para diagnósticos y pruebas.
+    var kind: String {
+        switch self {
+        case .offline: return "offline"
+        case .connectionLost: return "connectionLost"
+        case .timedOut: return "timedOut"
+        case .serviceUnavailable: return "serviceUnavailable"
+        case .rateLimited: return "rateLimited"
+        case .configuration: return "configuration"
+        case .decoding: return "decoding"
+        case .unexpected: return "unexpected"
+        }
+    }
+
+    /// ¿Merece la pena reintentar (a mano o automáticamente)?
+    var isRetryable: Bool {
+        switch self {
+        case .connectionLost, .timedOut, .serviceUnavailable, .rateLimited, .offline: return true
+        case .configuration, .decoding, .unexpected: return false
+        }
+    }
+
+    /// Solo estos casos son realmente "un problema de conexión".
+    var isConnectionProblem: Bool { self == .offline || self == .connectionLost }
+
+    /// Clasifica un error de `URLSession`. Devuelve nil si es una cancelación normal.
+    static func classify(_ error: URLError) -> SearchError? {
+        switch error.code {
+        case .cancelled:
+            return nil
+        case .notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff, .callIsActive:
+            return .offline
+        case .networkConnectionLost:
+            return .connectionLost
+        case .timedOut:
+            return .timedOut
+        case .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed:
+            return .serviceUnavailable
+        case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate,
+             .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid, .clientCertificateRejected,
+             .appTransportSecurityRequiresSecureConnection, .badURL, .unsupportedURL:
+            return .configuration
+        case .cannotDecodeContentData, .cannotDecodeRawData, .cannotParseResponse, .badServerResponse, .zeroByteResource:
+            return .decoding
+        default:
+            return .unexpected
+        }
+    }
+
+    /// Clasifica un estado HTTP fuera de 200-299.
+    static func classify(httpStatus status: Int) -> SearchError {
+        switch status {
+        case 429: return .rateLimited
+        case 400, 401, 403, 404, 405, 406, 410, 414: return .configuration
+        case 408: return .timedOut
+        case 500..<600: return .serviceUnavailable
+        default: return .unexpected
         }
     }
 }
@@ -122,4 +198,21 @@ protocol PlaceSearchProviding {
 /// Búsqueda de lugares de una categoría alrededor de un punto.
 protocol NearbySearchProviding {
     func nearby(_ category: PlaceCategory, around: CLLocationCoordinate2D, radiusMeters: Int) async throws -> [Place]
+}
+
+/// Filtro por clase (y opcionalmente subclase) de la capa `poi` de los tiles.
+struct TileMatch: Equatable {
+    let classes: Set<String>
+    let subclasses: Set<String>?
+
+    init(classes: Set<String>, subclasses: Set<String>? = nil) {
+        self.classes = classes
+        self.subclasses = subclasses
+    }
+
+    func matches(poiClass: String, subclass: String?) -> Bool {
+        guard classes.contains(poiClass) else { return false }
+        guard let subclasses else { return true }
+        return subclass.map(subclasses.contains) ?? false
+    }
 }

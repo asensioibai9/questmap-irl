@@ -343,6 +343,8 @@ struct WhatsNewView: View {
 }
 
 struct HelpView: View {
+    let environment: AppEnvironment
+
     private let topics: [(String, String)] = [
         ("¿Cómo guardo Casa o Trabajo?",
          "En el buscador, toca «Añadir casa» o «Añadir trabajo», busca la dirección y elígela. Mantén pulsado el acceso para editarlo, verlo en el mapa o eliminarlo."),
@@ -372,6 +374,17 @@ struct HelpView: View {
                 }
             }
             .padding(16)
+
+            SettingsGroup {
+                NavigationLink {
+                    ConnectivityDiagnosticsView(environment: environment)
+                } label: {
+                    SettingsRowLabel(systemImage: "stethoscope", title: "Diagnóstico de conexión")
+                }
+                .buttonStyle(PressableStyle())
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
         }
         .background(AppColor.background.ignoresSafeArea())
         .navigationTitle("Centro de ayuda")
@@ -416,7 +429,7 @@ struct LegalDocumentView: View {
         ("Tu ubicación",
          "La app usa tu ubicación solo mientras está abierta, para mostrarte en el mapa y guiarte. No se envía a ningún servidor propio, porque la app no tiene servidores."),
         ("Servicios externos que se contactan",
-         "Para funcionar, la app envía solicitudes a servicios de terceros basados en datos de OpenStreetMap: OpenFreeMap (teselas del mapa: se pide la zona que miras), OSRM (rutas: origen y destino), Photon (búsqueda: el texto que escribes y tu posición aproximada para ordenar resultados) y Overpass (lugares cercanos: el punto de búsqueda). Esos servicios pueden registrar tu dirección IP y los datos de la solicitud según sus propias políticas; la app no controla esos registros."),
+         "Para funcionar, la app envía solicitudes a servicios de terceros basados en datos de OpenStreetMap: OpenFreeMap (teselas del mapa: se pide la zona que miras), OSRM (rutas: origen y destino), Photon (búsqueda: el texto que escribes y tu posición aproximada para ordenar resultados) y, para «lugares cercanos», los mismos tiles de OpenFreeMap (se piden las zonas que rodean tu posición o la zona que elijas). Esos servicios pueden registrar tu dirección IP y los datos de la solicitud según sus propias políticas; la app no controla esos registros."),
         ("Lo que la app no hace",
          "No muestra anuncios, no incluye analíticas ni rastreadores propios, no vende datos y no comparte tu información con anunciantes."),
         ("Eliminar tus datos",

@@ -17,7 +17,7 @@ struct ServiceEndpoints {
 /// tipo y modificador de maniobra, distancia y duración.
 struct OSRMRouteService: RouteServiceProtocol {
     var endpoints = ServiceEndpoints.default
-    var session: URLSession = .shared
+    var client = ServiceClient(service: "osrm")
 
     func routes(from origin: CLLocationCoordinate2D,
                 to destination: CLLocationCoordinate2D,
@@ -39,23 +39,10 @@ struct OSRMRouteService: RouteServiceProtocol {
         request.setValue("QuestMapIRL/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
 
         do {
-            let (data, response) = try await session.data(for: request)
-            if let http = response as? HTTPURLResponse {
-                if http.statusCode == 429 { throw RoutingError.rateLimited }
-                if http.statusCode >= 500 { throw RoutingError.server }
-            }
+            let data = try await client.data(for: request, operation: "route")
             return try Self.parse(data)
-        } catch let error as RoutingError {
-            throw error
-        } catch let error as URLError {
-            switch error.code {
-            case .notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotFindHost, .cannotConnectToHost:
-                throw RoutingError.offline
-            case .cancelled:
-                throw CancellationError()
-            default:
-                throw RoutingError.server
-            }
+        } catch let error as SearchError {
+            throw RoutingError(error)
         }
     }
 
