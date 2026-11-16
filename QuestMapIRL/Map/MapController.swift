@@ -192,7 +192,7 @@ final class MapController {
 
     private func applySimplified() {
         guard styleReady, let style = mapView?.style else { return }
-        for layer in style.layers where layer.identifier.hasPrefix("poi-icon") || layer.identifier == "label-housenumber"
+        for layer in style.layers where layer.identifier.hasPrefix("poi-icon") || layer.identifier == "label-housenumber" || layer.identifier == "label-peak"
             || layer.identifier.hasPrefix("results-") || layer.identifier == "saved-places" {
             layer.isVisible = !simplified
         }

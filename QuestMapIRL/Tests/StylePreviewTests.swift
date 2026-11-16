@@ -236,22 +236,3 @@ final class StylePreviewTests: XCTestCase {
         }
     }
 }
-
-// TEMPORAL (diagnóstico de revisión visual): vuelca cada preview como JPEG en base64 dentro del mensaje de fallo para poder
-// verlas desde el registro de CI. Se elimina tras la revisión.
-@MainActor
-final class StylePreviewDumpTests: XCTestCase {
-    func testDumpPreviewsForReview() async throws {
-        let renderer = StylePreviewRenderer()
-        for theme in ThemeCatalog.all.filter(\.isCartographyReady) {
-            guard let image = try? await renderer.render(style: theme.activeCartography, timeout: 45) else {
-                XCTFail("IMG|\(theme.id.rawValue)|ERROR"); continue
-            }
-            let small = UIGraphicsImageRenderer(size: CGSize(width: 480, height: 300)).image { _ in
-                image.draw(in: CGRect(x: 0, y: 0, width: 480, height: 300))
-            }
-            let data = small.jpegData(compressionQuality: 0.55)?.base64EncodedString() ?? "NODATA"
-            XCTFail("IMG|\(theme.id.rawValue)|\(data)|END")
-        }
-    }
-}
