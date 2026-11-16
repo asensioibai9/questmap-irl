@@ -98,6 +98,7 @@ struct ConnectivityDiagnosticsView: View {
             "App: \(AppConfig.appName) \(AppConfig.version) (\(AppConfig.build))",
             "iOS: \(device.systemVersion), \(device.model)",
             "Red (NWPathMonitor): \(environment.network.pathDescription)",
+            "Ubicación: \(environment.locationService.diagnosticSummary)",
             "Aviso de «sin conexión» visible: \(environment.network.showsOfflineNotice ? "sí" : "no")",
             "Pruebas ahora: " + (probe.results.isEmpty ? "(sin ejecutar)"
                 : probe.results.map { "\($0.name)=\($0.ok ? "ok" : "FALLO") \($0.detail) \($0.milliseconds)ms" }.joined(separator: "; ")),
@@ -107,7 +108,7 @@ struct ConnectivityDiagnosticsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Comprueba qué servicio falla y por qué. Las pruebas usan puntos fijos de Madrid: no se envía tu ubicación ni tus búsquedas. El informe no contiene coordenadas, textos de búsqueda ni claves.")
+                Text("Comprueba qué servicio falla y por qué, y el estado de la ubicación. Las pruebas usan puntos fijos de Madrid: no se envía tu ubicación ni tus búsquedas. El informe no contiene coordenadas, textos de búsqueda ni claves.")
                     .font(.footnote).foregroundStyle(AppColor.textSecondary)
 
                 SettingsGroup {
@@ -177,7 +178,7 @@ struct ConnectivityDiagnosticsView: View {
             .padding(16)
         }
         .background(AppColor.background.ignoresSafeArea())
-        .navigationTitle("Diagnóstico de conexión")
+        .navigationTitle("Diagnóstico")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { events = DiagnosticsLog.shared.events }
     }

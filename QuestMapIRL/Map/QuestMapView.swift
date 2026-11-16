@@ -31,8 +31,8 @@ struct QuestMapView: UIViewRepresentable {
         mapView.maximumZoomLevel = 20
         mapView.isUserInteractionEnabled = interactive
         // El minimapa no muestra ornamentos; la atribución va en el pie del HUD.
-        mapView.logoView.isHidden = !interactive
-        mapView.attributionButton.isHidden = !interactive
+        mapView.logoView.isHidden = true
+        mapView.attributionButton.isHidden = true   // la atribución la dibuja la app (MapAttributionLabel)
 
         controller.attach(mapView)
 

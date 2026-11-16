@@ -4,7 +4,7 @@ import CoreLocation
 
 /// Ventanas que se abren desde el panel inferior (cuelgan de la propia hoja del panel).
 enum HomeModal: Identifiable, Equatable {
-    case profile, styles, saved
+    case profile, styles, saved, credits
     case address(AddressTarget)
 
     enum AddressTarget: String { case home, work, zone }
@@ -14,6 +14,7 @@ enum HomeModal: Identifiable, Equatable {
         case .profile: return "profile"
         case .styles: return "styles"
         case .saved: return "saved"
+        case .credits: return "credits"
         case .address(let target): return "address-\(target.rawValue)"
         }
     }
@@ -42,6 +43,7 @@ struct HomeView: View {
     @State private var mapLoad: MapLoadState = .loading
     @State private var mapToken = 0
     @State private var pendingPlace: Place?
+    @State private var locationNotice: LocationNotice?
     @State private var viewHeight: CGFloat = 800
     @State private var map = MapController()
     @State private var miniMap = MapController()
@@ -118,11 +120,15 @@ struct HomeView: View {
             // Fuera de navegación, el GPS se apaga en segundo plano para ahorrar batería.
             // Navegando, la voz y el GPS siguen en segundo plano; si no, se para todo.
             guard navigation == nil else { return }
-            if phase == .active {
+            switch phase {
+            case .active:
                 location.start(mode: .idle)
-            } else {
+                location.refreshNow()          // lectura fresca al volver a la app
+            case .background:
                 location.stop()
                 environment.speech.stopImmediately()
+            default:
+                break                          // .inactive (diálogo del sistema, centro de control): no se para el GPS
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
@@ -200,7 +206,8 @@ struct HomeView: View {
         ZStack {
             VStack(spacing: 8) {
                 HStack(alignment: .top, spacing: 10) {
-                    GPSIndicator(theme: theme, quality: location.quality, signalLost: location.isSignalLost)
+                    GPSIndicator(theme: theme, status: location.status,
+                                 accuracy: location.currentLocation?.horizontalAccuracy)
                         .fixedSize()
                     Spacer()
                 }
@@ -210,18 +217,22 @@ struct HomeView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
 
-            // Atribución obligatoria de los datos: arriba, porque el panel cubre el borde inferior.
-            VStack {
-                Text(theme.activeCartography.attribution)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .padding(.horizontal, 7).padding(.vertical, 2)
-                    .background(.black.opacity(0.55), in: .capsule)
-                    .padding(.top, 2)
-                Spacer()
+            // Crédito de los datos del mapa: siempre visible, pequeño, a la izquierda y por ENCIMA del panel
+            // (sigue a la altura del panel). Al tocarlo se abren los créditos completos.
+            GeometryReader { proxy in
+                VStack {
+                    Spacer()
+                    HStack {
+                        MapAttributionLabel(text: theme.activeCartography.attribution) { modal = .credits }
+                        Spacer()
+                    }
+                    .padding(.leading, 12)
+                    .padding(.bottom, attributionBottomInset(screenHeight: proxy.size.height))
+                    .opacity(detent == .large ? 0 : 1)
+                    .animation(.smooth, value: detent)
+                }
             }
-            .accessibilityHidden(true)
-            .allowsHitTesting(false)
+            .ignoresSafeArea()
 
             HStack {
                 Spacer()
@@ -231,6 +242,12 @@ struct HomeView: View {
             .padding(.bottom, 14 + 118)
             .ignoresSafeArea(.container, edges: .bottom)
         }
+    }
+
+    /// Distancia desde el borde inferior de la pantalla hasta el borde superior del panel.
+    private func attributionBottomInset(screenHeight: CGFloat) -> CGFloat {
+        let panelHeight: CGFloat = detent == .medium ? screenHeight * 0.5 : 118
+        return panelHeight + 6
     }
 
     // MARK: - Controles flotantes
@@ -248,7 +265,7 @@ struct HomeView: View {
             }
             CircleIconButton(systemImage: viewModel.isFollowing ? "location.fill" : "location",
                              label: "Recentrar en mi ubicación",
-                             size: 48, isActive: viewModel.isFollowing, accent: theme.accent, floating: true) { recenter() }
+                             size: 48, isActive: viewModel.isFollowing, accent: theme.accent, floating: true) { locationButtonTapped() }
         }
     }
 
@@ -268,27 +285,76 @@ struct HomeView: View {
         permissionBanner
     }
 
+    /// Aviso que corresponde al estado REAL de la ubicación (nunca "GPS perdido" sin motivo).
     @ViewBuilder
     private var permissionBanner: some View {
-        switch location.authState {
+        if let notice = locationNotice {
+            InlineMessage(kind: .info, text: notice.text, actionTitle: notice.action?.title) { runNoticeAction(notice.action) }
+        }
+        let status = location.status
+        if let text = status.explanation, !(status == .requestingPermission && !startupFinished), shows(status) {
+            InlineMessage(kind: status == .acquiring || status == .requestingPermission ? .info : .warning, text: text,
+                          actionTitle: bannerAction(for: status)?.title) { runNoticeAction(bannerAction(for: status)) }
+        }
+    }
+
+    /// Los estados que solo informan (precisión baja) se ven en el indicador, sin banner.
+    private func shows(_ status: LocationStatus) -> Bool {
+        if case .lowAccuracy = status { return false }
+        return true
+    }
+
+    private func bannerAction(for status: LocationStatus) -> LocationNotice.Action? {
+        switch status {
+        case .requestingPermission: return .requestPermission
+        case .reducedAccuracy: return .fullAccuracy
+        case .lastKnown, .temporaryError: return .refresh
+        case .denied, .servicesDisabled: return .settings
+        default: return nil
+        }
+    }
+
+    private func runNoticeAction(_ action: LocationNotice.Action?) {
+        switch action {
+        case .requestPermission: location.requestWhenInUseAuthorization()
+        case .fullAccuracy: location.requestTemporaryFullAccuracy()
+        case .refresh: location.refreshNow()
+        case .settings: openSettings()
+        case nil: break
+        }
+    }
+
+    /// Botón de ubicación: comprueba permisos, pide/reanuda la lectura y centra si hay posición; si no puede, lo explica.
+    private func locationButtonTapped() {
+        switch location.status {
+        case .requestingPermission:
+            location.requestWhenInUseAuthorization()
+            showNotice("Acepta el permiso de ubicación en el diálogo de iOS.")
         case .denied:
-            InlineMessage(kind: .warning, text: "Sin acceso a la ubicación no podemos guiarte.",
-                          actionTitle: "Abrir Ajustes", action: openSettings)
-        case .restricted:
-            InlineMessage(kind: .warning, text: "La ubicación está restringida en este dispositivo (control parental o perfil).")
+            showNotice("El permiso de ubicación está denegado para QuestMap IRL.", action: .settings)
         case .servicesDisabled:
-            InlineMessage(kind: .warning, text: "Los servicios de localización están desactivados.",
-                          actionTitle: "Abrir Ajustes", action: openSettings)
-        case .notDetermined:
-            if startupFinished {
-                InlineMessage(kind: .info, text: "Permite la ubicación para verte en el mapa.")
+            showNotice("Los servicios de localización están desactivados en este iPhone.", action: .settings)
+        case .restricted:
+            showNotice("La ubicación está restringida en este dispositivo y la app no puede cambiarlo.")
+        default:
+            location.refreshNow()
+            if location.smoothedLocation != nil {
+                recenter()
+                if location.status == .reducedAccuracy {
+                    showNotice("Centrado con ubicación aproximada.", action: .fullAccuracy)
+                }
+            } else {
+                showNotice("Todavía no hay ninguna posición. Seguimos intentando obtenerla; en exteriores suele tardar unos segundos.")
             }
-        case .authorizedWhenInUse, .authorizedAlways:
-            if location.isSignalLost, location.currentLocation != nil {
-                InlineMessage(kind: .warning, text: "Señal GPS perdida. Mostramos tu última posición conocida.")
-            } else if location.currentLocation == nil {
-                InlineMessage(kind: .info, text: "Buscando señal GPS…")
-            }
+        }
+    }
+
+    private func showNotice(_ text: String, action: LocationNotice.Action? = nil) {
+        let notice = LocationNotice(text: text, action: action)
+        locationNotice = notice
+        Task {
+            try? await Task.sleep(for: .seconds(8))
+            if locationNotice == notice { locationNotice = nil }
         }
     }
 
@@ -362,6 +428,8 @@ struct HomeView: View {
             .tint(theme.accent)
         case .saved:
             SavedPlacesView(onSelect: { select($0) }, onShowOnMap: { showOnMap($0) })
+        case .credits:
+            MapCreditsView(onClose: { self.modal = nil })
         case .address(let target):
             AddressPickerView(title: addressTitle(target), prompt: "Buscar dirección",
                               search: environment.placeSearch, near: location.currentLocation?.coordinate) { place in

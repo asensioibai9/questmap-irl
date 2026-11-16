@@ -62,12 +62,22 @@ protocol LocationServiceProtocol: AnyObject {
     var smoothedLocation: CLLocation? { get }
     /// Rumbo a mostrar: course GPS si hay movimiento, brújula si no (grados 0-360).
     var displayHeading: Double { get }
+    /// Valoración basada SOLO en la precisión horizontal de la última lectura (no es un porcentaje de señal).
     var quality: GPSQuality { get }
-    /// true si llevamos demasiado tiempo sin un fix válido.
+    /// Estado real de la ubicación (permiso, obteniendo, disponible, impreciso, sin confirmar…).
+    var status: LocationStatus { get }
+    var accuracyMode: LocationAccuracyMode { get }
+    /// true solo cuando la última lectura es antigua y NO se ha podido confirmar (ver `LocationStatusEvaluator`).
     var isSignalLost: Bool { get }
+    /// Resumen sin coordenadas para el informe de diagnóstico.
+    var diagnosticSummary: String { get }
 
     func requestWhenInUseAuthorization()
     func start(mode: LocationMode)
     func setMode(_ mode: LocationMode)
     func stop()
+    /// Pide una lectura nueva (o el permiso si falta) y reanuda las actualizaciones si estaban paradas.
+    func refreshNow()
+    /// Solicita ubicación precisa temporal cuando el usuario solo concedió la aproximada.
+    func requestTemporaryFullAccuracy()
 }

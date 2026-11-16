@@ -400,7 +400,7 @@ struct HelpView: View {
                 NavigationLink {
                     ConnectivityDiagnosticsView(environment: environment)
                 } label: {
-                    SettingsRowLabel(systemImage: "stethoscope", title: "Diagnóstico de conexión")
+                    SettingsRowLabel(systemImage: "stethoscope", title: "Diagnóstico de conexión y ubicación")
                 }
                 .buttonStyle(PressableStyle())
             }

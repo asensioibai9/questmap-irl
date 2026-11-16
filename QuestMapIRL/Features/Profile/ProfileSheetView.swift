@@ -64,6 +64,8 @@ struct ProfileSheetView: View {
                         RowDivider()
                         link("doc.text.fill", "Términos de servicio") { LegalDocumentView(document: .terms) }
                         RowDivider()
+                        link("map", "Créditos del mapa") { MapCreditsView() }
+                        RowDivider()
                         Button { confirmErase = true } label: {
                             SettingsRowLabel(systemImage: "trash.fill", title: "Eliminar mis datos",
                                              tint: AppColor.danger, showsChevron: false)

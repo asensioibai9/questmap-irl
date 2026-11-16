@@ -53,7 +53,7 @@ struct NavigationOverlay: View {
     private var statusRow: some View {
         VStack(spacing: 6) {
             HStack {
-                GPSIndicator(theme: theme, quality: location.quality, signalLost: location.isSignalLost)
+                GPSIndicator(theme: theme, status: location.status, accuracy: location.currentLocation?.horizontalAccuracy)
                 Spacer()
                 if viewModel.recalculationFailed {
                     chip("Vuelve a la ruta", "arrow.uturn.backward", .red)
@@ -63,7 +63,7 @@ struct NavigationOverlay: View {
                 }
             }
             if location.isSignalLost {
-                Label("Sin señal GPS: las indicaciones se pausan hasta recuperarla.", systemImage: "location.slash.fill")
+                Label("Ubicación sin confirmar: las indicaciones se pausan hasta recibir una lectura nueva.", systemImage: "clock.arrow.circlepath")
                     .font(.caption.weight(.semibold))
                     .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
