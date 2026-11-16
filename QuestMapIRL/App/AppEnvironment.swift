@@ -32,7 +32,7 @@ final class AppEnvironment {
         self.speech = speech
         self.network = NetworkMonitor()
         self.speedLimits = limits
-        self.music = MusicPlayerModel(backend: AppleMusicBackend())
+        self.music = MusicPlayerModel(backends: [AppleMusicBackend(), SpotifyMusicBackend.makeDefault()])
         self.hub = NavigationHub(
             location: location, routeService: routes, speech: speech, speedLimits: limits,
             settings: {

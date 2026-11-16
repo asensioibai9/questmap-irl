@@ -63,6 +63,25 @@
     <!-- Permisos -->
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>QuestMap IRL usa tu ubicación para mostrarte en el mapa, calcular rutas y guiarte paso a paso.</string>
+    <!-- Spotify (App Remote): Client ID inyectado al compilar (ajuste SPOTIFY_CLIENT_ID); vacío = sin configurar. -->
+    <key>QMSpotifyClientID</key>
+    <string>$(SPOTIFY_CLIENT_ID)</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.questmapirl.app.spotify-callback</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>questmap-irl</string>
+            </array>
+        </dict>
+    </array>
+    <!-- Solo para saber si la app de Spotify está instalada (requisito del SDK). -->
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+        <string>spotify</string>
+    </array>
     <key>NSAppleMusicUsageDescription</key>
     <string>QuestMap IRL muestra qué suena en la app Música y te deja pausar o cambiar de canción mientras navegas. No cambia tu cola ni inicia música por su cuenta.</string>
     <key>NSLocationTemporaryUsageDescriptionDictionary</key>

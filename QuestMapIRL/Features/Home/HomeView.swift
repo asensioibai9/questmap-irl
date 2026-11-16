@@ -215,7 +215,8 @@ struct HomeView: View {
         }
         .onChange(of: settings?.mapAvatar) { _, avatar in applyAvatar(avatar) }
         .onChange(of: settings?.showMiniPlayer) { _, _ in applyMusicSettings() }
-        .onChange(of: settings?.musicConnected) { _, _ in applyMusicSettings() }
+        .onChange(of: settings?.musicConnectedServicesRaw) { _, _ in applyMusicSettings() }
+        .onChange(of: settings?.musicServiceRaw) { _, _ in applyMusicSettings() }
         .onChange(of: settings?.showSpeedLimit) { _, value in navigation?.setShowsSpeedLimit(value ?? true) }
         .onChange(of: supports3D) { _, _ in apply3D(animated: false) }
         .onChange(of: settings?.view3D) { _, _ in apply3D(animated: true) }
@@ -676,9 +677,11 @@ struct HomeView: View {
         map.onFollowCancelled = { viewModel.isFollowing = false }
         applyAvatar(settings?.mapAvatar)
         let context = modelContext
-        environment.music.onConnectedChanged = { connected in
+        environment.music.onConnectedChanged = { service, connected in
             guard let stored = try? context.fetch(FetchDescriptor<UserSettings>()).first else { return }
-            stored.musicConnected = connected
+            var services = stored.connectedMusicServices
+            if connected { services.insert(service) } else { services.remove(service) }
+            stored.connectedMusicServices = services
             PersistenceCommit.saveQuietly(context, operation: "music-connected")
         }
         applyMusicSettings()
@@ -706,7 +709,9 @@ struct HomeView: View {
 
     /// Aplica los ajustes de música guardados. No pide permisos ni inicia música.
     private func applyMusicSettings() {
-        environment.music.configure(enabled: settings?.showMiniPlayer ?? false, connected: settings?.musicConnected ?? false)
+        let service = settings?.musicService ?? .appleMusic
+        environment.music.configure(enabled: settings?.showMiniPlayer ?? false, service: service,
+                                    connected: settings?.connectedMusicServices.contains(service) ?? false)
         environment.music.activate()
     }
 

@@ -33,7 +33,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM=""
+            DEVELOPMENT_TEAM="" \
+            SPOTIFY_CLIENT_ID="${{ vars.SPOTIFY_CLIENT_ID }}"
 
       - name: Package .ipa
         run: |

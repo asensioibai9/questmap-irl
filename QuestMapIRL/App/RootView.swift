@@ -51,6 +51,8 @@ struct RootView: View {
             StorageDiagnostics.record(operation: "startup", outcome: "ok",
                                       note: "modo=\(PersistenceStatus.shared.mode == .persistent ? "disco" : "temporal") \(store.presenceSummary)")
         }
+        // Vuelta de la autorización de Spotify (questmap-irl://spotify-login-callback).
+        .onOpenURL { url in _ = environment.music.handleOpenURL(url) }
         .onChange(of: scenePhase) { _, phase in
             // Red de seguridad: al salir de primer plano se guarda cualquier cambio pendiente.
             if phase != .active { PersistenceCommit.saveQuietly(modelContext, operation: "scene-\(phase)") }

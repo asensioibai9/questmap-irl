@@ -15,6 +15,10 @@ packages:
   MapLibre:
     url: https://github.com/maplibre/maplibre-gl-native-distribution
     exactVersion: 7.0.0
+  # Spotify iOS SDK (App Remote), oficial. Versión fijada.
+  SpotifyiOS:
+    url: https://github.com/spotify/ios-sdk
+    exactVersion: 5.0.1
 
 settings:
   base:
@@ -38,11 +42,16 @@ targets:
     dependencies:
       - package: MapLibre
         product: MapLibre
+      - package: SpotifyiOS
+        product: SpotifyiOS
     entitlements:
       path: QuestMapIRL/Resources/QuestMapIRL.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.questmapirl.app
+        # Client ID de Spotify (no es secreto). Vacío por defecto: la app compila y muestra «Falta configurar Spotify».
+        # En GitHub Actions se rellena con la variable del repositorio SPOTIFY_CLIENT_ID.
+        SPOTIFY_CLIENT_ID: ""
         # IMPORTANTE: usamos nuestro propio Info.plist (permisos, modos de fondo,
         # launch screen). No usar la clave `info:` de XcodeGen, que lo regeneraría vacío.
         INFOPLIST_FILE: QuestMapIRL/Resources/Info.plist

@@ -60,7 +60,7 @@ final class MusicPlayerTests: XCTestCase {
     func testConnectOnlyAsksForPermission() async {
         model.configure(enabled: true, connected: false)
         var saved: [Bool] = []
-        model.onConnectedChanged = { saved.append($0) }
+        model.onConnectedChanged = { _, connected in saved.append(connected) }
         await model.connect()
         XCTAssertEqual(backend.calls.first, "request")
         XCTAssertFalse(backend.calls.contains("play"))

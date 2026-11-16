@@ -25,6 +25,8 @@ final class UserSettings {
     /// El usuario conectó el servicio (el permiso real lo concede y revoca el sistema).
     var musicConnected: Bool = false
     var musicServiceRaw: String = "appleMusic"
+    /// Servicios conectados por el usuario, separados por comas (p. ej. "appleMusic,spotify").
+    var musicConnectedServicesRaw: String = ""
 
     init(themeRawValue: String = MapThemeID.ciudadNocturna.rawValue,
          useMetricUnits: Bool = true,
