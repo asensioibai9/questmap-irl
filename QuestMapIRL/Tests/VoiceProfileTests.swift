@@ -289,10 +289,10 @@ final class VoiceProfileStoreTests: XCTestCase {
         try s.saveRecording(profileID: id, phrase: .turnRight, from: tempRecording(), analysis: analysis)
         settings.activeVoiceProfileID = id
         try PersistenceCommit.save(context)
-        XCTAssertNotNil(AppEnvironment.activeRecordedVoice(context: context))
+        XCTAssertNotNil(AppEnvironment.activeRecordedVoice(context: context, files: s.files))
         try s.delete(profile, settings: settings)
         XCTAssertNil(settings.activeVoiceProfileID)
-        XCTAssertNil(AppEnvironment.activeRecordedVoice(context: context), "sin referencias a archivos inexistentes")
+        XCTAssertNil(AppEnvironment.activeRecordedVoice(context: context, files: s.files), "sin referencias a archivos inexistentes")
         XCTAssertFalse(FileManager.default.fileExists(atPath: s.files.directory(for: id).path))
         XCTAssertTrue(try s.recordings(for: id).isEmpty)
     }
@@ -307,7 +307,7 @@ final class VoiceProfileStoreTests: XCTestCase {
         try s.saveRecording(profileID: id, phrase: .turnRight, from: tempRecording(), analysis: analysis)
         settings.activeVoiceProfileID = id
         try PersistenceCommit.save(context)
-        XCTAssertEqual(AppEnvironment.activeRecordedVoice(context: context)?.strategy, .hybrid)
+        XCTAssertEqual(AppEnvironment.activeRecordedVoice(context: context, files: s.files)?.strategy, .hybrid)
     }
 
     func testOrphanCleanupNeverTouchesReferencedFiles() throws {
