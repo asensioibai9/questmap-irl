@@ -38,11 +38,11 @@ final class MarkerMotionTests: XCTestCase {
     // MARK: Ángulos
 
     func testShortestAngleCrossesNorthWithoutAFullTurn() {
-        XCTAssertEqual(Angle.shortestDelta(from: 359, to: 1), 2, accuracy: 1e-9)
-        XCTAssertEqual(Angle.shortestDelta(from: 1, to: 359), -2, accuracy: 1e-9)
-        XCTAssertEqual(Angle.shortestDelta(from: 10, to: 190), 180, accuracy: 1e-9)
-        XCTAssertEqual(Angle.normalized(-90), 270, accuracy: 1e-9)
-        XCTAssertEqual(Angle.normalized(725), 5, accuracy: 1e-9)
+        XCTAssertEqual(HeadingMath.shortestDelta(from: 359, to: 1), 2, accuracy: 1e-9)
+        XCTAssertEqual(HeadingMath.shortestDelta(from: 1, to: 359), -2, accuracy: 1e-9)
+        XCTAssertEqual(HeadingMath.shortestDelta(from: 10, to: 190), 180, accuracy: 1e-9)
+        XCTAssertEqual(HeadingMath.normalized(-90), 270, accuracy: 1e-9)
+        XCTAssertEqual(HeadingMath.normalized(725), 5, accuracy: 1e-9)
     }
 
     func testRotationFrom359To1PassesThroughNorth() {
@@ -59,7 +59,7 @@ final class MarkerMotionTests: XCTestCase {
             let h = motion.displayedHeading
             XCTAssertTrue(h >= 358.9 || h <= 1.1, "nunca debe pasar por el sur: \(h)")
         }
-        XCTAssertEqual(Angle.shortestDelta(from: motion.displayedHeading, to: 1), 0, accuracy: 0.3)
+        XCTAssertEqual(HeadingMath.shortestDelta(from: motion.displayedHeading, to: 1), 0, accuracy: 0.3)
     }
 
     func testNinetyDegreeTurnIsFollowedQuicklyWithoutOvershoot() {
@@ -219,7 +219,7 @@ final class MarkerMotionTests: XCTestCase {
             }
         }
         XCTAssertLessThanOrEqual(maxOffChord, 10.5)
-        XCTAssertEqual(Angle.shortestDelta(from: motion.displayedHeading, to: 180), 0, accuracy: 1, "sigue la curva")
+        XCTAssertEqual(HeadingMath.shortestDelta(from: motion.displayedHeading, to: 180), 0, accuracy: 1, "sigue la curva")
     }
 
     func testReduceMotionPlacesTheArrowDirectly() {

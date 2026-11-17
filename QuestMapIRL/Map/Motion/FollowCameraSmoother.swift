@@ -53,10 +53,10 @@ struct FollowCameraSmoother {
             ? target.zoom : Self.approach(state.zoom, target.zoom, dt: dt, tau: config.zoomTau)
         next.pitch = abs(target.pitch - state.pitch) <= config.pitchEpsilon
             ? target.pitch : Self.approach(state.pitch, target.pitch, dt: dt, tau: config.pitchTau)
-        let delta = Angle.shortestDelta(from: state.direction, to: target.direction)
+        let delta = HeadingMath.shortestDelta(from: state.direction, to: target.direction)
         next.direction = abs(delta) <= config.directionEpsilon
-            ? Angle.normalized(target.direction)
-            : Angle.normalized(state.direction + delta * (1 - exp(-max(0, dt) / config.directionTau)))
+            ? HeadingMath.normalized(target.direction)
+            : HeadingMath.normalized(state.direction + delta * (1 - exp(-max(0, dt) / config.directionTau)))
         return next
     }
 
@@ -64,6 +64,6 @@ struct FollowCameraSmoother {
         MarkerMotion.distance(state.center, target.center) <= config.centerEpsilonMeters
             && abs(state.zoom - target.zoom) <= config.zoomEpsilon
             && abs(state.pitch - target.pitch) <= config.pitchEpsilon
-            && abs(Angle.shortestDelta(from: state.direction, to: target.direction)) <= config.directionEpsilon
+            && abs(HeadingMath.shortestDelta(from: state.direction, to: target.direction)) <= config.directionEpsilon
     }
 }

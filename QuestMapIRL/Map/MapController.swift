@@ -328,7 +328,7 @@ final class MapController {
         guard followMode != .off, !flightActive, let mapView, motion.displayed != nil else { return }
         let current = cameraState ?? FollowCameraSmoother.State(center: mapView.centerCoordinate, zoom: mapView.zoomLevel,
                                                                 pitch: Double(mapView.camera.pitch),
-                                                                direction: Angle.normalized(mapView.direction))
+                                                                direction: HeadingMath.normalized(mapView.direction))
         let next = smoother.step(current, toward: followTarget(), dt: dt, immediate: UIAccessibility.isReduceMotionEnabled)
         if cameraState == nil || next != current {
             if abs(Double(mapView.camera.pitch) - next.pitch) > 0.01 {

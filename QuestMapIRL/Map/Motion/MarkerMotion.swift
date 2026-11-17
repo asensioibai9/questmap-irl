@@ -2,7 +2,7 @@ import CoreLocation
 import Foundation
 
 /// Ángulos en grados, siempre normalizados a [0, 360).
-enum Angle {
+enum HeadingMath {
     static func normalized(_ degrees: Double) -> Double {
         let value = degrees.truncatingRemainder(dividingBy: 360)
         return value < 0 ? value + 360 : value
@@ -81,7 +81,7 @@ struct MarkerMotion {
         return !Self.same(displayed, confirmed)
     }
 
-    var isRotating: Bool { abs(Angle.shortestDelta(from: displayedHeading, to: targetHeading)) > config.rotationEpsilon }
+    var isRotating: Bool { abs(HeadingMath.shortestDelta(from: displayedHeading, to: targetHeading)) > config.rotationEpsilon }
 
     var isAnimating: Bool { isMoving || isRotating }
 
@@ -130,8 +130,8 @@ struct MarkerMotion {
 
     /// Rumbo objetivo nuevo (ya elegido entre GPS y brújula). Parado, se ignora la vibración pequeña.
     mutating func receive(heading: Double, reduceMotion: Bool) {
-        let value = Angle.normalized(heading)
-        if hasHeading, isStill, abs(Angle.shortestDelta(from: targetHeading, to: value)) < config.stillHeadingDeadband { return }
+        let value = HeadingMath.normalized(heading)
+        if hasHeading, isStill, abs(HeadingMath.shortestDelta(from: targetHeading, to: value)) < config.stillHeadingDeadband { return }
         targetHeading = value
         // El primer rumbo se aplica directamente (no hay de dónde girar).
         if reduceMotion || !hasHeading { displayedHeading = value }
@@ -156,14 +156,14 @@ struct MarkerMotion {
         displayed = position(at: now)
         let dt = lastHeadingStep.map { max(0, now - $0) } ?? 0
         lastHeadingStep = now
-        let delta = Angle.shortestDelta(from: displayedHeading, to: targetHeading)
+        let delta = HeadingMath.shortestDelta(from: displayedHeading, to: targetHeading)
         if abs(delta) <= config.rotationEpsilon {
             displayedHeading = targetHeading
         } else {
             let tau = isStill ? config.rotationTauStill : config.rotationTauMoving
             // Aproximación exponencial: independiente de la frecuencia de fotogramas y sin pasarse del objetivo.
             let factor = 1 - exp(-dt / tau)
-            displayedHeading = Angle.normalized(displayedHeading + delta * factor)
+            displayedHeading = HeadingMath.normalized(displayedHeading + delta * factor)
         }
         if !isAnimating { lastHeadingStep = nil }
         return isAnimating
