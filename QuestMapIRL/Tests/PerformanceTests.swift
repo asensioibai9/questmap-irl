@@ -100,7 +100,8 @@ final class PerformanceTests: XCTestCase {
             context.fill(CGRect(x: 0, y: 0, width: 1920, height: 1200))
         }
         try XCTUnwrap(big.pngData()).write(to: url)
-        let image = try XCTUnwrap(await StylePreviewStore.decodeForDisplay(url: url, maxPixel: 600))
+        let decoded = await StylePreviewStore.decodeForDisplay(url: url, maxPixel: 600)
+        let image = try XCTUnwrap(decoded)
         let cg = try XCTUnwrap(image.cgImage)
         XCTAssertLessThanOrEqual(max(cg.width, cg.height), 600)
         XCTAssertEqual(Double(cg.width) / Double(cg.height), 1.6, accuracy: 0.01, "sin deformar")
