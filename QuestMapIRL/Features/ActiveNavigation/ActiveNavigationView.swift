@@ -27,20 +27,37 @@ struct NavigationOverlay: View {
     var supports3D = false
     var is3D = false
     var onToggle3D: () -> Void = {}
+    var speedSign: SpeedSignAppearance = .defaults
     let onSearch: () -> Void
     let onEnd: () -> Void
+
+    private var limitSign: some View {
+        SpeedLimitSign(display: viewModel.speedLimit, metric: useMetric, appearance: speedSign,
+                       countryCode: viewModel.speedLimitCountry, currentSpeedKmh: viewModel.currentSpeedKmh)
+    }
+
+    private var signIsEmpty: Bool { SpeedLimitSign.isEmpty(viewModel.speedLimit, appearance: speedSign) }
 
     var body: some View {
         VStack(spacing: 10) {
             ManeuverCard(viewModel: viewModel, theme: theme, useMetric: useMetric)
             statusRow
 
+            // Posiciones «arriba»: fila propia bajo la maniobra y el estado, así no tapa nada.
+            if speedSign.position != .automatic, !signIsEmpty {
+                HStack {
+                    if speedSign.position == .topTrailing { Spacer() }
+                    limitSign
+                    if speedSign.position == .topLeading { Spacer() }
+                }
+            }
+
             if display == .hud {
                 hudBody
             } else {
                 Spacer(minLength: 0)
                 HStack(alignment: .bottom) {
-                    SpeedLimitSign(display: viewModel.speedLimit, metric: useMetric)
+                    if speedSign.position == .automatic { limitSign }
                     Spacer()
                     sideButtons
                 }
@@ -107,7 +124,7 @@ struct NavigationOverlay: View {
             HStack(alignment: .bottom) {
                 MinimapView(controller: miniMap, size: 150) { display = .map }
                 Spacer()
-                SpeedLimitSign(display: viewModel.speedLimit, metric: useMetric)
+                if speedSign.position == .automatic { limitSign }
             }
         }
     }

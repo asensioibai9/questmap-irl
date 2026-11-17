@@ -71,6 +71,9 @@ struct HomeView: View {
     private var navigation: ActiveNavigationViewModel? { environment.hub.session }
     private var useMetric: Bool { settings?.useMetricUnits ?? true }
     private var showCompass: Bool { settings?.showCompass ?? true }
+    private var speedSign: SpeedSignAppearance { settings?.speedSignAppearance ?? .defaults }
+    /// Límite sin ruta: requiere «Mostrar señal» y «También sin ruta».
+    private var wantsFreeDriveLimit: Bool { (settings?.showSpeedLimit ?? true) && (settings?.speedLimitWithoutRoute ?? false) }
     private var location: LocationServiceProtocol { environment.locationService }
     private var followMode: FollowMode { viewModel.headingUp ? .headingUp : .northUp }
     private var navigationBottomInset: CGFloat { viewHeight * 0.22 }
@@ -90,7 +93,19 @@ struct HomeView: View {
     // MARK: - Cuerpo
 
     var body: some View {
-        settingsHandlers(routeHandlers(locationHandlers(screen)))
+        speedLimitHandlers(settingsHandlers(routeHandlers(locationHandlers(screen))))
+    }
+
+    /// Ajustes de la señal de límite: se aplican al momento (navegando y sin ruta).
+    private func speedLimitHandlers<V: View>(_ view: V) -> some View {
+        view
+        .onChange(of: settings?.showSpeedLimit) { _, value in
+            navigation?.setShowsSpeedLimit(value ?? true)
+            environment.hub.setFreeDriveSpeedLimit(wantsFreeDriveLimit)
+        }
+        .onChange(of: settings?.speedLimitWithoutRoute) { _, _ in
+            environment.hub.setFreeDriveSpeedLimit(wantsFreeDriveLimit)
+        }
     }
 
     /// Pantalla sin reacciones a cambios de estado (se reparten en tres grupos para que el compilador
@@ -114,6 +129,7 @@ struct HomeView: View {
                     supports3D: supports3D,
                     is3D: view3D,
                     onToggle3D: toggle3D,
+                    speedSign: speedSign,
                     onSearch: { showNavSearch = true },
                     onEnd: { navigation.stop() }
                 )
@@ -217,7 +233,6 @@ struct HomeView: View {
         .onChange(of: settings?.showMiniPlayer) { _, _ in applyMusicSettings() }
         .onChange(of: settings?.musicConnectedServicesRaw) { _, _ in applyMusicSettings() }
         .onChange(of: settings?.musicServiceRaw) { _, _ in applyMusicSettings() }
-        .onChange(of: settings?.showSpeedLimit) { _, value in navigation?.setShowsSpeedLimit(value ?? true) }
         .onChange(of: supports3D) { _, _ in apply3D(animated: false) }
         .onChange(of: settings?.view3D) { _, _ in apply3D(animated: true) }
         .onChange(of: panel.markers) { _, places in map.setMarkers(places) }
@@ -262,6 +277,7 @@ struct HomeView: View {
                         .fixedSize()
                     Spacer()
                 }
+                freeDriveSign
                 banners
                 Spacer()
             }
@@ -309,6 +325,22 @@ struct HomeView: View {
             .padding(.trailing, 14)
             .padding(.bottom, 14 + 118)
             .ignoresSafeArea(.container, edges: .bottom)
+        }
+    }
+
+    /// Señal sin ruta (si está activada). Va en su propia fila bajo el indicador GPS: nunca encima del buscador, los
+    /// botones, el reproductor ni la brújula (a la derecha se baja por debajo de la brújula del mapa).
+    @ViewBuilder
+    private var freeDriveSign: some View {
+        let hub = environment.hub
+        if wantsFreeDriveLimit, !SpeedLimitSign.isEmpty(hub.speedLimit, appearance: speedSign) {
+            HStack {
+                if speedSign.position == .topTrailing { Spacer() }
+                SpeedLimitSign(display: hub.speedLimit, metric: useMetric, appearance: speedSign,
+                               countryCode: hub.speedLimitCountry, currentSpeedKmh: hub.currentSpeedKmh)
+                if speedSign.position != .topTrailing { Spacer() }
+            }
+            .padding(.top, speedSign.position == .topTrailing && showCompass ? 52 : 0)
         }
     }
 
@@ -685,6 +717,7 @@ struct HomeView: View {
             PersistenceCommit.saveQuietly(context, operation: "music-connected")
         }
         applyMusicSettings()
+        environment.hub.setFreeDriveSpeedLimit(wantsFreeDriveLimit)
         apply3D(animated: false)
         pushSavedPlaces()
         if let active = environment.hub.session { presentNavigationUI(active) }   // navegación iniciada antes (p. ej. desde CarPlay)

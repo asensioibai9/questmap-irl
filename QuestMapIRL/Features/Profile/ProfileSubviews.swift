@@ -278,14 +278,18 @@ struct NavigationSettingsView: View {
             }
 
             Section {
-                Toggle("Mostrar límite de velocidad", isOn: $settings.showSpeedLimit)
-                    .onChange(of: settings.showSpeedLimit) { _, _ in
-                        PersistenceCommit.saveQuietly(context, operation: "speed-limit-setting")
+                NavigationLink {
+                    SpeedSignSettingsView(settings: settings)
+                } label: {
+                    HStack {
+                        Label("Señal de límite de velocidad", systemImage: "gauge.with.dots.needle.33percent")
+                        Spacer()
+                        Text(settings.showSpeedLimit ? "Activada" : "Desactivada")
+                            .foregroundStyle(AppColor.textSecondary)
                     }
+                }
             } header: {
                 Text("Velocidad")
-            } footer: {
-                Text("El límite se obtiene de OpenStreetMap a través de un servicio público (Valhalla): al activarlo, la geometría de la ruta se envía a ese servicio. Solo aparece cuando hay dato fiable del tramo; puede estar incompleto o desactualizado y prevalece la señalización real. Desactivado, no se hace ninguna consulta.")
             }
 
             musicSection(settings)

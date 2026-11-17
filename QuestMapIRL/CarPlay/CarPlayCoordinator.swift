@@ -48,9 +48,13 @@ final class CarPlayCoordinator: NSObject {
     func start() {
         isActive = true
         carMap.setSimplified(true)          // menos etiquetas y puntos de interés en la pantalla del coche
+        // Mismo ajuste que el iPhone para la señal sin ruta (por si CarPlay arranca sin la pantalla del teléfono).
+        let stored = try? ContainerFactory.shared.mainContext.fetch(FetchDescriptor<UserSettings>()).first
+        hub.setFreeDriveSpeedLimit((stored?.showSpeedLimit ?? true) && (stored?.speedLimitWithoutRoute ?? false))
         carMap.setBuildings3D(false)        // 2D por defecto; el botón alterna el 3D
         window.rootViewController = UIHostingController(rootView: CarMapView(
-            controller: carMap, style: cartography, hub: hub, metric: metric))
+            controller: carMap, style: cartography, hub: hub, metric: metric)
+            .modelContainer(ContainerFactory.shared))
 
         mapTemplate.mapDelegate = self
         mapTemplate.tripEstimateStyle = .dark

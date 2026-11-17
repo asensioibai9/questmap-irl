@@ -6,21 +6,40 @@ protocol SpeedLimitProviding: Sendable {
     func profile(for coordinates: [CLLocationCoordinate2D]) async throws -> SpeedLimitProfile
 }
 
+/// Punto de un recorrido reciente real (modo «también sin ruta»).
+struct SpeedLimitTracePoint: Equatable, Sendable {
+    var coordinate: CLLocationCoordinate2D
+    var accuracy: Double
+
+    static func == (a: Self, b: Self) -> Bool {
+        a.coordinate.latitude == b.coordinate.latitude && a.coordinate.longitude == b.coordinate.longitude && a.accuracy == b.accuracy
+    }
+}
+
+protocol SpeedLimitTraceMatching: Sendable {
+    /// Asocia un recorrido reciente a la red viaria (map matching del proveedor) y devuelve las aristas y la asociación de
+    /// cada punto. El último punto indica la vía actual.
+    func match(trace: [SpeedLimitTracePoint]) async throws -> SpeedLimitMatch
+}
+
 /// Límites de velocidad de OpenStreetMap vía el servidor PÚBLICO DE DEMOSTRACIÓN de Valhalla (FOSSGIS), operación
-/// `trace_attributes`. Sin clave ni coste. Solo hay dato donde OSM tiene la etiqueta `maxspeed`; lo demás queda sin dato.
-/// Cobertura variable, sin garantías de servicio. Para producción hay que usar un servidor propio o contratado.
+/// `trace_attributes` (map matching). Sin clave ni coste. Solo hay dato donde OSM tiene la etiqueta `maxspeed`; lo demás
+/// queda sin dato. Cobertura variable, sin garantías de servicio ni de disponibilidad.
 ///
-/// Se envía la geometría de la ruta (coordenadas) a ese servidor: solo cuando el ajuste «Mostrar límite de velocidad»
-/// está activado.
-struct ValhallaSpeedLimitService: SpeedLimitProviding {
-    var endpoint = URL(string: "https://valhalla1.openstreetmap.de/trace_attributes")!
-    var client = ServiceClient(service: "valhalla")
+/// Qué se envía a ese servidor (solo con el ajuste «Mostrar señal» activado):
+/// - Navegando: la geometría de la ruta.
+/// - «También sin ruta» (desactivado por defecto): los últimos ~400 m recorridos, sin puntos cerca de Casa/Trabajo.
+struct ValhallaSpeedLimitService: SpeedLimitProviding, SpeedLimitTraceMatching {
+    static let defaultEndpoint = URL(string: "https://valhalla1.openstreetmap.de/trace_attributes")!
+
+    var endpoint: URL
+    var client: ServiceClient
     var chunkMeters: Double = 15_000
     var minPointSpacing: Double = 20
     var maxChunks = 20
     private let cache = SpeedLimitCache()
 
-    init(endpoint: URL = URL(string: "https://valhalla1.openstreetmap.de/trace_attributes")!,
+    init(endpoint: URL = ValhallaSpeedLimitService.defaultEndpoint,
          client: ServiceClient = ServiceClient(service: "valhalla")) {
         self.endpoint = endpoint
         self.client = client
@@ -31,47 +50,73 @@ struct ValhallaSpeedLimitService: SpeedLimitProviding {
         let key = Self.signature(coordinates)
         if let cached = cache.value(for: key) { return cached }
 
-        let pieces = Self.chunks(coordinates, chunkMeters: chunkMeters, maxChunks: maxChunks)
+        let (points, meters) = Self.thinnedWithMeters(coordinates, minSpacing: minPointSpacing)
         let total = Self.length(coordinates)
-        var results: [(startMeters: Double, lengthMeters: Double, edges: [SpeedLimitEdge]?)] = []
+        var pieces: [SpeedLimitProfileBuilder.Piece] = []
         var anySuccess = false
-        for piece in pieces {
+        for range in Self.chunkRanges(meters: meters, chunkMeters: chunkMeters, maxChunks: maxChunks) {
             try Task.checkCancellation()
-            let shape = Self.thinned(piece.points, minSpacing: minPointSpacing)
+            let shape = Array(points[range])
+            let pointMeters = Array(meters[range])
             do {
                 let data = try await client.data(for: Self.request(endpoint: endpoint, shape: shape), operation: "speed-limits")
-                let edges = try SpeedLimitParser.edges(from: data)
-                results.append((piece.startMeters, piece.lengthMeters, edges))
+                let match = try SpeedLimitParser.match(from: data)
+                // Si no devuelve un resultado por cada punto enviado, no se puede ubicar nada con seguridad.
+                guard match.points.count == shape.count else { throw SpeedLimitError.decoding }
+                pieces.append(.init(pointMeters: pointMeters, match: match))
                 anySuccess = true
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
-                results.append((piece.startMeters, piece.lengthMeters, nil))   // ese trozo queda sin dato
+                pieces.append(.init(pointMeters: pointMeters, match: nil))   // ese trozo queda sin dato (se reintentará)
             }
         }
-        // Lo que quede más allá del último trozo consultado también queda sin dato.
         guard anySuccess else { throw SpeedLimitError.noData }
-        let profile = SpeedLimitProfileBuilder.build(chunks: results, routeMeters: total)
-        cache.store(profile, for: key)
+        let profile = SpeedLimitProfileBuilder.build(pieces: pieces, routeMeters: total)
+        // Lo que quede más allá del último trozo consultado (rutas de más de 300 km) también queda sin dato; no cuenta
+        // como fallo, así que no se reintenta.
+        if profile.isComplete { cache.store(profile, for: key) }
         return profile
+    }
+
+    func match(trace: [SpeedLimitTracePoint]) async throws -> SpeedLimitMatch {
+        guard trace.count >= 2 else { throw SpeedLimitError.noData }
+        let accuracy = min(50, max(5, trace.map(\.accuracy).max() ?? 10))
+        let request = Self.request(endpoint: endpoint, shape: trace.map(\.coordinate),
+                                   traceOptions: ["search_radius": min(40, accuracy * 2), "gps_accuracy": accuracy])
+        let data = try await client.data(for: request, operation: "speed-limit-live")
+        let match = try SpeedLimitParser.match(from: data)
+        guard match.points.count == trace.count else { throw SpeedLimitError.decoding }
+        return match
     }
 
     // MARK: - Piezas puras (probadas sin red)
 
-    static func request(endpoint: URL, shape: [CLLocationCoordinate2D]) -> URLRequest {
+    static let requestedAttributes = [
+        "edge.speed_limit", "edge.length", "node.admin_index", "admin.country_code",
+        "matched.type", "matched.edge_index", "matched.distance_along_edge", "matched.distance_from_trace_point",
+    ]
+
+    static func request(endpoint: URL, shape: [CLLocationCoordinate2D], traceOptions: [String: Double]? = nil) -> URLRequest {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("QuestMapIRL/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "shape": shape.map { ["lat": $0.latitude, "lon": $0.longitude] },
             "costing": "auto",
             "shape_match": "map_snap",
             "units": "kilometers",
-            "filters": ["attributes": ["edge.speed_limit", "edge.length"], "action": "include"],
+            "filters": ["attributes": requestedAttributes, "action": "include"],
         ]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        if let traceOptions { body["trace_options"] = traceOptions }
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            // Solo números y textos: no puede fallar. Si fallara, la petición sale sin cuerpo y el servidor la rechaza.
+            assertionFailure("Cuerpo de trace_attributes no serializable: \(error)")
+        }
         return request
     }
 
@@ -79,38 +124,46 @@ struct ValhallaSpeedLimitService: SpeedLimitProviding {
         zip(points, points.dropFirst()).reduce(0) { $0 + distance($1.0, $1.1) }
     }
 
-    private static func distance(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double {
+    static func distance(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double {
         CLLocation(latitude: a.latitude, longitude: a.longitude).distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
     }
 
-    /// Divide la ruta en trozos contiguos de ~`chunkMeters` (el último punto de uno es el primero del siguiente).
-    static func chunks(_ points: [CLLocationCoordinate2D], chunkMeters: Double, maxChunks: Int)
-        -> [(startMeters: Double, lengthMeters: Double, points: [CLLocationCoordinate2D])] {
-        var result: [(Double, Double, [CLLocationCoordinate2D])] = []
-        var current: [CLLocationCoordinate2D] = [points[0]]
-        var start = 0.0
-        var accumulated = 0.0
-        for (previous, point) in zip(points, points.dropFirst()) {
-            accumulated += distance(previous, point)
-            current.append(point)
-            if accumulated >= chunkMeters {
-                result.append((start, accumulated, current))
-                start += accumulated
-                accumulated = 0
-                current = [point]
+    /// Reduce puntos casi iguales (la ruta de OSRM es muy densa) sin perder el primero ni el último, y devuelve la
+    /// distancia de la ruta ORIGINAL a la que está cada punto conservado.
+    static func thinnedWithMeters(_ points: [CLLocationCoordinate2D], minSpacing: Double)
+        -> (points: [CLLocationCoordinate2D], meters: [Double]) {
+        guard let first = points.first else { return ([], []) }
+        var kept = [first]
+        var keptMeters = [0.0]
+        var along = 0.0
+        for index in 1..<points.count {
+            along += distance(points[index - 1], points[index])
+            let isLast = index == points.count - 1
+            if isLast || distance(kept[kept.count - 1], points[index]) >= minSpacing {
+                kept.append(points[index])
+                keptMeters.append(along)
             }
         }
-        if current.count >= 2 { result.append((start, accumulated, current)) }
-        return Array(result.prefix(maxChunks)).map { (startMeters: $0.0, lengthMeters: $0.1, points: $0.2) }
+        return (kept, keptMeters)
     }
 
-    /// Reduce puntos casi iguales (la ruta completa de OSRM es muy densa) sin perder el primero ni el último.
+    /// Compatibilidad: solo los puntos.
     static func thinned(_ points: [CLLocationCoordinate2D], minSpacing: Double) -> [CLLocationCoordinate2D] {
-        guard points.count > 2 else { return points }
-        var kept = [points[0]]
-        for point in points.dropFirst().dropLast() where distance(kept[kept.count - 1], point) >= minSpacing { kept.append(point) }
-        kept.append(points[points.count - 1])
-        return kept
+        thinnedWithMeters(points, minSpacing: minSpacing).points
+    }
+
+    /// Trozos contiguos de ~`chunkMeters` sobre los puntos ya reducidos; el último punto de un trozo es el primero del
+    /// siguiente (no quedan huecos).
+    static func chunkRanges(meters: [Double], chunkMeters: Double, maxChunks: Int) -> [ClosedRange<Int>] {
+        guard meters.count >= 2 else { return [] }
+        var ranges: [ClosedRange<Int>] = []
+        var start = 0
+        for index in 1..<meters.count where meters[index] - meters[start] >= chunkMeters || index == meters.count - 1 {
+            ranges.append(start...index)
+            start = index
+            if ranges.count == maxChunks { break }
+        }
+        return ranges
     }
 
     static func signature(_ points: [CLLocationCoordinate2D]) -> String {
@@ -119,20 +172,31 @@ struct ValhallaSpeedLimitService: SpeedLimitProviding {
     }
 }
 
-/// Caché en memoria de los perfiles ya calculados (evita repetir la consulta al recalcular a la misma ruta).
+/// Caché en memoria de los perfiles COMPLETOS ya calculados: evita repetir la consulta al recalcular a la misma ruta.
+/// Caduca a los 30 minutos (los datos de OSM cambian poco, pero no se guardan para siempre) y guarda como mucho 6 rutas.
+/// No se escribe en disco.
 final class SpeedLimitCache: @unchecked Sendable {
     private let lock = NSLock()
-    private var entries: [(key: String, profile: SpeedLimitProfile)] = []
+    private var entries: [(key: String, profile: SpeedLimitProfile, storedAt: Date)] = []
+    private let lifetime: TimeInterval
+    private let clock: () -> Date
+
+    init(lifetime: TimeInterval = 30 * 60, clock: @escaping () -> Date = Date.init) {
+        self.lifetime = lifetime
+        self.clock = clock
+    }
 
     func value(for key: String) -> SpeedLimitProfile? {
         lock.lock(); defer { lock.unlock() }
+        let now = clock()
+        entries.removeAll { now.timeIntervalSince($0.storedAt) > lifetime }
         return entries.first { $0.key == key }?.profile
     }
 
     func store(_ profile: SpeedLimitProfile, for key: String) {
         lock.lock(); defer { lock.unlock() }
         entries.removeAll { $0.key == key }
-        entries.append((key, profile))
+        entries.append((key, profile, clock()))
         if entries.count > 6 { entries.removeFirst() }
     }
 }

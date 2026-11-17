@@ -20,6 +20,14 @@ final class UserSettings {
     var view3D: Bool = false
     /// Mostrar la señal de límite de velocidad durante la navegación.
     var showSpeedLimit: Bool = true
+    /// Señal también sin ruta (envía el recorrido reciente al proveedor de límites). Desactivado por defecto.
+    var speedLimitWithoutRoute: Bool = false
+    /// Aspecto de la señal (ver `SpeedSignAppearance`).
+    var speedSignStyleRaw: String = "automatic"
+    var speedSignSizeRaw: String = "medium"
+    var speedSignPositionRaw: String = "automatic"
+    var speedSignNoDataRaw: String = "dash"
+    var speedSignShowsCurrentSpeed: Bool = false
     /// Minirreproductor de música: oculto hasta que el usuario lo active.
     var showMiniPlayer: Bool = false
     /// El usuario conectó el servicio (el permiso real lo concede y revoca el sistema).

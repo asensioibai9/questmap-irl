@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import SwiftData
 
@@ -33,8 +34,21 @@ final class AppEnvironment {
         self.network = NetworkMonitor()
         self.speedLimits = limits
         self.music = MusicPlayerModel(backends: [AppleMusicBackend(), SpotifyMusicBackend.makeDefault(), SystemNowPlayingBackend()])
+        let freeDrive = FreeDriveSpeedLimit(matcher: limits)
+        // Casa y Trabajo: alrededor de ellos no se envía ningún punto del recorrido (se leen aquí, no se registran).
+        freeDrive.excludedAreas = {
+            let personal: Set<String> = [PlaceKind.home.rawValue, PlaceKind.work.rawValue]
+            do {
+                return try ContainerFactory.shared.mainContext.fetch(FetchDescriptor<SavedPlace>())
+                    .filter { personal.contains($0.kindRawValue) }
+                    .map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
+            } catch {
+                // Sin poder leerlos no se sabe dónde están: nil = por prudencia, el modo sin ruta no envía nada.
+                return nil
+            }
+        }
         self.hub = NavigationHub(
-            location: location, routeService: routes, speech: speech, speedLimits: limits,
+            location: location, routeService: routes, speech: speech, speedLimits: limits, freeDrive: freeDrive,
             settings: {
                 let stored = try? ContainerFactory.shared.mainContext.fetch(FetchDescriptor<UserSettings>()).first
                 return (stored?.useMetricUnits ?? true, stored?.showSpeedLimit ?? true)

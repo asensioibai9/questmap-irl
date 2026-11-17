@@ -13,8 +13,14 @@ final class ActiveNavigationViewModel {
     private(set) var recalculationFailed = false
     private(set) var speedKmh: Double = 0
     private(set) var visitedKeys: Set<String> = []
-    /// Qué muestra la señal de límite (oculta, sin dato o la cifra de la ruta activa).
+    /// Qué muestra la señal de límite (oculta, ubicación insuficiente, sin dato o la cifra del tramo de la ruta activa).
     private(set) var speedLimit: SpeedLimitDisplay = .hidden
+    /// País de la ruta según el proveedor (para el diseño automático de la señal). Nil = desconocido.
+    private(set) var speedLimitCountry: String?
+    /// Velocidad actual VÁLIDA (nil si la lectura no la trae). Distinta del límite.
+    private(set) var currentSpeedKmh: Double?
+    /// Estado de la consulta de límites, para el diagnóstico (sin coordenadas).
+    private(set) var speedLimitStatus = "sin consultar"
     var finished = false
 
     let destinationName: String
@@ -38,10 +44,17 @@ final class ActiveNavigationViewModel {
     private var speedProfile: SpeedLimitProfile?
     private var speedTracker = SpeedLimitTracker()
     private var speedLimitTask: Task<Void, Never>?
+    /// Ruta a la que pertenece el perfil cargado o pedido: una respuesta de otra ruta (anterior al recálculo) se descarta.
+    private var speedProfileRouteID: UUID?
+    private var speedRetryAt: Date?
+    private var speedRetryCount = 0
+    private let clock: () -> Date
 
     init(route: Route, destinationName: String, destination: CLLocationCoordinate2D,
          mode: RouteMode, routeService: RouteServiceProtocol, speech: SpeechService, useMetric: Bool,
-         speedLimitService: SpeedLimitProviding? = nil, showsSpeedLimit: Bool = false) {
+         speedLimitService: SpeedLimitProviding? = nil, showsSpeedLimit: Bool = false,
+         clock: @escaping () -> Date = Date.init) {
+        self.clock = clock
         self.route = route
         self.destinationName = destinationName
         self.destination = destination
@@ -100,6 +113,7 @@ final class ActiveNavigationViewModel {
         }
         lastLocation = location
         speedKmh = max(0, location.speed) * 3.6
+        currentSpeedKmh = SpeedLimitFormatter.currentSpeedKmh(location)
         visitedKeys.insert(FogGrid.key(for: location.coordinate))
 
         snapshot = engine.update(with: location.coordinate)
@@ -136,34 +150,96 @@ final class ActiveNavigationViewModel {
         showsSpeedLimit = enabled
         if enabled {
             refreshSpeedProfile()
+            if let lastLocation { updateSpeedLimit(with: lastLocation) }
         } else {
             speedLimitTask?.cancel()
+            speedLimitTask = nil
             speedTracker.reset()
             speedLimit = .hidden
         }
     }
 
-    /// Una consulta por ruta (no por lectura GPS). Si falla, la señal queda oculta: nunca se inventa una cifra.
+    /// Dejaron de llegar lecturas (túnel, sin señal): la última cifra NO se mantiene.
+    func locationLost() {
+        speedLimit = speedTracker.locationLost(enabled: showsSpeedLimit)
+        currentSpeedKmh = nil
+    }
+
+    /// Se llama también cuando NO hay lecturas nuevas (cambios de estado de la ubicación, cada pocos segundos):
+    /// si la última es demasiado antigua, la señal deja de mostrar la cifra.
+    func checkLocationFreshness() {
+        guard let lastLocation, speedLimit != .hidden else { return }
+        if clock().timeIntervalSince(lastLocation.timestamp) > speedTracker.maxAge { locationLost() }
+    }
+
+    /// Espera entre reintentos tras un fallo o un perfil incompleto: 15 s, 30 s, 60 s y después cada 2 min.
+    static func retryDelay(attempt: Int) -> TimeInterval {
+        [15, 30, 60, 120][min(max(attempt, 1), 4) - 1]
+    }
+
+    /// Una consulta por ruta (no por lectura GPS). Si falla o queda incompleta se reintenta con espera creciente mientras
+    /// dure la navegación; mientras tanto la señal dice «no disponible»: nunca se inventa una cifra. Cada respuesta va
+    /// ligada a su ruta: si llega tarde (tras un recálculo), se descarta.
     private func refreshSpeedProfile() {
-        guard showsSpeedLimit, let service = speedLimitService, speedProfile == nil, speedLimitTask == nil else { return }
+        guard showsSpeedLimit, let service = speedLimitService, speedLimitTask == nil else { return }
+        if let speedProfile, speedProfile.isComplete, speedProfileRouteID == route.id { return }
+        if let speedRetryAt, clock() < speedRetryAt { return }
         let coordinates = route.coordinates
+        let routeID = route.id
+        speedProfileRouteID = routeID
+        speedLimitStatus = "consultando"
         speedLimitTask = Task { [weak self] in
-            let profile = try? await service.profile(for: coordinates)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard let self else { return }
-                self.speedProfile = profile
-                self.speedLimitTask = nil
+            let result: Result<SpeedLimitProfile, Error>
+            do {
+                result = .success(try await service.profile(for: coordinates))
+            } catch {
+                result = .failure(error)
             }
+            guard !Task.isCancelled else { return }
+            self?.applySpeedProfile(result, routeID: routeID)
         }
     }
 
+    func applySpeedProfile(_ result: Result<SpeedLimitProfile, Error>, routeID: UUID) {
+        guard routeID == route.id, routeID == speedProfileRouteID else { return }     // respuesta antigua: se ignora
+        speedLimitTask = nil
+        switch result {
+        case .success(let profile):
+            // Un perfil incompleto no sustituye a uno mejor ya cargado para esta ruta.
+            if let current = speedProfile, current.coverage > profile.coverage, !profile.isComplete {
+                break
+            }
+            speedProfile = profile
+            speedLimitCountry = profile.countryCode
+            speedLimitStatus = "cobertura \(Int((profile.coverage * 100).rounded())) %" + (profile.isComplete ? "" : " (incompleta)")
+            if profile.isComplete {
+                speedRetryCount = 0
+                speedRetryAt = nil
+            } else {
+                scheduleSpeedRetry()
+            }
+        case .failure(let error):
+            if error is CancellationError { return }
+            speedLimitStatus = "error: \(error is SpeedLimitError ? "sin datos del servidor" : "\(type(of: error))")"
+            scheduleSpeedRetry()
+        }
+        if let lastLocation { updateSpeedLimit(with: lastLocation) }
+    }
+
+    private func scheduleSpeedRetry() {
+        speedRetryCount += 1
+        speedRetryAt = clock().addingTimeInterval(Self.retryDelay(attempt: speedRetryCount))
+    }
+
     private func updateSpeedLimit(with location: CLLocation) {
+        if speedLimitTask == nil { refreshSpeedProfile() }      // reintento pendiente, si ya toca
         let progress = engine.totalMeters - snapshot.remainingMeters
-        speedLimit = speedTracker.update(enabled: showsSpeedLimit, profile: speedProfile, progressMeters: progress,
+        speedLimit = speedTracker.update(enabled: showsSpeedLimit, profile: speedProfileRouteID == route.id ? speedProfile : nil,
+                                         progressMeters: progress,
                                          isOffRoute: offRouteCount > 0 || snapshot.isOffRoute,
+                                         distanceFromRoute: snapshot.distanceFromRoute,
                                          accuracy: location.horizontalAccuracy,
-                                         age: -location.timestamp.timeIntervalSinceNow)
+                                         age: clock().timeIntervalSince(location.timestamp))
     }
 
     func summary() -> TripSummary {
@@ -214,8 +290,11 @@ final class ActiveNavigationViewModel {
                 speedLimitTask?.cancel()
                 speedLimitTask = nil
                 speedProfile = nil
+                speedProfileRouteID = nil
+                speedRetryAt = nil
+                speedRetryCount = 0
                 speedTracker.reset()
-                speedLimit = .hidden
+                speedLimit = showsSpeedLimit ? .unavailable : .hidden
                 refreshSpeedProfile()
                 announced = nil
                 offRouteCount = 0

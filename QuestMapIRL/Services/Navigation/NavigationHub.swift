@@ -19,25 +19,71 @@ final class NavigationHub {
     @ObservationIgnored let routeService: RouteServiceProtocol
     @ObservationIgnored let speech: SpeechService
     @ObservationIgnored let speedLimits: SpeedLimitProviding?
+    /// Límite sin ruta (opcional). Nil si no hay proveedor de map matching (pruebas).
+    let freeDrive: FreeDriveSpeedLimit?
     /// Ajustes relevantes (unidades y límite de velocidad). Se leen al empezar y no tocan el almacén desde aquí.
     @ObservationIgnored var settings: () -> (useMetric: Bool, showSpeedLimit: Bool)
     /// Guarda el viaje terminado (SwiftData). Lo conecta la app; en tests puede quedarse en nil.
     @ObservationIgnored var tripStore: ((TripSummary) -> Void)?
     @ObservationIgnored private var trackingToken = 0
+    @ObservationIgnored private var freeDriveToken = 0
+    @ObservationIgnored private var wantsFreeDrive = false
+    @ObservationIgnored private var lastFedTimestamp: Date?
 
     init(location: LocationServiceProtocol, routeService: RouteServiceProtocol, speech: SpeechService,
          speedLimits: SpeedLimitProviding?,
+         freeDrive: FreeDriveSpeedLimit? = nil,
          settings: @escaping () -> (useMetric: Bool, showSpeedLimit: Bool) = { (true, true) },
          tripStore: ((TripSummary) -> Void)? = nil) {
         self.location = location
         self.routeService = routeService
         self.speech = speech
         self.speedLimits = speedLimits
+        self.freeDrive = freeDrive
         self.settings = settings
         self.tripStore = tripStore
     }
 
     var isNavigating: Bool { session != nil }
+
+    // MARK: - Señal de límite: UNA sola fuente para iPhone y CarPlay
+
+    /// Navegando: el límite del tramo de la ruta. Sin ruta: el del modo «también sin ruta», si está activado.
+    var speedLimit: SpeedLimitDisplay { session?.speedLimit ?? freeDrive?.display ?? .hidden }
+    var speedLimitCountry: String? { session != nil ? session?.speedLimitCountry : freeDrive?.countryCode }
+    var currentSpeedKmh: Double? { session != nil ? session?.currentSpeedKmh : freeDrive?.currentSpeedKmh }
+
+    /// Activa o desactiva el límite sin ruta (ajustes «Mostrar señal» + «También sin ruta»). Aplicación inmediata.
+    func setFreeDriveSpeedLimit(_ enabled: Bool) {
+        wantsFreeDrive = enabled
+        updateFreeDrive()
+    }
+
+    private func updateFreeDrive() {
+        guard let freeDrive else { return }
+        let active = wantsFreeDrive && session == nil
+        freeDrive.setEnabled(active)
+        freeDriveToken += 1
+        if active { trackFreeDrive(token: freeDriveToken) }
+    }
+
+    private func trackFreeDrive(token: Int) {
+        guard token == freeDriveToken, let freeDrive, freeDrive.isEnabled else { return }
+        withObservationTracking {
+            _ = location.currentLocation
+            _ = location.status
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self, token == self.freeDriveToken, let freeDrive = self.freeDrive else { return }
+                if let reading = self.location.currentLocation, reading.timestamp != self.lastFedTimestamp {
+                    self.lastFedTimestamp = reading.timestamp
+                    freeDrive.ingest(reading)
+                }
+                freeDrive.checkFreshness()
+                self.trackFreeDrive(token: token)
+            }
+        }
+    }
 
     // MARK: - Rutas para vista previa
 
@@ -59,6 +105,7 @@ final class NavigationHub {
             speedLimitService: speedLimits, showsSpeedLimit: config.showSpeedLimit)
         session = new
         destination = place
+        updateFreeDrive()                       // la navegación tiene su propia fuente: el modo sin ruta se para
         location.start(mode: .navigating)
         new.start()
         if let reading = location.currentLocation { new.update(with: reading) }
@@ -83,6 +130,7 @@ final class NavigationHub {
         session = nil
         destination = nil
         trackingToken += 1
+        updateFreeDrive()
         location.setMode(.idle)
         if finishing.hasArrived {
             speech.releaseAfterSpeaking()      // deja terminar «Has llegado a tu destino»
@@ -99,10 +147,15 @@ final class NavigationHub {
         guard token == trackingToken, session != nil else { return }
         withObservationTracking {
             _ = location.currentLocation
+            _ = location.status            // también cambia sin lecturas nuevas: detecta la pérdida de señal
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self, token == self.trackingToken, let session = self.session else { return }
-                if let reading = self.location.currentLocation { session.update(with: reading) }
+                if let reading = self.location.currentLocation, reading.timestamp != self.lastFedTimestamp {
+                    self.lastFedTimestamp = reading.timestamp
+                    session.update(with: reading)
+                }
+                session.checkLocationFreshness()
                 self.trackLocation(token: token)
             }
         }
