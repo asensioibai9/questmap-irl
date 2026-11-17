@@ -84,6 +84,8 @@
     </array>
     <key>NSAppleMusicUsageDescription</key>
     <string>QuestMap IRL muestra qué suena en la app Música y te deja pausar o cambiar de canción mientras navegas. No cambia tu cola ni inicia música por su cuenta.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>QuestMap IRL usa el micrófono solo cuando pulsas «Grabar» en un perfil de voz, para grabar tus propias indicaciones. Las grabaciones se guardan en este iPhone y no se envían a ningún servidor.</string>
     <key>NSLocationTemporaryUsageDescriptionDictionary</key>
     <dict>
         <key>Navigation</key>

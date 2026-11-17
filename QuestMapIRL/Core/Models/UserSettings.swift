@@ -28,6 +28,9 @@ final class UserSettings {
     var speedSignPositionRaw: String = "automatic"
     var speedSignNoDataRaw: String = "dash"
     var speedSignShowsCurrentSpeed: Bool = false
+    /// Perfil de voz grabada activo («» = voz del sistema) y qué hacer con lo no grabado.
+    var activeVoiceProfileRaw: String = ""
+    var voiceFallbackRaw: String = "hybrid"
     /// Minirreproductor de música: oculto hasta que el usuario lo active.
     var showMiniPlayer: Bool = false
     /// El usuario conectó el servicio (el permiso real lo concede y revoca el sistema).

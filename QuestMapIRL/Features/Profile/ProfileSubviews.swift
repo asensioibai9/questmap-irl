@@ -204,10 +204,27 @@ struct NavigationSettingsView: View {
         .onDisappear { speech.stopTestIfPlaying() }
     }
 
+    private func activeVoiceName(_ settings: UserSettings) -> String {
+        guard let id = settings.activeVoiceProfileID,
+              let profile = VoiceProfileStore(context: context).profile(id: id) else { return "Sistema" }
+        return profile.name
+    }
+
     private func form(_ settings: UserSettings) -> some View {
         @Bindable var settings = settings
         return Form {
             Section {
+                NavigationLink {
+                    VoiceProfilesView(environment: environment)
+                } label: {
+                    HStack {
+                        Label("Voz de las indicaciones", systemImage: "person.wave.2.fill")
+                        Spacer()
+                        Text(activeVoiceName(settings))
+                            .foregroundStyle(AppColor.textSecondary)
+                            .lineLimit(1)
+                    }
+                }
                 Toggle("Indicaciones de voz", isOn: Binding(
                     get: { settings.voiceEnabled },
                     set: { settings.voiceEnabled = $0; speech.isMuted = !$0 }
@@ -274,7 +291,7 @@ struct NavigationSettingsView: View {
             } header: {
                 Text("Voz de navegación")
             } footer: {
-                Text("Las indicaciones se dicen en español con las voces instaladas en el iPhone. El volumen se aplica sobre el volumen del sistema. El botón de prueba suena aunque las indicaciones estén desactivadas.")
+                Text("«Voz de las indicaciones» permite usar tus propias grabaciones. Los ajustes de abajo son de la voz del sistema. Las indicaciones se dicen en español con las voces instaladas en el iPhone. El volumen se aplica sobre el volumen del sistema. El botón de prueba suena aunque las indicaciones estén desactivadas.")
             }
 
             Section {

@@ -67,8 +67,10 @@ struct OSRMRouteService: RouteServiceProtocol {
                                                      name: step.name,
                                                      exit: step.maneuver.exit,
                                                      exits: step.exits)
+                let maneuver = ManeuverInfo(type: step.maneuver.type, modifier: step.maneuver.modifier, exit: step.maneuver.exit,
+                                            hasVariableDetail: !(step.exits ?? "").isEmpty)
                 return RouteStep(instruction: built.text, distanceMeters: step.distance,
-                                 symbol: built.symbol, streetName: step.name ?? "")
+                                 symbol: built.symbol, streetName: step.name ?? "", maneuver: maneuver)
             }
             let summary = route.legs.first?.summary ?? ""
             return Route(name: summary.isEmpty ? "Ruta" : summary,

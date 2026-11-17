@@ -34,6 +34,8 @@ final class AppEnvironment {
         self.network = NetworkMonitor()
         self.speedLimits = limits
         self.music = MusicPlayerModel(backends: [AppleMusicBackend(), SpotifyMusicBackend.makeDefault(), SystemNowPlayingBackend()])
+        // Voz grabada activa: se consulta en cada indicación (cambiar o borrar el perfil se aplica a la siguiente).
+        speech.recordedVoice = { AppEnvironment.activeRecordedVoice(context: ContainerFactory.shared.mainContext) }
         let freeDrive = FreeDriveSpeedLimit(matcher: limits)
         // Casa y Trabajo: alrededor de ellos no se envía ningún punto del recorrido (se leen aquí, no se registran).
         freeDrive.excludedAreas = {
@@ -56,6 +58,27 @@ final class AppEnvironment {
             tripStore: { summary in
                 try? TripRepository(context: ContainerFactory.shared.mainContext).save(summary)
             })
+    }
+
+    /// Perfil de voz activo listo para sonar, o nil (voz del sistema) si no hay, se borró o no se puede leer.
+    /// Un perfil INCOMPLETO nunca deja sin voz lo esencial: aunque se eligiera «solo grabaciones», lo que falte se dice
+    /// con la voz del sistema hasta que estén todas las obligatorias.
+    static func activeRecordedVoice(context: ModelContext) -> RecordedVoiceSource? {
+        let settings: UserSettings?
+        do {
+            settings = try context.fetch(FetchDescriptor<UserSettings>()).first
+        } catch {
+            return nil
+        }
+        guard let settings, let id = settings.activeVoiceProfileID else { return nil }
+        let store = VoiceProfileStore(context: context)
+        guard let profile = store.profile(id: id) else { return nil }
+        let segments = store.segments(for: id)
+        guard !segments.isEmpty else { return nil }
+        var strategy = settings.voiceFallback
+        let progress = VoiceProfileProgress.make(recorded: Set(segments.keys), language: profile.languageCode)
+        if strategy == .recordingsOnly && !progress.isReady { strategy = .hybrid }
+        return RecordedVoiceSource(segments: segments, strategy: strategy)
     }
 
     /// Inyección explícita para previews y tests.

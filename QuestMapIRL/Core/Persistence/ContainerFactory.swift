@@ -4,7 +4,8 @@ import SwiftData
 /// Esquema único de la app (el mismo en producción y en pruebas).
 enum AppSchema {
     static var schema: Schema {
-        Schema([UserSettings.self, SavedPlace.self, RecentSearch.self, TripRecord.self, VisitedCell.self])
+        Schema([UserSettings.self, SavedPlace.self, RecentSearch.self, TripRecord.self, VisitedCell.self,
+                VoiceProfile.self, VoiceRecording.self])
     }
 }
 

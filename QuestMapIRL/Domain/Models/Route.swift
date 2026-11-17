@@ -11,6 +11,16 @@ enum RouteMode: String, CaseIterable, Identifiable {
     var symbol: String { self == .driving ? "car.fill" : "figure.walk" }
 }
 
+/// Datos ESTRUCTURADOS de la maniobra tal como los da el proveedor de rutas (OSRM): tipo, modificador y salida de
+/// rotonda. Sirven para elegir grabaciones de voz sin interpretar el texto.
+struct ManeuverInfo: Equatable {
+    var type: String
+    var modifier: String?
+    var exit: Int?
+    /// La maniobra lleva un dato variable importante que una grabación genérica no puede decir (p. ej. número de salida).
+    var hasVariableDetail = false
+}
+
 struct RouteStep: Equatable {
     /// Instrucción en español de la maniobra que ocurre AL INICIO de este paso.
     let instruction: String
@@ -18,6 +28,8 @@ struct RouteStep: Equatable {
     let distanceMeters: Double
     let symbol: String
     let streetName: String
+    /// nil en rutas creadas sin datos de maniobra (p. ej. pruebas): las voces grabadas usan entonces el respaldo.
+    var maneuver: ManeuverInfo? = nil
 }
 
 struct Route: Identifiable {

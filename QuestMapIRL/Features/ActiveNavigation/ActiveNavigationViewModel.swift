@@ -100,7 +100,7 @@ final class ActiveNavigationViewModel {
         guard !hasStarted else { return }
         hasStarted = true
         refreshSpeedProfile()
-        speech.announce("Empezamos la ruta hacia \(destinationName).")
+        speech.announce(VoiceCue(text: "Empezamos la ruta hacia \(destinationName).", phrases: [.startRoute]))
     }
 
     func update(with location: CLLocation) {
@@ -121,7 +121,7 @@ final class ActiveNavigationViewModel {
         announceIfNeeded()
 
         if snapshot.hasArrived {
-            speech.announce("Has llegado a tu destino.", interrupt: true)
+            speech.announce(VoiceCue(text: "Has llegado a tu destino.", phrases: [.arrived]), interrupt: true)   // llegada CONFIRMADA por el motor
             finished = true
             return
         }
@@ -273,7 +273,9 @@ final class ActiveNavigationViewModel {
         // Una maniobra lejana solo se anuncia al empezar (después, al acercarse).
         if band == 3 && !isFirstAnnouncement { return }
         // La primera indicación se encola tras "Empezamos la ruta"; las demás cancelan la anterior.
-        speech.announce(ManeuverFormatter.spoken(instruction: currentInstruction, distance: distance, metric: useMetric),
+        // Mismo momento y mismo texto que antes; si hay voz grabada activa, la versión grabada sale del dato de maniobra.
+        speech.announce(VoicePromptComposer.maneuverCue(step: upcomingStep, instruction: currentInstruction,
+                                                        distance: distance, metric: useMetric),
                         interrupt: !isFirstAnnouncement)
     }
 
@@ -282,7 +284,7 @@ final class ActiveNavigationViewModel {
         recalculationFailed = false
         lastRecalculation = Date()
         defer { isRecalculating = false }
-        speech.announce("Recalculando la ruta.", interrupt: true)
+        speech.announce(VoiceCue(text: "Recalculando la ruta.", phrases: [.recalculating]), interrupt: true)
         do {
             if let newRoute = try await routeService.routes(from: origin, to: destination, mode: mode).first {
                 route = newRoute
@@ -301,7 +303,7 @@ final class ActiveNavigationViewModel {
             }
         } catch {
             recalculationFailed = true
-            speech.announce("No he podido recalcular. Vuelve a la ruta marcada.")
+            speech.announce(VoiceCue(text: "No he podido recalcular. Vuelve a la ruta marcada.", phrases: [.backToRoute]))
         }
     }
 

@@ -267,16 +267,37 @@ final class NavigationVoice {
     /// Segundos que se espera a que el sintetizador avise de que terminó antes de dar la frase por perdida.
     @ObservationIgnored var watchdogSeconds: (String) -> Double = { max(8, Double($0.count) * 0.25 + 4) }
 
+    // MARK: Voz grabada (perfiles del usuario)
+
+    /// Perfil de voz grabada activo en este momento (nil = voz del sistema). Lo conecta la app; se consulta en cada
+    /// indicación, así que un cambio de perfil se aplica a la siguiente.
+    @ObservationIgnored var recordedVoice: (() -> RecordedVoiceSource?)?
+    @ObservationIgnored private let recordedPlayer: RecordedPromptPlaying
+    /// Indicaciones esperando a que termine la actual (como mucho 2: no se encolan tantas que lleguen tarde).
+    @ObservationIgnored private var queue: [PendingOutput] = []
+    @ObservationIgnored private var recordedIsTest = false
+    @ObservationIgnored private var recordedWatchdog: Task<Void, Never>?
+    /// true mientras se corta lo que suena para dar paso a una indicación nueva (no se libera el audio entre medias).
+    @ObservationIgnored private var replacing = false
+    static let maxQueued = 2
+
+    private enum PendingOutput {
+        case system(String)
+        case recordings([VoicePromptSegment], fallback: String?)
+    }
+
     init(defaults: UserDefaults = .standard,
          synthesizer: SpeechSynthesizing? = nil,
          session: AudioSessionControlling = SystemAudioSession(),
          voices: @escaping () -> [VoiceInfo] = NavigationVoice.installedVoices,
-         observeSystemEvents: Bool = true) {
+         observeSystemEvents: Bool = true,
+         recordedPlayer: RecordedPromptPlaying? = nil) {
         let delegate = SynthesizerDelegate()
         self.delegate = delegate
         self.defaults = defaults
         self.session = session
         self.voices = voices
+        self.recordedPlayer = recordedPlayer ?? RecordedPromptPlayer()
         gender = NavigationVoiceGender(rawValue: defaults.string(forKey: Self.genderKey) ?? "") ?? .girl
         volume = defaults.object(forKey: Self.volumeKey) as? Float ?? 1
 
@@ -390,8 +411,127 @@ final class NavigationVoice {
     /// Lee una indicación. Cancela la que esté sonando (salvo `interrupt: false`) y no repite la
     /// misma frase dos veces seguidas.
     func announce(_ text: String, interrupt: Bool = true, allowRepeat: Bool = false) {
-        guard !isMuted, !text.isEmpty else { return }
-        speak(text, interrupt: interrupt, allowRepeat: allowRepeat)
+        // Mismo camino que las indicaciones con grabación: una sola cola y un solo motor sonando.
+        announce(VoiceCue.text(text), interrupt: interrupt, allowRepeat: allowRepeat)
+    }
+
+    /// Indicación de navegación con posible versión grabada. Sin perfil activo, igual que `announce(String)`.
+    /// - Con perfil: si la indicación se puede formar con grabaciones existentes, suena tu voz; si no, según el respaldo
+    ///   elegido: la frase COMPLETA con la voz del sistema (híbrido) o nada (solo en pantalla). Nunca suenan las dos voces
+    ///   a la vez ni se mezclan en una misma frase.
+    func announce(_ cue: VoiceCue, interrupt: Bool = true, allowRepeat: Bool = false) {
+        guard !isMuted, !cue.text.isEmpty else { return }
+        if !allowRepeat, cue.text == lastSpoken { return }
+        guard let source = recordedVoice?() else {
+            speakOrQueue(.system(cue.text), interrupt: interrupt)
+            return
+        }
+        switch VoicePlaybackPlanner.plan(cue, available: Set(source.segments.keys), strategy: source.strategy) {
+        case .recordings(let ids):
+            let fallback = source.strategy == .hybrid ? cue.text : nil
+            speakOrQueue(.recordings(ids.compactMap { source.segments[$0] }, fallback: fallback), interrupt: interrupt)
+        case .system(let text):
+            speakOrQueue(.system(text), interrupt: interrupt)
+        case .silent:
+            if interrupt { stopOutputsForNewInstruction() }   // la anterior ya no vale; esta queda solo en pantalla
+        }
+        lastSpoken = cue.text
+    }
+
+    /// «Probar voz» de un perfil: secuencia de demostración. No inicia ninguna ruta ni toca la navegación.
+    func playRecordedDemo(_ segments: [VoicePromptSegment]) {
+        guard !segments.isEmpty else { return }
+        stopImmediately()
+        startRecordings(segments, fallback: nil, isTest: true)
+    }
+
+    private var isBusy: Bool { !active.isEmpty || recordedPlayer.isPlaying }
+
+    private func speakOrQueue(_ output: PendingOutput, interrupt: Bool) {
+        if interrupt {
+            stopOutputsForNewInstruction()
+        } else if isBusy {
+            // El sintetizador ya encola sus propias frases; lo demás espera su turno aquí.
+            if case .system(let text) = output, !recordedPlayer.isPlaying, queue.isEmpty {
+                speak(text, interrupt: false, allowRepeat: true)
+                return
+            }
+            queue.append(output)
+            if queue.count > Self.maxQueued { queue.removeFirst(queue.count - Self.maxQueued) }
+            return
+        }
+        start(output)
+    }
+
+    private func start(_ output: PendingOutput) {
+        switch output {
+        case .system(let text): speak(text, interrupt: false, allowRepeat: true)
+        case .recordings(let segments, let fallback): startRecordings(segments, fallback: fallback, isTest: false)
+        }
+    }
+
+    private func startRecordings(_ segments: [VoicePromptSegment], fallback: String?, isTest: Bool) {
+        do {
+            try session.activate()
+            audioProblem = nil
+        } catch {
+            audioProblem = "No se pudo activar el audio del iPhone, así que puede que la voz no se oiga."
+        }
+        do {
+            try recordedPlayer.play(segments, volume: volume) { [weak self] _ in self?.recordedFinished() }
+            recordedIsTest = isTest
+            if isTest { isPlayingTest = true }
+            let seconds = segments.reduce(0) { $0 + max(0, $1.end - $1.start) } + 3
+            recordedWatchdog?.cancel()
+            recordedWatchdog = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(seconds))
+                guard !Task.isCancelled, let self, self.recordedPlayer.isPlaying else { return }
+                self.recordedPlayer.stop()
+            }
+        } catch {
+            // Archivo dañado o ilegible: en híbrido se dice entera con la voz del sistema; si no, nada.
+            if let fallback { speak(fallback, interrupt: false, allowRepeat: true) } else { finishIfIdle() }
+        }
+    }
+
+    private func recordedFinished() {
+        recordedWatchdog?.cancel()
+        recordedWatchdog = nil
+        if recordedIsTest { isPlayingTest = false }
+        recordedIsTest = false
+        if replacing { return }
+        startNextOrFinish()
+    }
+
+    private func startNextOrFinish() {
+        guard !isBusy else { return }
+        if !queue.isEmpty {
+            start(queue.removeFirst())
+        } else {
+            finishIfIdle()
+        }
+    }
+
+    private func finishIfIdle() {
+        guard !isBusy, queue.isEmpty else { return }
+        watchdog?.cancel()
+        watchdog = nil
+        session.deactivate()
+    }
+
+    /// Una indicación nueva sustituye a las anteriores (sonando o pendientes).
+    private func stopOutputsForNewInstruction() {
+        queue.removeAll()
+        synthesizer.stopSpeaking(at: .immediate)
+        active.removeAll()
+        testUtterance = nil
+        isPlayingTest = false
+        recordedIsTest = false
+        recordedWatchdog?.cancel()
+        recordedWatchdog = nil
+        replacing = true
+        recordedPlayer.stop()
+        replacing = false
     }
 
     /// Botón "Escuchar prueba de voz": suena siempre, aunque las indicaciones estén desactivadas.
@@ -411,6 +551,11 @@ final class NavigationVoice {
 
     /// Para YA cualquier voz (también las pendientes) y libera la sesión de audio.
     func stopImmediately() {
+        queue.removeAll()
+        recordedIsTest = false
+        recordedWatchdog?.cancel()
+        recordedWatchdog = nil
+        recordedPlayer.stop()
         synthesizer.stopSpeaking(at: .immediate)
         active.removeAll()           // las cancelaciones tardías de estas frases se ignoran
         testUtterance = nil
@@ -434,7 +579,8 @@ final class NavigationVoice {
     /// libera sola cuando termine la frase.
     func releaseAfterSpeaking() {
         lastSpoken = nil
-        if active.isEmpty { session.deactivate() }
+        queue.removeAll()
+        if !isBusy { session.deactivate() }
     }
 
     func toggleMute() {
@@ -487,6 +633,12 @@ final class NavigationVoice {
             active.removeAll()
             testUtterance = nil
             isPlayingTest = false
+            queue.removeAll()
+            if recordedPlayer.isPlaying {
+                replacing = true
+                recordedPlayer.stop()          // nunca dos motores de voz a la vez
+                replacing = false
+            }
         }
         let utterance = makeUtterance(text, voiceOverride: voiceOverride)
         active[ObjectIdentifier(utterance)] = utterance
@@ -509,7 +661,11 @@ final class NavigationVoice {
         if active.isEmpty {
             watchdog?.cancel()
             watchdog = nil
-            session.deactivate()
+            if queue.isEmpty && !recordedPlayer.isPlaying {
+                session.deactivate()
+            } else {
+                startNextOrFinish()            // turno de una indicación grabada que esperaba
+            }
         }
     }
 
@@ -542,6 +698,12 @@ final class NavigationVoice {
         watchdog = nil
         session.deactivate()
     }
+}
+
+/// Perfil de voz grabada listo para sonar: fragmentos con archivo existente y el respaldo elegido.
+struct RecordedVoiceSource {
+    var segments: [VoicePhraseID: VoicePromptSegment]
+    var strategy: VoiceFallbackStrategy
 }
 
 /// Avisa de que una frase terminó o se canceló, para liberar la sesión de audio.
