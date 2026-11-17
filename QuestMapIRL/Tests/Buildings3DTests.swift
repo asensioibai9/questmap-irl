@@ -43,7 +43,7 @@ final class Buildings3DTests: XCTestCase {
         let building = try XCTUnwrap(index(all, "building-3d"))
         XCTAssertGreaterThan(building, try XCTUnwrap(index(all, "road-motorway")))
         XCTAssertGreaterThan(building, try XCTUnwrap(index(all, "bridge-motorway")))
-        for above in ["route-core", "label-water", "poi-icon-a", "destination-core", "user-arrow", "selection-arrows"] {
+        for above in ["route-core", "label-water", "poi-icon-fuel", "destination-core", "user-arrow", "selection-arrows"] {
             XCTAssertLessThan(building, try XCTUnwrap(index(all, above)), "\(above) debe dibujarse por encima de los edificios")
         }
     }

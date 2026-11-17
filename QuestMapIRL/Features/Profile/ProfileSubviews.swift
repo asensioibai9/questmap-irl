@@ -317,6 +317,13 @@ struct NavigationSettingsView: View {
                     Text("Norte arriba").tag(false)
                 }
                 Toggle("Mostrar brújula", isOn: $settings.showCompass)
+                Toggle("Mostrar nombres de los lugares", isOn: Binding(
+                    get: { settings.showPlaceNames },
+                    set: { value in
+                        guard settings.showPlaceNames != value else { return }
+                        settings.showPlaceNames = value
+                        PersistenceCommit.saveQuietly(context, operation: "place-names")
+                    }))
             }
 
             Section {

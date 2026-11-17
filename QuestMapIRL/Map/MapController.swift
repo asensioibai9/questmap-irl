@@ -42,6 +42,11 @@ final class MapController {
     private var followPitch: Double = 0
     private var buildings3D = false
     private var simplified = false
+    /// Capas elegidas en «Capas del mapa». nil = la pantalla no las gestiona (CarPlay): se usa lo que trae el estilo.
+    private var layerPreferences: MapLayerPreferences?
+    private var showPlaceNames = true
+    /// Nombre original de cada capa de iconos (para restaurarlo al volver a activar los nombres).
+    private var originalPOIText: [String: NSExpression] = [:]
     private var bottomInset: CGFloat = 0
     private var hasCenteredOnUser = false
 
@@ -82,7 +87,9 @@ final class MapController {
         lastPushedUser = nil                          // fuente nueva del estilo: hay que volver a rellenarla
         pushUser()
         applyBuildings()
-        applySimplified()
+        originalPOIText = [:]                         // capas nuevas del estilo recién cargado
+        applyLayerVisibility()
+        applyPlaceNames()
         applyPitch(animated: false)
         cameraState = nil
         startDisplayLinkIfNeeded()
@@ -120,7 +127,23 @@ final class MapController {
     /// (la ruta, el destino y la posición del usuario se conservan). Se vuelve a aplicar tras cada carga de estilo.
     func setSimplified(_ enabled: Bool) {
         simplified = enabled
-        applySimplified()
+        applyLayerVisibility()
+    }
+
+    /// Capas activadas en «Capas del mapa». Solo cambia la VISIBILIDAD de capas que ya están en el estilo: no se
+    /// recarga el estilo, no se mueve la cámara, no se toca la ruta ni la ubicación. Se vuelve a aplicar tras cambiar
+    /// de estilo. Resultados de búsqueda, destino, selección y Casa/Trabajo son capas aparte y siguen visibles siempre.
+    func setMapLayers(_ preferences: MapLayerPreferences) {
+        guard preferences != layerPreferences else { return }
+        layerPreferences = preferences
+        applyLayerVisibility()
+    }
+
+    /// Nombres breves bajo los iconos de lugares (sin tocar los iconos). Se aplica al momento y tras cambiar de estilo.
+    func setPlaceNames(_ show: Bool) {
+        guard show != showPlaceNames else { return }
+        showPlaceNames = show
+        applyPlaceNames()
     }
 
     /// Edificios 3D encendidos/apagados. Solo cambia la visibilidad de la capa `building-3d` (que ya está en el
@@ -252,11 +275,39 @@ final class MapController {
 
     // MARK: - Privado
 
-    private func applySimplified() {
+    /// Visibilidad de las capas gestionables. CarPlay (simplificado) oculta iconos, portales, cimas, resultados y lugares
+    /// guardados por encima de cualquier preferencia.
+    private func applyLayerVisibility() {
         guard styleReady, let style = mapView?.style else { return }
-        for layer in style.layers where layer.identifier.hasPrefix("poi-icon") || layer.identifier == "label-housenumber" || layer.identifier == "label-peak"
-            || layer.identifier.hasPrefix("results-") || layer.identifier == "saved-places" {
-            layer.isVisible = !simplified
+        let managed = layerPreferences?.styleLayerVisibility ?? [:]
+        for layer in style.layers {
+            let id = layer.identifier
+            let hiddenInCar = id.hasPrefix("poi-icon") || id == "label-housenumber" || id == "label-peak"
+                || id.hasPrefix("results-") || id == "saved-places"
+            let target: Bool?
+            if hiddenInCar && simplified {
+                target = false
+            } else if let preference = managed[id] {
+                target = preference
+            } else if hiddenInCar {
+                target = true
+            } else {
+                target = nil                       // capa no gestionada: como venga en el estilo
+            }
+            if let target, layer.isVisible != target { layer.isVisible = target }
+        }
+    }
+
+    private func applyPlaceNames() {
+        guard styleReady, let style = mapView?.style else { return }
+        for layer in style.layers where layer.identifier.hasPrefix("poi-icon") {
+            guard let symbols = layer as? MLNSymbolStyleLayer else { continue }
+            if originalPOIText[layer.identifier] == nil, let text = symbols.text { originalPOIText[layer.identifier] = text }
+            if showPlaceNames {
+                if let original = originalPOIText[layer.identifier] { symbols.text = original }
+            } else {
+                symbols.text = NSExpression(forConstantValue: "")
+            }
         }
     }
 

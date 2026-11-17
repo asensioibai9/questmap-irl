@@ -312,6 +312,22 @@ def build_style(cfg):
              "filter": ["!=", ["coalesce", ["get", "hide_3d"], False], True],
              "paint": paint})
 
+    # ---- Capas opcionales («Capas del mapa»), ocultas por defecto y SIEMPRE bajo la ruta -------------
+    # Vías ciclistas: carriles bici segregados y caminos designados para bici (datos reales de OpenMapTiles).
+    add({"id": "layer-cycleways", "type": "line", "source": "openmaptiles", "source-layer": "transportation",
+         "minzoom": 13, "filter": ["all", ["==", ["get", "class"], "path"],
+                                   ["any", ["==", ["get", "subclass"], "cycleway"], ["==", ["get", "bicycle"], "designated"]]],
+         "layout": {"visibility": "none", "line-cap": "round"},
+         "paint": {"line-color": p.get("cycle", "#3ccb7f"), "line-opacity": 0.9, "line-dasharray": [3, 1.5],
+                   "line-width": interp([(13, 1), (16, 2.2), (18, 3.5)])}})
+    # Metro, tren ligero y tren: recorridos reales (los túneles se ven discontinuos y tenues).
+    add({"id": "layer-transit-lines", "type": "line", "source": "openmaptiles", "source-layer": "transportation",
+         "minzoom": 11, "filter": is_in("class", ["transit", "rail"]),
+         "layout": {"visibility": "none", "line-cap": "round"},
+         "paint": {"line-color": p.get("transit_line", "#7aa7ff"),
+                   "line-opacity": ["match", ["get", "brunnel"], ["tunnel"], 0.45, 0.85],
+                   "line-dasharray": [1, 1.5], "line-width": interp([(11, 1), (15, 2), (18, 3.2)])}})
+
     # ---- Capas de navegación bajo las etiquetas -------------------------
     add({"id": "route-glow", "type": "line", "source": "route",
          "layout": {"line-cap": "round", "line-join": "round"},
@@ -326,7 +342,9 @@ def build_style(cfg):
          "paint": {"line-color": cfg["route"]["core"],
                    "line-width": interp([(8, 3), (14, 6.5), (18, 14)])}})
 
-    # ---- POI: iconos (registrados por la app con el nombre "poi-*") --------
+    # ---- POI: una capa por CATEGORÍA (la app las activa o desactiva con «Capas del mapa» cambiando solo su
+    # visibilidad, sin recargar el estilo). Orden: abajo lo menos importante; MapLibre coloca primero las capas
+    # superiores, así que transporte, gasolineras y salud ganan las colisiones a comida y tiendas.
     poi_icons = [
         (["fuel"], "poi-fuel"),
         (["parking"], "poi-parking"),
@@ -340,40 +358,85 @@ def build_style(cfg):
         (["museum", "attraction", "castle", "monument", "theatre", "cinema", "art_gallery", "library"], "poi-culture"),
         (["bank", "atm"], "poi-bank"),
         (["lodging"], "poi-lodging"),
+        (["bicycle_parking", "bicycle_rental"], "poi-bike"),
         (["bus", "railway"], "poi-transit"),
     ]
-    poi_classes = [c for classes, _ in poi_icons for c in classes]
-    poi_filter = ["all", is_in("class", poi_classes),
-                  ["<=", ["coalesce", ["get", "rank"], 99], interp_rank()]]
-    poi_name = ["coalesce", ["get", "name:es"], ["get", "name"]]
-    if cfg.get("poi_tiers"):
-        # Menos saturación: lo importante aparece antes; comida y comercio solo muy cerca. Las paradas
-        # de autobús se omiten (hay miles). Los nombres aparecen un nivel de zoom después que el icono.
-        for tier_id, classes, icon_zoom, label_zoom in cfg["poi_tiers"]:
-            add({"id": f"poi-icon-{tier_id}", "type": "symbol", "source": "openmaptiles", "source-layer": "poi",
-                 "minzoom": icon_zoom,
-                 "filter": ["all", is_in("class", classes), ["!=", ["get", "subclass"], "bus_stop"],
-                            ["<=", ["coalesce", ["get", "rank"], 99], interp_rank()]],
-                 "layout": {"icon-image": match("class", poi_icons, "poi-shop"),
-                            "icon-size": interp([(14.5, 0.5), (17, 0.72), (19, 0.92)]),
-                            "icon-allow-overlap": False, "icon-padding": 6,
-                            "symbol-sort-key": ["coalesce", ["get", "rank"], 99],
-                            "text-field": ["step", ["zoom"], "", label_zoom, poi_name],
-                            **text_layout({"text-size": interp([(16.5, 10), (19, 11.5)]),
-                                           "text-offset": [0, 1.1], "text-anchor": "top", "text-max-width": 7,
-                                           "text-padding": 4, "text-optional": True})},
-                 "paint": {"text-color": p["poi_text"], "text-halo-color": p["halo"], "text-halo-width": halo_w}})
-    else:
-        add({"id": "poi-icon", "type": "symbol", "source": "openmaptiles", "source-layer": "poi",
-             "minzoom": 15, "filter": poi_filter,
-             "layout": {"icon-image": match("class", poi_icons, "poi-shop"),
-                        "icon-size": interp([(15, 0.55), (17, 0.85), (19, 1.1)]),
-                        "icon-allow-overlap": False, "icon-padding": 3,
-                        "text-field": ["step", ["zoom"], "", 16.5, poi_name],
-                        **text_layout({"text-size": interp([(16.5, 10.5), (19, 12.5)]),
-                                       "text-offset": [0, 1.15], "text-anchor": "top", "text-max-width": 7,
-                                       "text-optional": True})},
+    not_bus_stop = ["!=", ["get", "subclass"], "bus_stop"]
+    poi_categories = [
+        # (id, clases, filtro extra, icono fijo o None)
+        ("other", ["police", "fire_station", "prison", "museum", "attraction", "castle", "monument", "theatre",
+                   "cinema", "art_gallery", "library", "bank", "atm", "lodging"], None, None),
+        ("food", ["restaurant", "fast_food", "cafe", "bakery", "ice_cream", "bar", "pub", "beer"], None, None),
+        ("shops", ["shop", "clothing_store", "butcher", "alcohol_shop", "laundry", "hairdresser", "grocery"], None, None),
+        ("bike-parking", ["bicycle_parking"], None, "poi-bike"),
+        ("bike-rental", ["bicycle_rental"], None, "poi-bike"),
+        ("bus-stop", ["bus"], ["==", ["get", "subclass"], "bus_stop"], "poi-bus-stop"),
+        ("parking", ["parking"], None, None),
+        ("health", ["hospital", "pharmacy", "doctors", "dentist", "veterinary"], None, None),
+        ("fuel", ["fuel"], None, None),
+        ("transit", ["railway", "bus"], not_bus_stop, None),
+    ]
+    # Zoom de aparición (icono, nombre) por clase. Los estilos con «poi_tiers» escalonan; el resto aparece a la vez.
+    default_zooms = (15, 15.8)
+    class_zoom = {}
+    for _tier_id, classes, icon_zoom, _label_zoom in cfg.get("poi_tiers", []):
+        for c in classes:
+            class_zoom[c] = (icon_zoom, icon_zoom + 0.6)
+    extra_zoom = {"bicycle_parking": (17, 17.6), "bicycle_rental": (16.5, 17.1)}
+    bus_stop_zoom = (16.5, 17.3)
+
+    # Nombre corto SOLO de presentación: nombre en español o el original (con tildes y espacios intactos); si no
+    # tiene, una categoría breve solo donde ayuda. Más de 22 caracteres: se corta a 21 y se añade «…». El dato
+    # completo no se toca: al tocar el lugar, la ficha muestra el nombre entero.
+    poi_fallback = match("class", [("parking", "Parking"), ("fuel", "Gasolinera"), ("pharmacy", "Farmacia"),
+                                   ("hospital", "Hospital"), ("bicycle_parking", "Aparcabicis")], "")
+    full_name = ["to-string", ["coalesce", ["get", "name:es"], ["get", "name"], poi_fallback]]
+    short_name = ["case", [">", ["length", full_name], 22], ["concat", ["slice", full_name, 0, 21], "\u2026"], full_name]
+
+    def zooms_for(classes, is_bus_stop):
+        if is_bus_stop:
+            return {c: bus_stop_zoom for c in classes}
+        return {c: extra_zoom.get(c, class_zoom.get(c, default_zooms)) for c in classes}
+
+    tiered = bool(cfg.get("poi_tiers"))
+    for cat_id, classes, extra, fixed_icon in poi_categories:
+        zooms = zooms_for(classes, cat_id == "bus-stop")
+        icon_min = min(z[0] for z in zooms.values())
+        icon_zooms = sorted({z[0] for z in zooms.values()})
+        label_zooms = sorted({z[1] for z in zooms.values()})
+        flt = ["all", is_in("class", classes)]
+        if extra:
+            flt.append(extra)
+        elif cat_id != "transit":
+            flt.append(not_bus_stop)
+        if len(icon_zooms) > 1:
+            # Clases con distinto zoom en la misma categoría: cada una aparece en su nivel.
+            flt.append([">=", ["zoom"], match("class", [(c, z[0]) for c, z in zooms.items()], icon_min)])
+        if cat_id not in ("bus-stop", "bike-parking"):
+            flt.append(["<=", ["coalesce", ["get", "rank"], 99], interp_rank()])
+        # Nombre: aparece a su zoom (por clase) dentro de un `step` de nivel superior.
+        text = ["step", ["zoom"], ""]
+        for z in label_zooms:
+            shown = [c for c, cz in zooms.items() if cz[1] <= z]
+            text += [z, short_name if len(shown) == len(classes) else ["case", is_in("class", shown), short_name, ""]]
+        size = interp([(14.5, 0.5), (17, 0.72), (19, 0.92)]) if tiered else interp([(15, 0.55), (17, 0.85), (19, 1.1)])
+        add({"id": f"poi-icon-{cat_id}", "type": "symbol", "source": "openmaptiles", "source-layer": "poi",
+             "minzoom": icon_min, "filter": flt,
+             "layout": {"icon-image": fixed_icon or match("class", poi_icons, "poi-shop"),
+                        "icon-size": size,
+                        "icon-allow-overlap": False, "icon-padding": 6 if tiered else 3,
+                        "symbol-sort-key": ["coalesce", ["get", "rank"], 99],
+                        "text-field": text,
+                        **text_layout({"text-size": interp([(15, 9.5), (17, 10.5), (19, 12)]),
+                                       "text-offset": [0, 1.1], "text-anchor": "top",
+                                       "text-max-width": 30, "text-padding": 2, "text-optional": True})},
              "paint": {"text-color": p["poi_text"], "text-halo-color": p["halo"], "text-halo-width": halo_w}})
+
+    # Semáforos: los carga la app desde OpenStreetMap (Overpass) solo con la capa activada y mucho zoom. Icono neutro:
+    # NUNCA indica rojo/ámbar/verde (no hay estado en tiempo real).
+    add({"id": "layer-traffic-signals", "type": "symbol", "source": "traffic-signals", "minzoom": 16,
+         "layout": {"visibility": "none", "icon-image": "poi-traffic-signal",
+                    "icon-size": interp([(16, 0.42), (19, 0.62)]), "icon-allow-overlap": False, "icon-padding": 2}})
 
     # ---- Etiquetas -------------------------------------------------------
     road_label_zoom = [("motorway", 10.5), ("trunk", 11), ("primary", 11.5), ("secondary", 12.5),
@@ -499,6 +562,7 @@ def build_style(cfg):
             **({"selection": {"type": "geojson", "data": empty}} if cfg.get("selection") else {}),
             **({"saved": {"type": "geojson", "data": empty}} if cfg.get("saved_places") else {}),
             "user": {"type": "geojson", "data": empty},
+            "traffic-signals": {"type": "geojson", "data": empty},
         },
         **({"light": cfg["buildings_3d"]["light"]} if cfg.get("buildings_3d") else {}),
         "layers": layers,

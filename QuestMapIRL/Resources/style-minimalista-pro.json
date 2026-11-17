@@ -40,6 +40,13 @@
     "type": "FeatureCollection",
     "features": []
    }
+  },
+  "traffic-signals": {
+   "type": "geojson",
+   "data": {
+    "type": "FeatureCollection",
+    "features": []
+   }
   }
  },
  "layers": [
@@ -4022,6 +4029,130 @@
    }
   },
   {
+   "id": "layer-cycleways",
+   "type": "line",
+   "source": "openmaptiles",
+   "source-layer": "transportation",
+   "minzoom": 13,
+   "filter": [
+    "all",
+    [
+     "==",
+     [
+      "get",
+      "class"
+     ],
+     "path"
+    ],
+    [
+     "any",
+     [
+      "==",
+      [
+       "get",
+       "subclass"
+      ],
+      "cycleway"
+     ],
+     [
+      "==",
+      [
+       "get",
+       "bicycle"
+      ],
+      "designated"
+     ]
+    ]
+   ],
+   "layout": {
+    "visibility": "none",
+    "line-cap": "round"
+   },
+   "paint": {
+    "line-color": "#3ccb7f",
+    "line-opacity": 0.9,
+    "line-dasharray": [
+     3,
+     1.5
+    ],
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     13,
+     1,
+     16,
+     2.2,
+     18,
+     3.5
+    ]
+   }
+  },
+  {
+   "id": "layer-transit-lines",
+   "type": "line",
+   "source": "openmaptiles",
+   "source-layer": "transportation",
+   "minzoom": 11,
+   "filter": [
+    "match",
+    [
+     "get",
+     "class"
+    ],
+    [
+     "transit",
+     "rail"
+    ],
+    true,
+    false
+   ],
+   "layout": {
+    "visibility": "none",
+    "line-cap": "round"
+   },
+   "paint": {
+    "line-color": "#7aa7ff",
+    "line-opacity": [
+     "match",
+     [
+      "get",
+      "brunnel"
+     ],
+     [
+      "tunnel"
+     ],
+     0.45,
+     0.85
+    ],
+    "line-dasharray": [
+     1,
+     1.5
+    ],
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     11,
+     1,
+     15,
+     2,
+     18,
+     3.2
+    ]
+   }
+  },
+  {
    "id": "route-glow",
    "type": "line",
    "source": "route",
@@ -4108,7 +4239,7 @@
    }
   },
   {
-   "id": "poi-icon",
+   "id": "poi-icon-other",
    "type": "symbol",
    "source": "openmaptiles",
    "source-layer": "poi",
@@ -4122,31 +4253,9 @@
       "class"
      ],
      [
-      "fuel",
-      "parking",
-      "hospital",
-      "pharmacy",
-      "doctors",
-      "dentist",
-      "veterinary",
       "police",
       "fire_station",
       "prison",
-      "restaurant",
-      "fast_food",
-      "cafe",
-      "bakery",
-      "ice_cream",
-      "bar",
-      "pub",
-      "beer",
-      "grocery",
-      "shop",
-      "clothing_store",
-      "butcher",
-      "alcohol_shop",
-      "laundry",
-      "hairdresser",
       "museum",
       "attraction",
       "castle",
@@ -4157,12 +4266,18 @@
       "library",
       "bank",
       "atm",
-      "lodging",
-      "bus",
-      "railway"
+      "lodging"
      ],
      true,
      false
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "subclass"
+     ],
+     "bus_stop"
     ],
     [
      "<=",
@@ -4274,6 +4389,11 @@
      ],
      "poi-lodging",
      [
+      "bicycle_parking",
+      "bicycle_rental"
+     ],
+     "poi-bike",
+     [
       "bus",
       "railway"
      ],
@@ -4298,22 +4418,164 @@
     ],
     "icon-allow-overlap": false,
     "icon-padding": 3,
+    "symbol-sort-key": [
+     "coalesce",
+     [
+      "get",
+      "rank"
+     ],
+     99
+    ],
     "text-field": [
      "step",
      [
       "zoom"
      ],
      "",
-     16.5,
+     15.8,
      [
-      "coalesce",
+      "case",
       [
-       "get",
-       "name:es"
+       ">",
+       [
+        "length",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ]
+       ],
+       22
       ],
       [
-       "get",
-       "name"
+       "concat",
+       [
+        "slice",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ],
+        0,
+        21
+       ],
+       "…"
+      ],
+      [
+       "to-string",
+       [
+        "coalesce",
+        [
+         "get",
+         "name:es"
+        ],
+        [
+         "get",
+         "name"
+        ],
+        [
+         "match",
+         [
+          "get",
+          "class"
+         ],
+         [
+          "parking"
+         ],
+         "Parking",
+         [
+          "fuel"
+         ],
+         "Gasolinera",
+         [
+          "pharmacy"
+         ],
+         "Farmacia",
+         [
+          "hospital"
+         ],
+         "Hospital",
+         [
+          "bicycle_parking"
+         ],
+         "Aparcabicis",
+         ""
+        ]
+       ]
       ]
      ]
     ],
@@ -4326,17 +4588,20 @@
      [
       "zoom"
      ],
-     16.5,
+     15,
+     9.5,
+     17,
      10.5,
      19,
-     12.5
+     12
     ],
     "text-offset": [
      0,
-     1.15
+     1.1
     ],
     "text-anchor": "top",
-    "text-max-width": 7,
+    "text-max-width": 30,
+    "text-padding": 2,
     "text-optional": true,
     "text-font": [
      "Noto Sans Regular"
@@ -4346,6 +4611,2983 @@
     "text-color": "#4a5163",
     "text-halo-color": "#ffffff",
     "text-halo-width": 1.8
+   }
+  },
+  {
+   "id": "poi-icon-food",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "poi",
+   "minzoom": 15,
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "restaurant",
+      "fast_food",
+      "cafe",
+      "bakery",
+      "ice_cream",
+      "bar",
+      "pub",
+      "beer"
+     ],
+     true,
+     false
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "subclass"
+     ],
+     "bus_stop"
+    ],
+    [
+     "<=",
+     [
+      "coalesce",
+      [
+       "get",
+       "rank"
+      ],
+      99
+     ],
+     [
+      "interpolate",
+      [
+       "exponential",
+       1.4
+      ],
+      [
+       "zoom"
+      ],
+      15,
+      6,
+      16,
+      12,
+      17,
+      30,
+      18,
+      99
+     ]
+    ]
+   ],
+   "layout": {
+    "icon-image": [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "fuel"
+     ],
+     "poi-fuel",
+     [
+      "parking"
+     ],
+     "poi-parking",
+     [
+      "hospital",
+      "pharmacy",
+      "doctors",
+      "dentist",
+      "veterinary"
+     ],
+     "poi-health",
+     [
+      "police",
+      "fire_station",
+      "prison"
+     ],
+     "poi-police",
+     [
+      "restaurant",
+      "fast_food"
+     ],
+     "poi-food",
+     [
+      "cafe",
+      "bakery",
+      "ice_cream"
+     ],
+     "poi-cafe",
+     [
+      "bar",
+      "pub",
+      "beer"
+     ],
+     "poi-bar",
+     [
+      "grocery"
+     ],
+     "poi-grocery",
+     [
+      "shop",
+      "clothing_store",
+      "butcher",
+      "alcohol_shop",
+      "laundry",
+      "hairdresser"
+     ],
+     "poi-shop",
+     [
+      "museum",
+      "attraction",
+      "castle",
+      "monument",
+      "theatre",
+      "cinema",
+      "art_gallery",
+      "library"
+     ],
+     "poi-culture",
+     [
+      "bank",
+      "atm"
+     ],
+     "poi-bank",
+     [
+      "lodging"
+     ],
+     "poi-lodging",
+     [
+      "bicycle_parking",
+      "bicycle_rental"
+     ],
+     "poi-bike",
+     [
+      "bus",
+      "railway"
+     ],
+     "poi-transit",
+     "poi-shop"
+    ],
+    "icon-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0.55,
+     17,
+     0.85,
+     19,
+     1.1
+    ],
+    "icon-allow-overlap": false,
+    "icon-padding": 3,
+    "symbol-sort-key": [
+     "coalesce",
+     [
+      "get",
+      "rank"
+     ],
+     99
+    ],
+    "text-field": [
+     "step",
+     [
+      "zoom"
+     ],
+     "",
+     15.8,
+     [
+      "case",
+      [
+       ">",
+       [
+        "length",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ]
+       ],
+       22
+      ],
+      [
+       "concat",
+       [
+        "slice",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ],
+        0,
+        21
+       ],
+       "…"
+      ],
+      [
+       "to-string",
+       [
+        "coalesce",
+        [
+         "get",
+         "name:es"
+        ],
+        [
+         "get",
+         "name"
+        ],
+        [
+         "match",
+         [
+          "get",
+          "class"
+         ],
+         [
+          "parking"
+         ],
+         "Parking",
+         [
+          "fuel"
+         ],
+         "Gasolinera",
+         [
+          "pharmacy"
+         ],
+         "Farmacia",
+         [
+          "hospital"
+         ],
+         "Hospital",
+         [
+          "bicycle_parking"
+         ],
+         "Aparcabicis",
+         ""
+        ]
+       ]
+      ]
+     ]
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     9.5,
+     17,
+     10.5,
+     19,
+     12
+    ],
+    "text-offset": [
+     0,
+     1.1
+    ],
+    "text-anchor": "top",
+    "text-max-width": 30,
+    "text-padding": 2,
+    "text-optional": true,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
+   },
+   "paint": {
+    "text-color": "#4a5163",
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.8
+   }
+  },
+  {
+   "id": "poi-icon-shops",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "poi",
+   "minzoom": 15,
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "shop",
+      "clothing_store",
+      "butcher",
+      "alcohol_shop",
+      "laundry",
+      "hairdresser",
+      "grocery"
+     ],
+     true,
+     false
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "subclass"
+     ],
+     "bus_stop"
+    ],
+    [
+     "<=",
+     [
+      "coalesce",
+      [
+       "get",
+       "rank"
+      ],
+      99
+     ],
+     [
+      "interpolate",
+      [
+       "exponential",
+       1.4
+      ],
+      [
+       "zoom"
+      ],
+      15,
+      6,
+      16,
+      12,
+      17,
+      30,
+      18,
+      99
+     ]
+    ]
+   ],
+   "layout": {
+    "icon-image": [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "fuel"
+     ],
+     "poi-fuel",
+     [
+      "parking"
+     ],
+     "poi-parking",
+     [
+      "hospital",
+      "pharmacy",
+      "doctors",
+      "dentist",
+      "veterinary"
+     ],
+     "poi-health",
+     [
+      "police",
+      "fire_station",
+      "prison"
+     ],
+     "poi-police",
+     [
+      "restaurant",
+      "fast_food"
+     ],
+     "poi-food",
+     [
+      "cafe",
+      "bakery",
+      "ice_cream"
+     ],
+     "poi-cafe",
+     [
+      "bar",
+      "pub",
+      "beer"
+     ],
+     "poi-bar",
+     [
+      "grocery"
+     ],
+     "poi-grocery",
+     [
+      "shop",
+      "clothing_store",
+      "butcher",
+      "alcohol_shop",
+      "laundry",
+      "hairdresser"
+     ],
+     "poi-shop",
+     [
+      "museum",
+      "attraction",
+      "castle",
+      "monument",
+      "theatre",
+      "cinema",
+      "art_gallery",
+      "library"
+     ],
+     "poi-culture",
+     [
+      "bank",
+      "atm"
+     ],
+     "poi-bank",
+     [
+      "lodging"
+     ],
+     "poi-lodging",
+     [
+      "bicycle_parking",
+      "bicycle_rental"
+     ],
+     "poi-bike",
+     [
+      "bus",
+      "railway"
+     ],
+     "poi-transit",
+     "poi-shop"
+    ],
+    "icon-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0.55,
+     17,
+     0.85,
+     19,
+     1.1
+    ],
+    "icon-allow-overlap": false,
+    "icon-padding": 3,
+    "symbol-sort-key": [
+     "coalesce",
+     [
+      "get",
+      "rank"
+     ],
+     99
+    ],
+    "text-field": [
+     "step",
+     [
+      "zoom"
+     ],
+     "",
+     15.8,
+     [
+      "case",
+      [
+       ">",
+       [
+        "length",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ]
+       ],
+       22
+      ],
+      [
+       "concat",
+       [
+        "slice",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ],
+        0,
+        21
+       ],
+       "…"
+      ],
+      [
+       "to-string",
+       [
+        "coalesce",
+        [
+         "get",
+         "name:es"
+        ],
+        [
+         "get",
+         "name"
+        ],
+        [
+         "match",
+         [
+          "get",
+          "class"
+         ],
+         [
+          "parking"
+         ],
+         "Parking",
+         [
+          "fuel"
+         ],
+         "Gasolinera",
+         [
+          "pharmacy"
+         ],
+         "Farmacia",
+         [
+          "hospital"
+         ],
+         "Hospital",
+         [
+          "bicycle_parking"
+         ],
+         "Aparcabicis",
+         ""
+        ]
+       ]
+      ]
+     ]
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     9.5,
+     17,
+     10.5,
+     19,
+     12
+    ],
+    "text-offset": [
+     0,
+     1.1
+    ],
+    "text-anchor": "top",
+    "text-max-width": 30,
+    "text-padding": 2,
+    "text-optional": true,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
+   },
+   "paint": {
+    "text-color": "#4a5163",
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.8
+   }
+  },
+  {
+   "id": "poi-icon-bike-parking",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "poi",
+   "minzoom": 17,
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "bicycle_parking"
+     ],
+     true,
+     false
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "subclass"
+     ],
+     "bus_stop"
+    ]
+   ],
+   "layout": {
+    "icon-image": "poi-bike",
+    "icon-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0.55,
+     17,
+     0.85,
+     19,
+     1.1
+    ],
+    "icon-allow-overlap": false,
+    "icon-padding": 3,
+    "symbol-sort-key": [
+     "coalesce",
+     [
+      "get",
+      "rank"
+     ],
+     99
+    ],
+    "text-field": [
+     "step",
+     [
+      "zoom"
+     ],
+     "",
+     17.6,
+     [
+      "case",
+      [
+       ">",
+       [
+        "length",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ]
+       ],
+       22
+      ],
+      [
+       "concat",
+       [
+        "slice",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ],
+        0,
+        21
+       ],
+       "…"
+      ],
+      [
+       "to-string",
+       [
+        "coalesce",
+        [
+         "get",
+         "name:es"
+        ],
+        [
+         "get",
+         "name"
+        ],
+        [
+         "match",
+         [
+          "get",
+          "class"
+         ],
+         [
+          "parking"
+         ],
+         "Parking",
+         [
+          "fuel"
+         ],
+         "Gasolinera",
+         [
+          "pharmacy"
+         ],
+         "Farmacia",
+         [
+          "hospital"
+         ],
+         "Hospital",
+         [
+          "bicycle_parking"
+         ],
+         "Aparcabicis",
+         ""
+        ]
+       ]
+      ]
+     ]
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     9.5,
+     17,
+     10.5,
+     19,
+     12
+    ],
+    "text-offset": [
+     0,
+     1.1
+    ],
+    "text-anchor": "top",
+    "text-max-width": 30,
+    "text-padding": 2,
+    "text-optional": true,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
+   },
+   "paint": {
+    "text-color": "#4a5163",
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.8
+   }
+  },
+  {
+   "id": "poi-icon-bike-rental",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "poi",
+   "minzoom": 16.5,
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "bicycle_rental"
+     ],
+     true,
+     false
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "subclass"
+     ],
+     "bus_stop"
+    ],
+    [
+     "<=",
+     [
+      "coalesce",
+      [
+       "get",
+       "rank"
+      ],
+      99
+     ],
+     [
+      "interpolate",
+      [
+       "exponential",
+       1.4
+      ],
+      [
+       "zoom"
+      ],
+      15,
+      6,
+      16,
+      12,
+      17,
+      30,
+      18,
+      99
+     ]
+    ]
+   ],
+   "layout": {
+    "icon-image": "poi-bike",
+    "icon-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0.55,
+     17,
+     0.85,
+     19,
+     1.1
+    ],
+    "icon-allow-overlap": false,
+    "icon-padding": 3,
+    "symbol-sort-key": [
+     "coalesce",
+     [
+      "get",
+      "rank"
+     ],
+     99
+    ],
+    "text-field": [
+     "step",
+     [
+      "zoom"
+     ],
+     "",
+     17.1,
+     [
+      "case",
+      [
+       ">",
+       [
+        "length",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ]
+       ],
+       22
+      ],
+      [
+       "concat",
+       [
+        "slice",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ],
+        0,
+        21
+       ],
+       "…"
+      ],
+      [
+       "to-string",
+       [
+        "coalesce",
+        [
+         "get",
+         "name:es"
+        ],
+        [
+         "get",
+         "name"
+        ],
+        [
+         "match",
+         [
+          "get",
+          "class"
+         ],
+         [
+          "parking"
+         ],
+         "Parking",
+         [
+          "fuel"
+         ],
+         "Gasolinera",
+         [
+          "pharmacy"
+         ],
+         "Farmacia",
+         [
+          "hospital"
+         ],
+         "Hospital",
+         [
+          "bicycle_parking"
+         ],
+         "Aparcabicis",
+         ""
+        ]
+       ]
+      ]
+     ]
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     9.5,
+     17,
+     10.5,
+     19,
+     12
+    ],
+    "text-offset": [
+     0,
+     1.1
+    ],
+    "text-anchor": "top",
+    "text-max-width": 30,
+    "text-padding": 2,
+    "text-optional": true,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
+   },
+   "paint": {
+    "text-color": "#4a5163",
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.8
+   }
+  },
+  {
+   "id": "poi-icon-bus-stop",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "poi",
+   "minzoom": 16.5,
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "bus"
+     ],
+     true,
+     false
+    ],
+    [
+     "==",
+     [
+      "get",
+      "subclass"
+     ],
+     "bus_stop"
+    ]
+   ],
+   "layout": {
+    "icon-image": "poi-bus-stop",
+    "icon-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0.55,
+     17,
+     0.85,
+     19,
+     1.1
+    ],
+    "icon-allow-overlap": false,
+    "icon-padding": 3,
+    "symbol-sort-key": [
+     "coalesce",
+     [
+      "get",
+      "rank"
+     ],
+     99
+    ],
+    "text-field": [
+     "step",
+     [
+      "zoom"
+     ],
+     "",
+     17.3,
+     [
+      "case",
+      [
+       ">",
+       [
+        "length",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ]
+       ],
+       22
+      ],
+      [
+       "concat",
+       [
+        "slice",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ],
+        0,
+        21
+       ],
+       "…"
+      ],
+      [
+       "to-string",
+       [
+        "coalesce",
+        [
+         "get",
+         "name:es"
+        ],
+        [
+         "get",
+         "name"
+        ],
+        [
+         "match",
+         [
+          "get",
+          "class"
+         ],
+         [
+          "parking"
+         ],
+         "Parking",
+         [
+          "fuel"
+         ],
+         "Gasolinera",
+         [
+          "pharmacy"
+         ],
+         "Farmacia",
+         [
+          "hospital"
+         ],
+         "Hospital",
+         [
+          "bicycle_parking"
+         ],
+         "Aparcabicis",
+         ""
+        ]
+       ]
+      ]
+     ]
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     9.5,
+     17,
+     10.5,
+     19,
+     12
+    ],
+    "text-offset": [
+     0,
+     1.1
+    ],
+    "text-anchor": "top",
+    "text-max-width": 30,
+    "text-padding": 2,
+    "text-optional": true,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
+   },
+   "paint": {
+    "text-color": "#4a5163",
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.8
+   }
+  },
+  {
+   "id": "poi-icon-parking",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "poi",
+   "minzoom": 15,
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "parking"
+     ],
+     true,
+     false
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "subclass"
+     ],
+     "bus_stop"
+    ],
+    [
+     "<=",
+     [
+      "coalesce",
+      [
+       "get",
+       "rank"
+      ],
+      99
+     ],
+     [
+      "interpolate",
+      [
+       "exponential",
+       1.4
+      ],
+      [
+       "zoom"
+      ],
+      15,
+      6,
+      16,
+      12,
+      17,
+      30,
+      18,
+      99
+     ]
+    ]
+   ],
+   "layout": {
+    "icon-image": [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "fuel"
+     ],
+     "poi-fuel",
+     [
+      "parking"
+     ],
+     "poi-parking",
+     [
+      "hospital",
+      "pharmacy",
+      "doctors",
+      "dentist",
+      "veterinary"
+     ],
+     "poi-health",
+     [
+      "police",
+      "fire_station",
+      "prison"
+     ],
+     "poi-police",
+     [
+      "restaurant",
+      "fast_food"
+     ],
+     "poi-food",
+     [
+      "cafe",
+      "bakery",
+      "ice_cream"
+     ],
+     "poi-cafe",
+     [
+      "bar",
+      "pub",
+      "beer"
+     ],
+     "poi-bar",
+     [
+      "grocery"
+     ],
+     "poi-grocery",
+     [
+      "shop",
+      "clothing_store",
+      "butcher",
+      "alcohol_shop",
+      "laundry",
+      "hairdresser"
+     ],
+     "poi-shop",
+     [
+      "museum",
+      "attraction",
+      "castle",
+      "monument",
+      "theatre",
+      "cinema",
+      "art_gallery",
+      "library"
+     ],
+     "poi-culture",
+     [
+      "bank",
+      "atm"
+     ],
+     "poi-bank",
+     [
+      "lodging"
+     ],
+     "poi-lodging",
+     [
+      "bicycle_parking",
+      "bicycle_rental"
+     ],
+     "poi-bike",
+     [
+      "bus",
+      "railway"
+     ],
+     "poi-transit",
+     "poi-shop"
+    ],
+    "icon-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0.55,
+     17,
+     0.85,
+     19,
+     1.1
+    ],
+    "icon-allow-overlap": false,
+    "icon-padding": 3,
+    "symbol-sort-key": [
+     "coalesce",
+     [
+      "get",
+      "rank"
+     ],
+     99
+    ],
+    "text-field": [
+     "step",
+     [
+      "zoom"
+     ],
+     "",
+     15.8,
+     [
+      "case",
+      [
+       ">",
+       [
+        "length",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ]
+       ],
+       22
+      ],
+      [
+       "concat",
+       [
+        "slice",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ],
+        0,
+        21
+       ],
+       "…"
+      ],
+      [
+       "to-string",
+       [
+        "coalesce",
+        [
+         "get",
+         "name:es"
+        ],
+        [
+         "get",
+         "name"
+        ],
+        [
+         "match",
+         [
+          "get",
+          "class"
+         ],
+         [
+          "parking"
+         ],
+         "Parking",
+         [
+          "fuel"
+         ],
+         "Gasolinera",
+         [
+          "pharmacy"
+         ],
+         "Farmacia",
+         [
+          "hospital"
+         ],
+         "Hospital",
+         [
+          "bicycle_parking"
+         ],
+         "Aparcabicis",
+         ""
+        ]
+       ]
+      ]
+     ]
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     9.5,
+     17,
+     10.5,
+     19,
+     12
+    ],
+    "text-offset": [
+     0,
+     1.1
+    ],
+    "text-anchor": "top",
+    "text-max-width": 30,
+    "text-padding": 2,
+    "text-optional": true,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
+   },
+   "paint": {
+    "text-color": "#4a5163",
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.8
+   }
+  },
+  {
+   "id": "poi-icon-health",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "poi",
+   "minzoom": 15,
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "hospital",
+      "pharmacy",
+      "doctors",
+      "dentist",
+      "veterinary"
+     ],
+     true,
+     false
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "subclass"
+     ],
+     "bus_stop"
+    ],
+    [
+     "<=",
+     [
+      "coalesce",
+      [
+       "get",
+       "rank"
+      ],
+      99
+     ],
+     [
+      "interpolate",
+      [
+       "exponential",
+       1.4
+      ],
+      [
+       "zoom"
+      ],
+      15,
+      6,
+      16,
+      12,
+      17,
+      30,
+      18,
+      99
+     ]
+    ]
+   ],
+   "layout": {
+    "icon-image": [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "fuel"
+     ],
+     "poi-fuel",
+     [
+      "parking"
+     ],
+     "poi-parking",
+     [
+      "hospital",
+      "pharmacy",
+      "doctors",
+      "dentist",
+      "veterinary"
+     ],
+     "poi-health",
+     [
+      "police",
+      "fire_station",
+      "prison"
+     ],
+     "poi-police",
+     [
+      "restaurant",
+      "fast_food"
+     ],
+     "poi-food",
+     [
+      "cafe",
+      "bakery",
+      "ice_cream"
+     ],
+     "poi-cafe",
+     [
+      "bar",
+      "pub",
+      "beer"
+     ],
+     "poi-bar",
+     [
+      "grocery"
+     ],
+     "poi-grocery",
+     [
+      "shop",
+      "clothing_store",
+      "butcher",
+      "alcohol_shop",
+      "laundry",
+      "hairdresser"
+     ],
+     "poi-shop",
+     [
+      "museum",
+      "attraction",
+      "castle",
+      "monument",
+      "theatre",
+      "cinema",
+      "art_gallery",
+      "library"
+     ],
+     "poi-culture",
+     [
+      "bank",
+      "atm"
+     ],
+     "poi-bank",
+     [
+      "lodging"
+     ],
+     "poi-lodging",
+     [
+      "bicycle_parking",
+      "bicycle_rental"
+     ],
+     "poi-bike",
+     [
+      "bus",
+      "railway"
+     ],
+     "poi-transit",
+     "poi-shop"
+    ],
+    "icon-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0.55,
+     17,
+     0.85,
+     19,
+     1.1
+    ],
+    "icon-allow-overlap": false,
+    "icon-padding": 3,
+    "symbol-sort-key": [
+     "coalesce",
+     [
+      "get",
+      "rank"
+     ],
+     99
+    ],
+    "text-field": [
+     "step",
+     [
+      "zoom"
+     ],
+     "",
+     15.8,
+     [
+      "case",
+      [
+       ">",
+       [
+        "length",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ]
+       ],
+       22
+      ],
+      [
+       "concat",
+       [
+        "slice",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ],
+        0,
+        21
+       ],
+       "…"
+      ],
+      [
+       "to-string",
+       [
+        "coalesce",
+        [
+         "get",
+         "name:es"
+        ],
+        [
+         "get",
+         "name"
+        ],
+        [
+         "match",
+         [
+          "get",
+          "class"
+         ],
+         [
+          "parking"
+         ],
+         "Parking",
+         [
+          "fuel"
+         ],
+         "Gasolinera",
+         [
+          "pharmacy"
+         ],
+         "Farmacia",
+         [
+          "hospital"
+         ],
+         "Hospital",
+         [
+          "bicycle_parking"
+         ],
+         "Aparcabicis",
+         ""
+        ]
+       ]
+      ]
+     ]
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     9.5,
+     17,
+     10.5,
+     19,
+     12
+    ],
+    "text-offset": [
+     0,
+     1.1
+    ],
+    "text-anchor": "top",
+    "text-max-width": 30,
+    "text-padding": 2,
+    "text-optional": true,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
+   },
+   "paint": {
+    "text-color": "#4a5163",
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.8
+   }
+  },
+  {
+   "id": "poi-icon-fuel",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "poi",
+   "minzoom": 15,
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "fuel"
+     ],
+     true,
+     false
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "subclass"
+     ],
+     "bus_stop"
+    ],
+    [
+     "<=",
+     [
+      "coalesce",
+      [
+       "get",
+       "rank"
+      ],
+      99
+     ],
+     [
+      "interpolate",
+      [
+       "exponential",
+       1.4
+      ],
+      [
+       "zoom"
+      ],
+      15,
+      6,
+      16,
+      12,
+      17,
+      30,
+      18,
+      99
+     ]
+    ]
+   ],
+   "layout": {
+    "icon-image": [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "fuel"
+     ],
+     "poi-fuel",
+     [
+      "parking"
+     ],
+     "poi-parking",
+     [
+      "hospital",
+      "pharmacy",
+      "doctors",
+      "dentist",
+      "veterinary"
+     ],
+     "poi-health",
+     [
+      "police",
+      "fire_station",
+      "prison"
+     ],
+     "poi-police",
+     [
+      "restaurant",
+      "fast_food"
+     ],
+     "poi-food",
+     [
+      "cafe",
+      "bakery",
+      "ice_cream"
+     ],
+     "poi-cafe",
+     [
+      "bar",
+      "pub",
+      "beer"
+     ],
+     "poi-bar",
+     [
+      "grocery"
+     ],
+     "poi-grocery",
+     [
+      "shop",
+      "clothing_store",
+      "butcher",
+      "alcohol_shop",
+      "laundry",
+      "hairdresser"
+     ],
+     "poi-shop",
+     [
+      "museum",
+      "attraction",
+      "castle",
+      "monument",
+      "theatre",
+      "cinema",
+      "art_gallery",
+      "library"
+     ],
+     "poi-culture",
+     [
+      "bank",
+      "atm"
+     ],
+     "poi-bank",
+     [
+      "lodging"
+     ],
+     "poi-lodging",
+     [
+      "bicycle_parking",
+      "bicycle_rental"
+     ],
+     "poi-bike",
+     [
+      "bus",
+      "railway"
+     ],
+     "poi-transit",
+     "poi-shop"
+    ],
+    "icon-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0.55,
+     17,
+     0.85,
+     19,
+     1.1
+    ],
+    "icon-allow-overlap": false,
+    "icon-padding": 3,
+    "symbol-sort-key": [
+     "coalesce",
+     [
+      "get",
+      "rank"
+     ],
+     99
+    ],
+    "text-field": [
+     "step",
+     [
+      "zoom"
+     ],
+     "",
+     15.8,
+     [
+      "case",
+      [
+       ">",
+       [
+        "length",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ]
+       ],
+       22
+      ],
+      [
+       "concat",
+       [
+        "slice",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ],
+        0,
+        21
+       ],
+       "…"
+      ],
+      [
+       "to-string",
+       [
+        "coalesce",
+        [
+         "get",
+         "name:es"
+        ],
+        [
+         "get",
+         "name"
+        ],
+        [
+         "match",
+         [
+          "get",
+          "class"
+         ],
+         [
+          "parking"
+         ],
+         "Parking",
+         [
+          "fuel"
+         ],
+         "Gasolinera",
+         [
+          "pharmacy"
+         ],
+         "Farmacia",
+         [
+          "hospital"
+         ],
+         "Hospital",
+         [
+          "bicycle_parking"
+         ],
+         "Aparcabicis",
+         ""
+        ]
+       ]
+      ]
+     ]
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     9.5,
+     17,
+     10.5,
+     19,
+     12
+    ],
+    "text-offset": [
+     0,
+     1.1
+    ],
+    "text-anchor": "top",
+    "text-max-width": 30,
+    "text-padding": 2,
+    "text-optional": true,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
+   },
+   "paint": {
+    "text-color": "#4a5163",
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.8
+   }
+  },
+  {
+   "id": "poi-icon-transit",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "poi",
+   "minzoom": 15,
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "railway",
+      "bus"
+     ],
+     true,
+     false
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "subclass"
+     ],
+     "bus_stop"
+    ],
+    [
+     "<=",
+     [
+      "coalesce",
+      [
+       "get",
+       "rank"
+      ],
+      99
+     ],
+     [
+      "interpolate",
+      [
+       "exponential",
+       1.4
+      ],
+      [
+       "zoom"
+      ],
+      15,
+      6,
+      16,
+      12,
+      17,
+      30,
+      18,
+      99
+     ]
+    ]
+   ],
+   "layout": {
+    "icon-image": [
+     "match",
+     [
+      "get",
+      "class"
+     ],
+     [
+      "fuel"
+     ],
+     "poi-fuel",
+     [
+      "parking"
+     ],
+     "poi-parking",
+     [
+      "hospital",
+      "pharmacy",
+      "doctors",
+      "dentist",
+      "veterinary"
+     ],
+     "poi-health",
+     [
+      "police",
+      "fire_station",
+      "prison"
+     ],
+     "poi-police",
+     [
+      "restaurant",
+      "fast_food"
+     ],
+     "poi-food",
+     [
+      "cafe",
+      "bakery",
+      "ice_cream"
+     ],
+     "poi-cafe",
+     [
+      "bar",
+      "pub",
+      "beer"
+     ],
+     "poi-bar",
+     [
+      "grocery"
+     ],
+     "poi-grocery",
+     [
+      "shop",
+      "clothing_store",
+      "butcher",
+      "alcohol_shop",
+      "laundry",
+      "hairdresser"
+     ],
+     "poi-shop",
+     [
+      "museum",
+      "attraction",
+      "castle",
+      "monument",
+      "theatre",
+      "cinema",
+      "art_gallery",
+      "library"
+     ],
+     "poi-culture",
+     [
+      "bank",
+      "atm"
+     ],
+     "poi-bank",
+     [
+      "lodging"
+     ],
+     "poi-lodging",
+     [
+      "bicycle_parking",
+      "bicycle_rental"
+     ],
+     "poi-bike",
+     [
+      "bus",
+      "railway"
+     ],
+     "poi-transit",
+     "poi-shop"
+    ],
+    "icon-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0.55,
+     17,
+     0.85,
+     19,
+     1.1
+    ],
+    "icon-allow-overlap": false,
+    "icon-padding": 3,
+    "symbol-sort-key": [
+     "coalesce",
+     [
+      "get",
+      "rank"
+     ],
+     99
+    ],
+    "text-field": [
+     "step",
+     [
+      "zoom"
+     ],
+     "",
+     15.8,
+     [
+      "case",
+      [
+       ">",
+       [
+        "length",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ]
+       ],
+       22
+      ],
+      [
+       "concat",
+       [
+        "slice",
+        [
+         "to-string",
+         [
+          "coalesce",
+          [
+           "get",
+           "name:es"
+          ],
+          [
+           "get",
+           "name"
+          ],
+          [
+           "match",
+           [
+            "get",
+            "class"
+           ],
+           [
+            "parking"
+           ],
+           "Parking",
+           [
+            "fuel"
+           ],
+           "Gasolinera",
+           [
+            "pharmacy"
+           ],
+           "Farmacia",
+           [
+            "hospital"
+           ],
+           "Hospital",
+           [
+            "bicycle_parking"
+           ],
+           "Aparcabicis",
+           ""
+          ]
+         ]
+        ],
+        0,
+        21
+       ],
+       "…"
+      ],
+      [
+       "to-string",
+       [
+        "coalesce",
+        [
+         "get",
+         "name:es"
+        ],
+        [
+         "get",
+         "name"
+        ],
+        [
+         "match",
+         [
+          "get",
+          "class"
+         ],
+         [
+          "parking"
+         ],
+         "Parking",
+         [
+          "fuel"
+         ],
+         "Gasolinera",
+         [
+          "pharmacy"
+         ],
+         "Farmacia",
+         [
+          "hospital"
+         ],
+         "Hospital",
+         [
+          "bicycle_parking"
+         ],
+         "Aparcabicis",
+         ""
+        ]
+       ]
+      ]
+     ]
+    ],
+    "text-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     9.5,
+     17,
+     10.5,
+     19,
+     12
+    ],
+    "text-offset": [
+     0,
+     1.1
+    ],
+    "text-anchor": "top",
+    "text-max-width": 30,
+    "text-padding": 2,
+    "text-optional": true,
+    "text-font": [
+     "Noto Sans Regular"
+    ]
+   },
+   "paint": {
+    "text-color": "#4a5163",
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.8
+   }
+  },
+  {
+   "id": "layer-traffic-signals",
+   "type": "symbol",
+   "source": "traffic-signals",
+   "minzoom": 16,
+   "layout": {
+    "visibility": "none",
+    "icon-image": "poi-traffic-signal",
+    "icon-size": [
+     "interpolate",
+     [
+      "exponential",
+      1.4
+     ],
+     [
+      "zoom"
+     ],
+     16,
+     0.42,
+     19,
+     0.62
+    ],
+    "icon-allow-overlap": false,
+    "icon-padding": 2
    }
   },
   {

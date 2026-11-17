@@ -11,6 +11,7 @@ enum GameIcons {
         "poi-fuel": "fuel", "poi-parking": "parking", "poi-health": "hospital", "poi-police": "police",
         "poi-food": "food", "poi-cafe": "cafe", "poi-bar": "bar", "poi-grocery": "shop", "poi-shop": "shop",
         "poi-culture": "bank", "poi-bank": "bank", "poi-lodging": "lodging", "poi-transit": "transit",
+        "poi-bike": "bike", "poi-bus-stop": "bus-stop", "poi-traffic-signal": "signal",
         "poi-destination": "destination", "poi-home": "home", "poi-work": "work",
         "selection-arrows": "selection-arrows",
     ]

@@ -100,23 +100,26 @@ final class GTAStyleTests: XCTestCase {
         XCTAssertFalse(json.contains("\"text-transform\": \"uppercase\""))
     }
 
-    func testPOIsAppearByTiersAndBusStopsAreOmitted() throws {
-        let tiers = ["a", "b", "c"].compactMap { layer("poi-icon-\($0)") }
-        XCTAssertEqual(tiers.count, 3)
-        let zooms = tiers.compactMap { $0["minzoom"] as? Double ?? ($0["minzoom"] as? Int).map(Double.init) }
-        XCTAssertEqual(zooms, zooms.sorted())
-        XCTAssertLessThan(zooms[0], zooms[2])
-        XCTAssertNil(layer("poi-icon"), "el estilo GTA no usa la capa única de POI")
-        for tier in tiers {
-            let filter = String(decoding: try JSONSerialization.data(withJSONObject: tier["filter"] as Any), as: UTF8.self)
-            XCTAssertTrue(filter.contains("bus_stop"), "debe excluir paradas de autobús")
-            XCTAssertNotNil((tier["layout"] as? [String: Any])?["symbol-sort-key"], "prioridad por rango")
+    func testPOIsAreSplitByCategoryAndImportantOnesAppearFirst() throws {
+        func zoom(_ id: String) -> Double? {
+            guard let l = layer(id) else { return nil }
+            return l["minzoom"] as? Double ?? (l["minzoom"] as? Int).map(Double.init)
         }
-        // Lo importante (hospital, gasolinera, estación) llega antes que restaurantes y tiendas.
-        let a = String(decoding: try JSONSerialization.data(withJSONObject: tiers[0]["filter"] as Any), as: UTF8.self)
-        let c = String(decoding: try JSONSerialization.data(withJSONObject: tiers[2]["filter"] as Any), as: UTF8.self)
-        XCTAssertTrue(a.contains("hospital") && a.contains("fuel") && a.contains("railway"))
-        XCTAssertTrue(c.contains("restaurant") && c.contains("shop") && !c.contains("hospital"))
+        for id in ["poi-icon-fuel", "poi-icon-transit", "poi-icon-health", "poi-icon-parking", "poi-icon-food",
+                   "poi-icon-shops", "poi-icon-other", "poi-icon-bus-stop", "poi-icon-bike-parking", "poi-icon-bike-rental"] {
+            XCTAssertNotNil(layer(id), id)
+            XCTAssertNotNil((layer(id)?["layout"] as? [String: Any])?["symbol-sort-key"], "prioridad por rango: \(id)")
+        }
+        XCTAssertNil(layer("poi-icon"))
+        // Lo importante (gasolinera, estación) llega antes que restaurantes y tiendas.
+        XCTAssertLessThan(try XCTUnwrap(zoom("poi-icon-fuel")), try XCTUnwrap(zoom("poi-icon-food")))
+        XCTAssertLessThan(try XCTUnwrap(zoom("poi-icon-transit")), try XCTUnwrap(zoom("poi-icon-food")))
+        // Las paradas de autobús van en su propia capa (desactivable); las estaciones no las incluyen.
+        let transit = String(decoding: try JSONSerialization.data(withJSONObject: layer("poi-icon-transit")?["filter"] as Any), as: UTF8.self)
+        XCTAssertTrue(transit.contains("bus_stop") && transit.contains("!="))
+        // Prioridad de colocación: las capas más arriba ganan las colisiones.
+        let ids = layers.compactMap { $0["id"] as? String }
+        XCTAssertLessThan(try XCTUnwrap(ids.firstIndex(of: "poi-icon-food")), try XCTUnwrap(ids.firstIndex(of: "poi-icon-transit")))
     }
 
     func testEveryIconNameUsedByTheStyleHasAnAsset() throws {
@@ -171,7 +174,7 @@ final class GTAStyleTests: XCTestCase {
             XCTAssertNil(otherSources["selection"], name)
             XCTAssertNil(otherSources["saved"], name)
             let ids = (style["layers"] as? [[String: Any]] ?? []).compactMap { $0["id"] as? String }
-            XCTAssertTrue(ids.contains("poi-icon"), "\(name) mantiene su capa única de POI")
+            XCTAssertTrue(ids.contains("poi-icon-food") && ids.contains("poi-icon-fuel"), "\(name) tiene capas de POI por categoría")
         }
         XCTAssertEqual(ThemeCatalog.minimalistaPro.activeCartography.poiIconSet, .systemSymbols)
         XCTAssertEqual(ThemeCatalog.ciudadNocturna.activeCartography.poiIconSet, .gameBadges)

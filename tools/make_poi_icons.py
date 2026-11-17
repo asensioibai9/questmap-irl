@@ -150,6 +150,32 @@ def g_shield(b, d):
     poly(d, [(32, 18), (36, 28), (46, 28), (38, 35), (41, 45), (32, 39), (23, 45), (26, 35), (18, 28), (28, 28)])
 
 
+def g_bike(b, d):
+    for cx in (17, 47):                       # dos ruedas (aro)
+        oval(b, cx - 12, 32, cx + 12, 56)
+        oval(d, cx - 7, 37, cx + 7, 51)
+    line(b, [(17, 44), (28, 26), (44, 26), (47, 44)], 4.5)   # cuadro
+    line(b, [(28, 26), (33, 44), (44, 26)], 4)
+    line(b, [(24, 18), (32, 18)], 4)          # sillín
+    line(b, [(44, 26), (41, 14), (49, 14)], 4)  # manillar
+
+
+def g_bus_stop(b, d):
+    box(b, 29, 26, 35, 60)                    # poste
+    box(b, 10, 4, 54, 30, radius=6)           # placa
+    box(d, 17, 10, 47, 20, radius=2)          # ventanillas del autobús
+    oval(d, 19, 22, 25, 27)
+    oval(d, 39, 22, 45, 27)
+
+
+def g_signal(b, d):
+    # Semáforo NEUTRO: tres luces grises iguales. No muestra ningún estado (rojo/ámbar/verde) porque no hay datos en vivo.
+    box(b, 20, 4, 44, 52, radius=7)
+    box(b, 29, 52, 35, 60)
+    for y in (8, 21, 34):
+        oval(d, 25, y, 39, y + 13)
+
+
 # nombre -> (glifo, color base, color de detalle)
 ICONS = {
     "home":        (g_house,       LIGHT,                DARK),
@@ -166,6 +192,9 @@ ICONS = {
     "cafe":        (g_cup,         (242, 169, 59, 255),  WHITE),
     "lodging":     (g_bed,         (127, 209, 255, 255), DARK),
     "police":      (g_shield,      (123, 134, 255, 255), WHITE),
+    "bike":        (g_bike,        (60, 203, 127, 255),  DARK),
+    "bus-stop":    (g_bus_stop,    LIGHT,                DARK),
+    "signal":      (g_signal,      (40, 40, 40, 255),    (150, 150, 150, 255)),
 }
 
 
@@ -219,8 +248,9 @@ def selection_arrows():
 
 
 def main():
-    sheet = Image.new("RGBA", (OUT * 5 + 60, OUT * 3 + 40), (25, 25, 25, 255))
     names = list(ICONS)
+    rows = (len(names) + 1 + 4) // 5          # +1: flechas de selección
+    sheet = Image.new("RGBA", (OUT * 5 + 60, (OUT + 10) * rows + 10), (25, 25, 25, 255))
     for i, name in enumerate(names):
         image = render(name)
         save(name, image)

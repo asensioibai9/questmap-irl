@@ -19,6 +19,8 @@ enum PoiIcons {
         "poi-bank": "eurosign",
         "poi-lodging": "bed.double.fill",
         "poi-transit": "bus.fill",
+        "poi-bike": "bicycle",
+        "poi-bus-stop": "bus",
     ]
 
     static func image(symbol: String, fill: UIColor, outline: UIColor) -> UIImage? {
@@ -48,5 +50,7 @@ enum PoiIcons {
                 style.setImage(icon, forName: name)
             }
         }
+        // Semáforo: icono neutro común a todos los estilos (tres luces grises, sin estado en vivo).
+        if let signal = GameIcons.image(asset: "signal") { style.setImage(signal, forName: "poi-traffic-signal") }
     }
 }

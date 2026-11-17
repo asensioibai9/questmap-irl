@@ -4,7 +4,7 @@ import CoreLocation
 
 /// Ventanas que se abren desde el panel inferior (cuelgan de la propia hoja del panel).
 enum HomeModal: Identifiable, Equatable {
-    case profile, styles, saved, credits
+    case profile, layers, saved, credits
     case address(AddressTarget)
 
     enum AddressTarget: String { case home, work, zone }
@@ -12,7 +12,7 @@ enum HomeModal: Identifiable, Equatable {
     var id: String {
         switch self {
         case .profile: return "profile"
-        case .styles: return "styles"
+        case .layers: return "layers"
         case .saved: return "saved"
         case .credits: return "credits"
         case .address(let target): return "address-\(target.rawValue)"
@@ -95,7 +95,23 @@ struct HomeView: View {
     // MARK: - Cuerpo
 
     var body: some View {
-        speedLimitHandlers(settingsHandlers(routeHandlers(locationHandlers(screen))))
+        mapLayerHandlers(speedLimitHandlers(settingsHandlers(routeHandlers(locationHandlers(screen)))))
+    }
+
+    /// Capas del mapa y nombres de lugares: se aplican al momento cambiando solo la visibilidad de capas existentes.
+    private func mapLayerHandlers<V: View>(_ view: V) -> some View {
+        view
+        .onChange(of: settings?.mapLayersRaw) { _, _ in applyMapLayers() }
+        .onChange(of: settings?.showPlaceNames) { _, _ in applyMapLayers() }
+    }
+
+    private func applyMapLayers() {
+        let layers = settings?.mapLayers ?? .defaults
+        let names = settings?.showPlaceNames ?? true
+        map.setMapLayers(layers)
+        map.setPlaceNames(names)
+        miniMap.setMapLayers(layers)
+        miniMap.setPlaceNames(names)
     }
 
     /// Ajustes de la señal de límite: se aplican al momento (navegando y sin ruta).
@@ -353,8 +369,8 @@ struct HomeView: View {
 
     private var sideControls: some View {
         VStack(spacing: 12) {
-            CircleIconButton(systemImage: "square.3.layers.3d", label: "Estilo de mapa",
-                             size: 48, accent: theme.accent, floating: true) { modal = .styles }
+            CircleIconButton(systemImage: "square.3.layers.3d", label: "Capas y estilo del mapa",
+                             size: 48, accent: theme.accent, floating: true) { modal = .layers }
             CircleIconButton(systemImage: viewModel.headingUp ? "location.north.line.fill" : "safari",
                              label: viewModel.headingUp ? "Rumbo arriba. Cambiar a norte arriba" : "Norte arriba. Cambiar a rumbo arriba",
                              size: 48, isActive: viewModel.headingUp, accent: theme.accent, floating: true) {
@@ -553,15 +569,10 @@ struct HomeView: View {
         case .profile:
             ProfileSheetView(environment: environment)
                 .environment(\.mapTheme, theme)
-        case .styles:
-            NavigationStack {
-                MapStyleGalleryView()
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) { Button("Listo") { self.modal = nil } }
-                    }
-            }
-            .preferredColorScheme(.dark)
-            .tint(theme.accent)
+        case .layers:
+            // Un solo botón para capas y estilo (no hay dos controles duplicados): el panel enlaza con «Estilo de mapa».
+            MapLayersSheet(onClose: { self.modal = nil })
+                .environment(\.mapTheme, theme)
         case .saved:
             SavedPlacesView(onSelect: { select($0) }, onShowOnMap: { showOnMap($0) })
         case .credits:
@@ -717,6 +728,7 @@ struct HomeView: View {
         }
         applyMusicSettings()
         environment.hub.setFreeDriveSpeedLimit(wantsFreeDriveLimit)
+        applyMapLayers()
         apply3D(animated: false)
         pushSavedPlaces()
         if let active = environment.hub.session { presentNavigationUI(active) }   // navegación iniciada antes (p. ej. desde CarPlay)
