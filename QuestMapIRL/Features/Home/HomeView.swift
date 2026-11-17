@@ -50,6 +50,8 @@ struct HomeView: View {
     @State private var viewHeight: CGFloat = 800
     @State private var map = MapController()
     @State private var miniMap = MapController()
+    /// Lleva la ubicación al mapa sin redibujar esta pantalla con cada lectura (ver `HomeLocationFeeder`).
+    @State private var feeder = HomeLocationFeeder()
 
     let environment: AppEnvironment
     /// false mientras se muestra la animación de inicio: no se pide ningún permiso ni se abre el panel.
@@ -135,7 +137,7 @@ struct HomeView: View {
                 )
                 .sheet(isPresented: $showNavSearch) {
                     AddressPickerView(title: "Cambiar destino", prompt: "Buscar destino",
-                                      search: environment.placeSearch, near: location.currentLocation?.coordinate) { place in
+                                      search: environment.placeSearch, near: feeder.searchOrigin) { place in
                         // Cambiar de destino en plena navegación: se cierra la actual y luego se ruta al nuevo.
                         pendingPlace = place
                         navigation.stop()
@@ -182,8 +184,6 @@ struct HomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
             environment.speech.stopImmediately()
         }
-        .onChange(of: location.smoothedLocation) { _, _ in pushUser() }
-        .onChange(of: location.displayHeading) { _, _ in pushUser() }
     }
 
     private func routeHandlers<V: View>(_ view: V) -> some View {
@@ -272,8 +272,7 @@ struct HomeView: View {
         ZStack {
             VStack(spacing: 8) {
                 HStack(alignment: .top, spacing: 10) {
-                    GPSIndicator(theme: theme, status: location.status,
-                                 accuracy: location.currentLocation?.horizontalAccuracy)
+                    LiveGPSIndicator(theme: theme, location: location)
                         .fixedSize()
                     Spacer()
                 }
@@ -475,7 +474,7 @@ struct HomeView: View {
         case .notDetermined:
             return "Aún no has respondido al permiso de ubicación. Permítelo o elige una zona."
         case .authorizedWhenInUse, .authorizedAlways:
-            return location.currentLocation == nil ? "Aún no hay señal GPS. Espera unos segundos o elige una zona." : nil
+            return feeder.searchOrigin == nil ? "Aún no hay señal GPS. Espera unos segundos o elige una zona." : nil
         }
     }
 
@@ -498,7 +497,7 @@ struct HomeView: View {
                 SearchPanelView(
                     model: panel,
                     detent: $detent,
-                    near: location.currentLocation?.coordinate,
+                    near: feeder.searchOrigin,
                     accent: theme.accent,
                     locationHint: categoryLocationHint,
                     onSelect: { place in select(place) },
@@ -569,7 +568,7 @@ struct HomeView: View {
             MapCreditsView(onClose: { self.modal = nil })
         case .address(let target):
             AddressPickerView(title: addressTitle(target), prompt: "Buscar dirección",
-                              search: environment.placeSearch, near: location.currentLocation?.coordinate) { place in
+                              search: environment.placeSearch, near: feeder.searchOrigin) { place in
                 addressPicked(place, for: target)
             }
         }
@@ -722,6 +721,7 @@ struct HomeView: View {
         pushSavedPlaces()
         if let active = environment.hub.session { presentNavigationUI(active) }   // navegación iniciada antes (p. ej. desde CarPlay)
         if startupFinished { afterStartup() } else if environment.hub.session == nil { location.start(mode: .idle) }
+        startFeedingMaps()
         pushUser()
         map.setFollow(followMode, zoom: theme.activeCartography.defaultZoom, pitch: explorePitch, bottomInset: 0)
     }
@@ -751,6 +751,16 @@ struct HomeView: View {
     private func applyAvatar(_ avatar: MapAvatar?) {
         map.setAvatar(avatar ?? .arrow)
         miniMap.setAvatar(avatar ?? .arrow)
+    }
+
+    /// Empieza a llevar las lecturas al mapa grande y al minimapa (una sola vez).
+    private func startFeedingMaps() {
+        let map = self.map
+        let miniMap = self.miniMap
+        feeder.start(location: location) { reading, heading in
+            map.setUser(reading, heading: heading)
+            miniMap.setUser(reading, heading: heading)
+        }
     }
 
     private func pushUser() {

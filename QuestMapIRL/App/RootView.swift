@@ -44,6 +44,7 @@ struct RootView: View {
         .onAppear {
             // Garantiza una única fila de ajustes antes de que la UI la edite.
             if settingsRows.isEmpty { modelContext.insert(UserSettings()) }
+            MainThreadHangMonitor.shared.start()
             environment.speech.isMuted = !(settings?.voiceEnabled ?? true)
             // Casa/Trabajo: deja un único registro de cada uno y anota (sin datos personales) si se recuperaron.
             let store = PersonalPlaceStore(context: modelContext)
@@ -56,6 +57,7 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             // Red de seguridad: al salir de primer plano se guarda cualquier cambio pendiente.
             if phase != .active { PersistenceCommit.saveQuietly(modelContext, operation: "scene-\(phase)") }
+            if phase == .active { MainThreadHangMonitor.shared.start() } else { MainThreadHangMonitor.shared.stop() }
         }
     }
 }

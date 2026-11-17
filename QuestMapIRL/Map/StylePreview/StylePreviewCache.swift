@@ -22,6 +22,12 @@ struct StylePreviewCache {
         directory.appendingPathComponent("\(styleID)-\(fingerprint).png")
     }
 
+    /// Archivo de la preview si existe (sin decodificarlo).
+    func existingURL(styleID: String, fingerprint: String) -> URL? {
+        let url = url(styleID: styleID, fingerprint: fingerprint)
+        return fileManager.fileExists(atPath: url.path) ? url : nil
+    }
+
     func load(styleID: String, fingerprint: String) -> UIImage? {
         let path = url(styleID: styleID, fingerprint: fingerprint).path
         guard fileManager.fileExists(atPath: path) else { return nil }

@@ -107,11 +107,12 @@ extension UserSettings {
                                 showsCurrentSpeed: speedSignShowsCurrentSpeed)
         }
         set {
-            speedSignStyleRaw = newValue.style.rawValue
-            speedSignSizeRaw = newValue.size.rawValue
-            speedSignPositionRaw = newValue.position.rawValue
-            speedSignNoDataRaw = newValue.noData.rawValue
-            speedSignShowsCurrentSpeed = newValue.showsCurrentSpeed
+            // Solo se escribe lo que cambia: cada escritura en un modelo de SwiftData notifica a todas las vistas que lo leen.
+            if speedSignStyleRaw != newValue.style.rawValue { speedSignStyleRaw = newValue.style.rawValue }
+            if speedSignSizeRaw != newValue.size.rawValue { speedSignSizeRaw = newValue.size.rawValue }
+            if speedSignPositionRaw != newValue.position.rawValue { speedSignPositionRaw = newValue.position.rawValue }
+            if speedSignNoDataRaw != newValue.noData.rawValue { speedSignNoDataRaw = newValue.noData.rawValue }
+            if speedSignShowsCurrentSpeed != newValue.showsCurrentSpeed { speedSignShowsCurrentSpeed = newValue.showsCurrentSpeed }
         }
     }
 

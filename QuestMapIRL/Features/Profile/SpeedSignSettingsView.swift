@@ -19,6 +19,7 @@ struct SpeedSignSettingsView: View {
     private func update(_ change: (inout SpeedSignAppearance) -> Void, operation: String) {
         var value = settings.speedSignAppearance
         change(&value)
+        guard value != settings.speedSignAppearance else { return }     // misma opción: ni escritura ni guardado
         settings.speedSignAppearance = value
         save(operation)
     }

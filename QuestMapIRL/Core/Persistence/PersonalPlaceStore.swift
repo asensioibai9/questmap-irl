@@ -12,8 +12,10 @@ enum PersonalAction {
 enum PersistenceCommit {
     @MainActor
     static func save(_ context: ModelContext, operation: String = "save") throws {
+        // Sin cambios pendientes no se escribe nada (evita guardados idénticos y refrescos de @Query innecesarios).
+        guard context.hasChanges else { return }
         do {
-            try context.save()
+            try PerformanceTrace.measure("swiftdata-save") { try context.save() }
         } catch {
             context.rollback()
             StorageDiagnostics.record(operation: operation, outcome: "error", note: "tipo=\(type(of: error))")

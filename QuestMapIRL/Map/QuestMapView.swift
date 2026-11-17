@@ -120,16 +120,18 @@ struct QuestMapView: UIViewRepresentable {
 
         func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
             cancelTimeout()
-            for name in parent.style.textures {
-                if let image = UIImage(named: name) { style.setImage(image, forName: name) }
+            PerformanceTrace.measure("map-style-images", thresholdMs: 30) {
+                for name in parent.style.textures {
+                    if let image = UIImage(named: name) { style.setImage(image, forName: name) }
+                }
+                switch parent.style.poiIconSet {
+                case .systemSymbols:
+                    PoiIcons.register(in: style, fillHex: parent.style.poiIconHex, outlineHex: parent.style.poiOutlineHex)
+                case .gameBadges:
+                    GameIcons.register(in: style)
+                }
+                parent.controller.styleDidLoad(style, arrowHex: parent.style.userArrowHex)
             }
-            switch parent.style.poiIconSet {
-            case .systemSymbols:
-                PoiIcons.register(in: style, fillHex: parent.style.poiIconHex, outlineHex: parent.style.poiOutlineHex)
-            case .gameBadges:
-                GameIcons.register(in: style)
-            }
-            parent.controller.styleDidLoad(style, arrowHex: parent.style.userArrowHex)
             report(.ready)
         }
 

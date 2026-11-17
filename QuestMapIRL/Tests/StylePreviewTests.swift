@@ -142,8 +142,9 @@ final class StylePreviewTests: XCTestCase {
 
         let second = store(renderer: renderer)           // «otra apertura»: almacén nuevo, misma caché
         second.prepare(themes: themes, selected: nil)
+        await waitUntilIdle(second, themes: themes)          // la caché se decodifica fuera del hilo principal
         for theme in themes {
-            if case .ready = second.state(for: theme.id) {} else { XCTFail("\(theme.name) debía salir de la caché al instante") }
+            if case .ready = second.state(for: theme.id) {} else { XCTFail("\(theme.name) debía salir de la caché") }
         }
         XCTAssertEqual(renderer.rendered.count, themes.count, "no se regeneró ninguna")
     }

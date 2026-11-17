@@ -46,7 +46,7 @@ final class RecordedPromptPlayer: RecordedPromptPlaying {
     func play(_ segments: [VoicePromptSegment], volume: Float, completion: @escaping @MainActor (Bool) -> Void) throws {
         guard !segments.isEmpty else { throw RecordedPromptError.emptySequence }
         stop()
-        let buffers = try Self.buffers(for: segments)
+        let buffers = try PerformanceTrace.measure("voice-buffers", thresholdMs: 30) { try Self.buffers(for: segments) }
         guard let format = buffers.first?.format else { throw RecordedPromptError.unreadable }
         if attachedFormat != format {
             engine.disconnectNodeOutput(node)

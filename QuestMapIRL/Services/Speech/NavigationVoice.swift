@@ -328,6 +328,19 @@ final class NavigationVoice {
     /// Fuerza a la interfaz a releer las voces instaladas.
     func refreshVoices() { voiceRevision += 1 }
 
+    /// Voces instaladas, leídas UNA vez por revisión. `AVSpeechSynthesisVoice.speechVoices()` es lento (enumera todas las
+    /// voces del sistema) y antes se llamaba varias veces en cada redibujado de Ajustes de navegación: cualquier cambio de
+    /// un ajuste congelaba la interfaz. Se vuelve a leer al volver a la app o cuando iOS avisa de voces nuevas.
+    @ObservationIgnored private var cachedVoices: (revision: Int, list: [VoiceInfo])?
+
+    private var installedVoiceList: [VoiceInfo] {
+        let revision = voiceRevision                 // dependencia de observación: la interfaz se actualiza al refrescar
+        if let cachedVoices, cachedVoices.revision == revision { return cachedVoices.list }
+        let list = PerformanceTrace.measure("installed-voices") { voices() }
+        cachedVoices = (revision, list)
+        return list
+    }
+
     nonisolated static func installedVoices() -> [VoiceInfo] {
         AVSpeechSynthesisVoice.speechVoices().map(VoiceInfo.init)
     }
@@ -348,19 +361,17 @@ final class NavigationVoice {
 
     /// Voces instaladas entre las que elegir para el género actual.
     var voiceChoices: (matching: [VoiceInfo], unspecified: [VoiceInfo]) {
-        _ = voiceRevision
-        return VoiceSelector.choices(from: voices(), gender: gender)
+        VoiceSelector.choices(from: installedVoiceList, gender: gender)
     }
 
     /// Voz real que se usará, calculada con la misma lógica que `makeUtterance`.
     var selection: VoiceSelection {
-        _ = voiceRevision
-        return VoiceSelector.select(from: voices(), gender: gender, preferredID: preferredVoiceID(for: gender))
+        VoiceSelector.select(from: installedVoiceList, gender: gender, preferredID: preferredVoiceID(for: gender))
     }
 
     /// Solo hay voces de calidad estándar de España (las más robóticas) para el género actual.
     var onlyBasicVoicesInstalled: Bool {
-        let spain = VoiceSelector.spanishVoices(voices()).filter { $0.language == "es-ES" }
+        let spain = VoiceSelector.spanishVoices(installedVoiceList).filter { $0.language == "es-ES" }
         return !spain.isEmpty && !spain.contains { $0.quality >= 2 }
     }
 

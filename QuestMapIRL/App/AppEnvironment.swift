@@ -35,7 +35,11 @@ final class AppEnvironment {
         self.speedLimits = limits
         self.music = MusicPlayerModel(backends: [AppleMusicBackend(), SpotifyMusicBackend.makeDefault(), SystemNowPlayingBackend()])
         // Voz grabada activa: se consulta en cada indicación (cambiar o borrar el perfil se aplica a la siguiente).
-        speech.recordedVoice = { AppEnvironment.activeRecordedVoice(context: ContainerFactory.shared.mainContext) }
+        speech.recordedVoice = {
+            PerformanceTrace.measure("voice-profile-resolve", thresholdMs: 30) {
+                AppEnvironment.activeRecordedVoice(context: ContainerFactory.shared.mainContext)
+            }
+        }
         let freeDrive = FreeDriveSpeedLimit(matcher: limits)
         // Casa y Trabajo: alrededor de ellos no se envía ningún punto del recorrido (se leen aquí, no se registran).
         freeDrive.excludedAreas = {
