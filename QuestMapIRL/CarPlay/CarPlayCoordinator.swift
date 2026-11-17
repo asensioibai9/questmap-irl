@@ -125,7 +125,7 @@ final class CarPlayCoordinator: NSObject {
             Task { @MainActor in
                 guard let self, self.isActive else { return }
                 if let reading = self.location.smoothedLocation {
-                    self.carMap.setUser(reading.coordinate, heading: self.location.displayHeading)
+                    self.carMap.setUser(reading, heading: self.location.displayHeading)
                 }
                 self.observeLocation()
             }

@@ -52,7 +52,7 @@ final class LocationService: NSObject, LocationServiceProtocol {
     @ObservationIgnored private let clock: () -> Date
     @ObservationIgnored private let servicesEnabledProvider: (() -> Bool)?
     @ObservationIgnored private var mode: LocationMode = .idle
-    @ObservationIgnored private var magneticHeading: Double = 0
+    @ObservationIgnored private var headingSelector = HeadingSourceSelector()
     @ObservationIgnored private var timer: Timer?
     /// Alguien pidió actualizaciones (puede que aún falte el permiso).
     @ObservationIgnored private var wantsUpdates = false
@@ -318,8 +318,9 @@ final class LocationService: NSObject, LocationServiceProtocol {
     private func smooth(_ new: CLLocation) -> CLLocation {
         guard let prev = smoothedLocation, new.horizontalAccuracy < 100 else { return new }
         let jump = new.distance(from: prev)
-        // Un salto grande o buena señal: fiarse del fix nuevo.
-        if jump > 40 || new.horizontalAccuracy < 8 { return new }
+        // Un salto grande, buena señal o desplazamiento claro: fiarse del fix nuevo. En marcha la suavidad la pone la
+        // animación de la flecha (MarkerMotion); filtrar aquí también solo añadiría retraso.
+        if jump > 40 || new.horizontalAccuracy < 8 || (new.speed > 2 && new.course >= 0) { return new }
         let alpha = mode == .navigating ? 0.65 : 0.5
         let lat = prev.coordinate.latitude + (new.coordinate.latitude - prev.coordinate.latitude) * alpha
         let lon = prev.coordinate.longitude + (new.coordinate.longitude - prev.coordinate.longitude) * alpha
@@ -332,12 +333,19 @@ final class LocationService: NSObject, LocationServiceProtocol {
                           timestamp: new.timestamp)
     }
 
-    /// En movimiento (> 1,5 m/s) manda el course del GPS; parado, la brújula.
+    /// En marcha manda el course del GPS; parado, la brújula (con histéresis: `HeadingSourceSelector`).
     private func updateHeading(with location: CLLocation) {
-        if location.speed > 1.5, location.course >= 0 {
-            displayHeading = location.course
-        } else if magneticHeading >= 0 {
-            displayHeading = magneticHeading
+        if let heading = headingSelector.ingestFix(speed: location.speed, course: location.course,
+                                                   courseAccuracy: location.courseAccuracy),
+           heading != displayHeading {
+            displayHeading = heading
+        }
+    }
+
+    /// Lectura de la brújula (grados verdaderos si los hay). Solo se muestra si la fuente activa es la brújula.
+    func ingestCompass(_ value: Double, accuracy: Double) {
+        if let heading = headingSelector.ingestCompass(value, accuracy: accuracy), heading != displayHeading {
+            displayHeading = heading
         }
     }
 
@@ -375,10 +383,8 @@ extension LocationService: CLLocationManagerDelegate {
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
         let value = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
-        Task { @MainActor in
-            self.magneticHeading = value
-            if let loc = self.currentLocation, loc.speed <= 1.5 { self.displayHeading = value }
-        }
+        let accuracy = newHeading.headingAccuracy
+        Task { @MainActor in self.ingestCompass(value, accuracy: accuracy) }
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {

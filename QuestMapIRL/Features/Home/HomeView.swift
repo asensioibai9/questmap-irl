@@ -722,9 +722,11 @@ struct HomeView: View {
 
     private func pushUser() {
         guard let reading = location.smoothedLocation else { return }
+        // Solo presentación: los mapas animan la flecha hacia esta lectura. La navegación usa la lectura real
+        // (`currentLocation`) en NavigationHub, nunca la posición animada.
         let heading = location.displayHeading
-        map.setUser(reading.coordinate, heading: heading)
-        miniMap.setUser(reading.coordinate, heading: heading)
+        map.setUser(reading, heading: heading)
+        miniMap.setUser(reading, heading: heading)
     }
 
     private func recenter() {
