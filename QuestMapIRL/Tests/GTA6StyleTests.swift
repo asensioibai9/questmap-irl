@@ -194,6 +194,67 @@ final class GTA6StyleTests: XCTestCase {
         XCTAssertEqual(ThemeCatalog.costaTropical.activeCartography.minimapShape, .roundedRectangle)
     }
 
+    /// Nombres `poi-*` que el JSON usa como imagen (excluye los identificadores de capa).
+    private func iconNamesUsed(in source: [String: Any]) throws -> Set<String> {
+        let data = try JSONSerialization.data(withJSONObject: source["layers"] as Any)
+        let text = String(decoding: data, as: UTF8.self)
+        let regex = try NSRegularExpression(pattern: "\"(poi-[a-z0-9-]+)\"")
+        let found = regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap {
+            Range($0.range(at: 1), in: text).map { String(text[$0]) }
+        }
+        let layerIDs = Set(((source["layers"] as? [[String: Any]]) ?? []).compactMap { $0["id"] as? String })
+        return Set(found).subtracting(layerIDs)
+    }
+
+    func testEveryIconOfTheExtendedFamilyIsRegisteredAndHasAnAsset() throws {
+        let used = try iconNamesUsed(in: style)
+        let registered = Set(GameIcons.styleNameToAsset.keys).union(GameIcons.bubbleOnlyAssets.map { "poi-\($0)" })
+        XCTAssertTrue(used.isSubset(of: registered), "sin registrar: \(used.subtracting(registered).sorted())")
+        let bundle = Bundle(for: AppEnvironment.self)
+        for asset in GameIcons.bubbleOnlyAssets {
+            XCTAssertNotNil(UIImage(named: GameIcons.assetName(for: asset, prefix: "gta6-poi"), in: bundle, compatibleWith: nil),
+                            "Falta gta6-poi-\(asset)")
+        }
+        XCTAssertGreaterThanOrEqual(GameIcons.bubbleOnlyAssets.count, 40)
+        XCTAssertEqual(Set(GameIcons.bubbleOnlyAssets).count, GameIcons.bubbleOnlyAssets.count)
+    }
+
+    func testRealCategoriesFromTheReferenceGetTheirOwnIcon() throws {
+        let food = String(describing: (layer("poi-icon-food")?["layout"] as? [String: Any])?["icon-image"] as Any)
+        for icon in ["poi-burger", "poi-mug", "poi-nightclub", "poi-bakery", "poi-ice-cream"] {
+            XCTAssertTrue(food.contains(icon), "comida y bebida: \(icon)")
+        }
+        let shops = String(describing: (layer("poi-icon-shops")?["layout"] as? [String: Any])?["icon-image"] as Any)
+        for icon in ["poi-clothes", "poi-shoes", "poi-beauty", "poi-tattoo", "poi-electronics", "poi-basket", "poi-bottle",
+                     "poi-car-repair", "poi-car-wash"] {
+            XCTAssertTrue(shops.contains(icon), "tiendas y vehículos: \(icon)")
+        }
+        let fuel = String(describing: (layer("poi-icon-fuel")?["layout"] as? [String: Any])?["icon-image"] as Any)
+        XCTAssertTrue(fuel.contains("poi-charging"), "puntos de recarga distintos de gasolineras")
+        let other = try XCTUnwrap(layer("poi-icon-other"))
+        let otherFilter = String(describing: other["filter"] as Any)
+        for cls in ["harbor", "sports_centre", "golf", "post", "fire_station"] {
+            XCTAssertTrue(otherFilter.contains(cls), "otros lugares: \(cls)")
+        }
+        XCTAssertTrue(String(describing: layer("poi-icon-transit")?["filter"] as Any).contains("ferry_terminal"))
+    }
+
+    func testHouseNumbersNoLongerHidePlaces() throws {
+        let order = ids
+        let housenumber = try XCTUnwrap(order.firstIndex(of: "label-housenumber"))
+        for poi in order where poi.hasPrefix("poi-icon") {
+            XCTAssertLessThan(housenumber, try XCTUnwrap(order.firstIndex(of: poi)), "\(poi) gana la colisión a los portales")
+        }
+    }
+
+    func testGTAVDoesNotUseTheNewIcons() throws {
+        let bundle = Bundle(for: AppEnvironment.self)
+        let url = try XCTUnwrap(bundle.url(forResource: "style-ciudad-nocturna", withExtension: "json"))
+        let gtaV = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let used = try iconNamesUsed(in: gtaV)
+        XCTAssertTrue(used.isDisjoint(with: GameIcons.bubbleOnlyAssets.map { "poi-\($0)" }), "GTA V conserva sus iconos")
+    }
+
     func testUserArrowBadgeOnlyChangesTheClassicArrow() {
         let plain = MapAvatar.arrow.image(fill: .white, border: .black)
         let badged = MapAvatar.arrow.image(fill: .white, border: .black, badge: .black)

@@ -62,8 +62,10 @@ fetch(q.get('url') || `../../QuestMapIRL/Resources/style-${styleName}.json`)
         if (!map.hasImage(e.id)) map.addImage(e.id, g.getImageData(0, 0, 96, 96), {pixelRatio: 2});
         return;
       }
-      if (GTA[e.id] && family) {
-        const n = GTA[e.id];
+      // GTA VI tiene además iconos propios `poi-<recurso>` sin equivalente en GTA V.
+      const viExtra = family === 'gta6-poi' && e.id.startsWith('poi-') && !GTA[e.id];
+      if ((GTA[e.id] || viExtra) && family) {
+        const n = GTA[e.id] || e.id.slice(4);
         const res = await map.loadImage(`../../QuestMapIRL/Resources/Assets.xcassets/${family}-${n}.imageset/${family}-${n}.png`);
         if (!map.hasImage(e.id)) map.addImage(e.id, res.data, {pixelRatio: 3});
         return;

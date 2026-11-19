@@ -4331,6 +4331,27 @@
    }
   },
   {
+   "id": "label-housenumber",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "housenumber",
+   "minzoom": 18,
+   "layout": {
+    "text-field": [
+     "get",
+     "housenumber"
+    ],
+    "text-font": [
+     "Noto Sans Regular"
+    ],
+    "text-size": 10
+   },
+   "paint": {
+    "text-color": "#4e5566",
+    "text-opacity": 0.7
+   }
+  },
+  {
    "id": "poi-icon-other",
    "type": "symbol",
    "source": "openmaptiles",
@@ -4358,7 +4379,11 @@
       "library",
       "bank",
       "atm",
-      "lodging"
+      "lodging",
+      "harbor",
+      "sports_centre",
+      "golf",
+      "post"
      ],
      true,
      false
@@ -4389,7 +4414,7 @@
       [
        "fire_station"
       ],
-      16,
+      14.5,
       [
        "prison"
       ],
@@ -4438,6 +4463,22 @@
        "lodging"
       ],
       16,
+      [
+       "harbor"
+      ],
+      16,
+      [
+       "sports_centre"
+      ],
+      16,
+      [
+       "golf"
+      ],
+      16,
+      [
+       "post"
+      ],
+      16,
       14.5
      ]
     ],
@@ -4476,91 +4517,256 @@
      "match",
      [
       "get",
-      "class"
+      "subclass"
      ],
      [
-      "fuel"
+      "nightclub"
      ],
-     "poi-fuel",
+     "poi-nightclub",
      [
-      "parking"
+      "pub"
      ],
-     "poi-parking",
+     "poi-mug",
      [
-      "hospital",
-      "pharmacy",
-      "doctors",
-      "dentist",
-      "veterinary"
+      "convenience",
+      "kiosk"
      ],
-     "poi-health",
+     "poi-basket",
      [
-      "police",
-      "fire_station",
-      "prison"
+      "supermarket"
      ],
-     "poi-police",
+     "poi-cart",
      [
-      "restaurant",
-      "fast_food"
+      "shoes"
      ],
-     "poi-food",
+     "poi-shoes",
      [
-      "cafe",
-      "bakery",
-      "ice_cream"
+      "tattoo"
      ],
-     "poi-cafe",
+     "poi-tattoo",
      [
-      "bar",
-      "pub",
-      "beer"
+      "beauty",
+      "cosmetics",
+      "perfumery"
      ],
-     "poi-bar",
+     "poi-beauty",
      [
-      "grocery"
+      "mobile_phone",
+      "electronics",
+      "computer"
      ],
-     "poi-grocery",
+     "poi-electronics",
      [
-      "shop",
-      "clothing_store",
-      "butcher",
-      "alcohol_shop",
-      "laundry",
-      "hairdresser"
+      "car_repair"
      ],
-     "poi-shop",
+     "poi-car-repair",
      [
-      "museum",
-      "attraction",
-      "castle",
-      "monument",
-      "theatre",
-      "cinema",
-      "art_gallery",
-      "library"
+      "car_wash"
      ],
-     "poi-culture",
+     "poi-car-wash",
      [
-      "bank",
-      "atm"
+      "charging_station"
      ],
-     "poi-bank",
+     "poi-charging",
      [
-      "lodging"
+      "marina"
      ],
-     "poi-lodging",
+     "poi-marina",
      [
-      "bicycle_parking",
-      "bicycle_rental"
+      "gift"
      ],
-     "poi-bike",
+     "poi-gift",
      [
-      "bus",
-      "railway"
+      "florist"
      ],
-     "poi-transit",
-     "poi-shop"
+     "poi-florist",
+     [
+      "jewelry"
+     ],
+     "poi-jewelry",
+     [
+      "optician"
+     ],
+     "poi-optician",
+     [
+      "books"
+     ],
+     "poi-books",
+     [
+      "match",
+      [
+       "get",
+       "class"
+      ],
+      [
+       "fuel"
+      ],
+      "poi-fuel",
+      [
+       "parking"
+      ],
+      "poi-parking",
+      [
+       "hospital",
+       "doctors"
+      ],
+      "poi-health",
+      [
+       "pharmacy"
+      ],
+      "poi-pharmacy",
+      [
+       "dentist"
+      ],
+      "poi-dentist",
+      [
+       "veterinary"
+      ],
+      "poi-vet",
+      [
+       "police",
+       "prison"
+      ],
+      "poi-police",
+      [
+       "fire_station"
+      ],
+      "poi-fire",
+      [
+       "restaurant"
+      ],
+      "poi-food",
+      [
+       "fast_food"
+      ],
+      "poi-burger",
+      [
+       "cafe"
+      ],
+      "poi-cafe",
+      [
+       "bakery"
+      ],
+      "poi-bakery",
+      [
+       "ice_cream"
+      ],
+      "poi-ice-cream",
+      [
+       "bar",
+       "pub"
+      ],
+      "poi-bar",
+      [
+       "beer"
+      ],
+      "poi-mug",
+      [
+       "grocery"
+      ],
+      "poi-cart",
+      [
+       "shop",
+       "butcher",
+       "laundry"
+      ],
+      "poi-shop",
+      [
+       "clothing_store"
+      ],
+      "poi-clothes",
+      [
+       "alcohol_shop"
+      ],
+      "poi-bottle",
+      [
+       "hairdresser"
+      ],
+      "poi-beauty",
+      [
+       "museum"
+      ],
+      "poi-culture",
+      [
+       "attraction"
+      ],
+      "poi-attraction",
+      [
+       "castle"
+      ],
+      "poi-castle",
+      [
+       "monument"
+      ],
+      "poi-monument",
+      [
+       "theatre"
+      ],
+      "poi-theatre",
+      [
+       "cinema"
+      ],
+      "poi-cinema",
+      [
+       "art_gallery"
+      ],
+      "poi-art",
+      [
+       "library"
+      ],
+      "poi-books",
+      [
+       "bank"
+      ],
+      "poi-coin",
+      [
+       "atm"
+      ],
+      "poi-atm",
+      [
+       "lodging"
+      ],
+      "poi-lodging",
+      [
+       "bicycle_parking",
+       "bicycle_rental"
+      ],
+      "poi-bike",
+      [
+       "bus",
+       "railway"
+      ],
+      "poi-transit",
+      [
+       "car"
+      ],
+      "poi-car",
+      [
+       "harbor"
+      ],
+      "poi-marina",
+      [
+       "ferry_terminal"
+      ],
+      "poi-ferry",
+      [
+       "sports_centre"
+      ],
+      "poi-gym",
+      [
+       "golf"
+      ],
+      "poi-golf",
+      [
+       "post"
+      ],
+      "poi-post",
+      [
+       "music"
+      ],
+      "poi-music",
+      "poi-shop"
+     ]
     ],
     "icon-size": [
      "interpolate",
@@ -4572,11 +4778,11 @@
       "zoom"
      ],
      14.5,
-     0.5,
+     0.65,
      17,
-     0.72,
+     0.936,
      19,
-     0.92
+     1.196
     ],
     "icon-allow-overlap": false,
     "icon-padding": 6,
@@ -4604,7 +4810,8 @@
         "class"
        ],
        [
-        "police"
+        "police",
+        "fire_station"
        ],
        true,
        false
@@ -5007,91 +5214,256 @@
      "match",
      [
       "get",
-      "class"
+      "subclass"
      ],
      [
-      "fuel"
+      "nightclub"
      ],
-     "poi-fuel",
+     "poi-nightclub",
      [
-      "parking"
+      "pub"
      ],
-     "poi-parking",
+     "poi-mug",
      [
-      "hospital",
-      "pharmacy",
-      "doctors",
-      "dentist",
-      "veterinary"
+      "convenience",
+      "kiosk"
      ],
-     "poi-health",
+     "poi-basket",
      [
-      "police",
-      "fire_station",
-      "prison"
+      "supermarket"
      ],
-     "poi-police",
+     "poi-cart",
      [
-      "restaurant",
-      "fast_food"
+      "shoes"
      ],
-     "poi-food",
+     "poi-shoes",
      [
-      "cafe",
-      "bakery",
-      "ice_cream"
+      "tattoo"
      ],
-     "poi-cafe",
+     "poi-tattoo",
      [
-      "bar",
-      "pub",
-      "beer"
+      "beauty",
+      "cosmetics",
+      "perfumery"
      ],
-     "poi-bar",
+     "poi-beauty",
      [
-      "grocery"
+      "mobile_phone",
+      "electronics",
+      "computer"
      ],
-     "poi-grocery",
+     "poi-electronics",
      [
-      "shop",
-      "clothing_store",
-      "butcher",
-      "alcohol_shop",
-      "laundry",
-      "hairdresser"
+      "car_repair"
      ],
-     "poi-shop",
+     "poi-car-repair",
      [
-      "museum",
-      "attraction",
-      "castle",
-      "monument",
-      "theatre",
-      "cinema",
-      "art_gallery",
-      "library"
+      "car_wash"
      ],
-     "poi-culture",
+     "poi-car-wash",
      [
-      "bank",
-      "atm"
+      "charging_station"
      ],
-     "poi-bank",
+     "poi-charging",
      [
-      "lodging"
+      "marina"
      ],
-     "poi-lodging",
+     "poi-marina",
      [
-      "bicycle_parking",
-      "bicycle_rental"
+      "gift"
      ],
-     "poi-bike",
+     "poi-gift",
      [
-      "bus",
-      "railway"
+      "florist"
      ],
-     "poi-transit",
-     "poi-shop"
+     "poi-florist",
+     [
+      "jewelry"
+     ],
+     "poi-jewelry",
+     [
+      "optician"
+     ],
+     "poi-optician",
+     [
+      "books"
+     ],
+     "poi-books",
+     [
+      "match",
+      [
+       "get",
+       "class"
+      ],
+      [
+       "fuel"
+      ],
+      "poi-fuel",
+      [
+       "parking"
+      ],
+      "poi-parking",
+      [
+       "hospital",
+       "doctors"
+      ],
+      "poi-health",
+      [
+       "pharmacy"
+      ],
+      "poi-pharmacy",
+      [
+       "dentist"
+      ],
+      "poi-dentist",
+      [
+       "veterinary"
+      ],
+      "poi-vet",
+      [
+       "police",
+       "prison"
+      ],
+      "poi-police",
+      [
+       "fire_station"
+      ],
+      "poi-fire",
+      [
+       "restaurant"
+      ],
+      "poi-food",
+      [
+       "fast_food"
+      ],
+      "poi-burger",
+      [
+       "cafe"
+      ],
+      "poi-cafe",
+      [
+       "bakery"
+      ],
+      "poi-bakery",
+      [
+       "ice_cream"
+      ],
+      "poi-ice-cream",
+      [
+       "bar",
+       "pub"
+      ],
+      "poi-bar",
+      [
+       "beer"
+      ],
+      "poi-mug",
+      [
+       "grocery"
+      ],
+      "poi-cart",
+      [
+       "shop",
+       "butcher",
+       "laundry"
+      ],
+      "poi-shop",
+      [
+       "clothing_store"
+      ],
+      "poi-clothes",
+      [
+       "alcohol_shop"
+      ],
+      "poi-bottle",
+      [
+       "hairdresser"
+      ],
+      "poi-beauty",
+      [
+       "museum"
+      ],
+      "poi-culture",
+      [
+       "attraction"
+      ],
+      "poi-attraction",
+      [
+       "castle"
+      ],
+      "poi-castle",
+      [
+       "monument"
+      ],
+      "poi-monument",
+      [
+       "theatre"
+      ],
+      "poi-theatre",
+      [
+       "cinema"
+      ],
+      "poi-cinema",
+      [
+       "art_gallery"
+      ],
+      "poi-art",
+      [
+       "library"
+      ],
+      "poi-books",
+      [
+       "bank"
+      ],
+      "poi-coin",
+      [
+       "atm"
+      ],
+      "poi-atm",
+      [
+       "lodging"
+      ],
+      "poi-lodging",
+      [
+       "bicycle_parking",
+       "bicycle_rental"
+      ],
+      "poi-bike",
+      [
+       "bus",
+       "railway"
+      ],
+      "poi-transit",
+      [
+       "car"
+      ],
+      "poi-car",
+      [
+       "harbor"
+      ],
+      "poi-marina",
+      [
+       "ferry_terminal"
+      ],
+      "poi-ferry",
+      [
+       "sports_centre"
+      ],
+      "poi-gym",
+      [
+       "golf"
+      ],
+      "poi-golf",
+      [
+       "post"
+      ],
+      "poi-post",
+      [
+       "music"
+      ],
+      "poi-music",
+      "poi-shop"
+     ]
     ],
     "icon-size": [
      "interpolate",
@@ -5103,11 +5475,11 @@
       "zoom"
      ],
      14.5,
-     0.5,
+     0.65,
      17,
-     0.72,
+     0.936,
      19,
-     0.92
+     1.196
     ],
     "icon-allow-overlap": false,
     "icon-padding": 6,
@@ -5327,7 +5699,9 @@
       "alcohol_shop",
       "laundry",
       "hairdresser",
-      "grocery"
+      "grocery",
+      "car",
+      "music"
      ],
      true,
      false
@@ -5379,6 +5753,14 @@
        "grocery"
       ],
       16,
+      [
+       "car"
+      ],
+      16,
+      [
+       "music"
+      ],
+      17,
       16
      ]
     ],
@@ -5417,91 +5799,256 @@
      "match",
      [
       "get",
-      "class"
+      "subclass"
      ],
      [
-      "fuel"
+      "nightclub"
      ],
-     "poi-fuel",
+     "poi-nightclub",
      [
-      "parking"
+      "pub"
      ],
-     "poi-parking",
+     "poi-mug",
      [
-      "hospital",
-      "pharmacy",
-      "doctors",
-      "dentist",
-      "veterinary"
+      "convenience",
+      "kiosk"
      ],
-     "poi-health",
+     "poi-basket",
      [
-      "police",
-      "fire_station",
-      "prison"
+      "supermarket"
      ],
-     "poi-police",
+     "poi-cart",
      [
-      "restaurant",
-      "fast_food"
+      "shoes"
      ],
-     "poi-food",
+     "poi-shoes",
      [
-      "cafe",
-      "bakery",
-      "ice_cream"
+      "tattoo"
      ],
-     "poi-cafe",
+     "poi-tattoo",
      [
-      "bar",
-      "pub",
-      "beer"
+      "beauty",
+      "cosmetics",
+      "perfumery"
      ],
-     "poi-bar",
+     "poi-beauty",
      [
-      "grocery"
+      "mobile_phone",
+      "electronics",
+      "computer"
      ],
-     "poi-grocery",
+     "poi-electronics",
      [
-      "shop",
-      "clothing_store",
-      "butcher",
-      "alcohol_shop",
-      "laundry",
-      "hairdresser"
+      "car_repair"
      ],
-     "poi-shop",
+     "poi-car-repair",
      [
-      "museum",
-      "attraction",
-      "castle",
-      "monument",
-      "theatre",
-      "cinema",
-      "art_gallery",
-      "library"
+      "car_wash"
      ],
-     "poi-culture",
+     "poi-car-wash",
      [
-      "bank",
-      "atm"
+      "charging_station"
      ],
-     "poi-bank",
+     "poi-charging",
      [
-      "lodging"
+      "marina"
      ],
-     "poi-lodging",
+     "poi-marina",
      [
-      "bicycle_parking",
-      "bicycle_rental"
+      "gift"
      ],
-     "poi-bike",
+     "poi-gift",
      [
-      "bus",
-      "railway"
+      "florist"
      ],
-     "poi-transit",
-     "poi-shop"
+     "poi-florist",
+     [
+      "jewelry"
+     ],
+     "poi-jewelry",
+     [
+      "optician"
+     ],
+     "poi-optician",
+     [
+      "books"
+     ],
+     "poi-books",
+     [
+      "match",
+      [
+       "get",
+       "class"
+      ],
+      [
+       "fuel"
+      ],
+      "poi-fuel",
+      [
+       "parking"
+      ],
+      "poi-parking",
+      [
+       "hospital",
+       "doctors"
+      ],
+      "poi-health",
+      [
+       "pharmacy"
+      ],
+      "poi-pharmacy",
+      [
+       "dentist"
+      ],
+      "poi-dentist",
+      [
+       "veterinary"
+      ],
+      "poi-vet",
+      [
+       "police",
+       "prison"
+      ],
+      "poi-police",
+      [
+       "fire_station"
+      ],
+      "poi-fire",
+      [
+       "restaurant"
+      ],
+      "poi-food",
+      [
+       "fast_food"
+      ],
+      "poi-burger",
+      [
+       "cafe"
+      ],
+      "poi-cafe",
+      [
+       "bakery"
+      ],
+      "poi-bakery",
+      [
+       "ice_cream"
+      ],
+      "poi-ice-cream",
+      [
+       "bar",
+       "pub"
+      ],
+      "poi-bar",
+      [
+       "beer"
+      ],
+      "poi-mug",
+      [
+       "grocery"
+      ],
+      "poi-cart",
+      [
+       "shop",
+       "butcher",
+       "laundry"
+      ],
+      "poi-shop",
+      [
+       "clothing_store"
+      ],
+      "poi-clothes",
+      [
+       "alcohol_shop"
+      ],
+      "poi-bottle",
+      [
+       "hairdresser"
+      ],
+      "poi-beauty",
+      [
+       "museum"
+      ],
+      "poi-culture",
+      [
+       "attraction"
+      ],
+      "poi-attraction",
+      [
+       "castle"
+      ],
+      "poi-castle",
+      [
+       "monument"
+      ],
+      "poi-monument",
+      [
+       "theatre"
+      ],
+      "poi-theatre",
+      [
+       "cinema"
+      ],
+      "poi-cinema",
+      [
+       "art_gallery"
+      ],
+      "poi-art",
+      [
+       "library"
+      ],
+      "poi-books",
+      [
+       "bank"
+      ],
+      "poi-coin",
+      [
+       "atm"
+      ],
+      "poi-atm",
+      [
+       "lodging"
+      ],
+      "poi-lodging",
+      [
+       "bicycle_parking",
+       "bicycle_rental"
+      ],
+      "poi-bike",
+      [
+       "bus",
+       "railway"
+      ],
+      "poi-transit",
+      [
+       "car"
+      ],
+      "poi-car",
+      [
+       "harbor"
+      ],
+      "poi-marina",
+      [
+       "ferry_terminal"
+      ],
+      "poi-ferry",
+      [
+       "sports_centre"
+      ],
+      "poi-gym",
+      [
+       "golf"
+      ],
+      "poi-golf",
+      [
+       "post"
+      ],
+      "poi-post",
+      [
+       "music"
+      ],
+      "poi-music",
+      "poi-shop"
+     ]
     ],
     "icon-size": [
      "interpolate",
@@ -5513,11 +6060,11 @@
       "zoom"
      ],
      14.5,
-     0.5,
+     0.65,
      17,
-     0.72,
+     0.936,
      19,
-     0.92
+     1.196
     ],
     "icon-allow-overlap": false,
     "icon-padding": 6,
@@ -5545,7 +6092,8 @@
         "class"
        ],
        [
-        "grocery"
+        "grocery",
+        "car"
        ],
        true,
        false
@@ -5919,11 +6467,11 @@
       "zoom"
      ],
      14.5,
-     0.5,
+     0.65,
      17,
-     0.72,
+     0.936,
      19,
-     0.92
+     1.196
     ],
     "icon-allow-overlap": false,
     "icon-padding": 6,
@@ -6192,11 +6740,11 @@
       "zoom"
      ],
      14.5,
-     0.5,
+     0.65,
      17,
-     0.72,
+     0.936,
      19,
-     0.92
+     1.196
     ],
     "icon-allow-overlap": false,
     "icon-padding": 6,
@@ -6436,11 +6984,11 @@
       "zoom"
      ],
      14.5,
-     0.5,
+     0.65,
      17,
-     0.72,
+     0.936,
      19,
-     0.92
+     1.196
     ],
     "icon-allow-overlap": false,
     "icon-padding": 6,
@@ -6702,91 +7250,256 @@
      "match",
      [
       "get",
-      "class"
+      "subclass"
      ],
      [
-      "fuel"
+      "nightclub"
      ],
-     "poi-fuel",
+     "poi-nightclub",
      [
-      "parking"
+      "pub"
      ],
-     "poi-parking",
+     "poi-mug",
      [
-      "hospital",
-      "pharmacy",
-      "doctors",
-      "dentist",
-      "veterinary"
+      "convenience",
+      "kiosk"
      ],
-     "poi-health",
+     "poi-basket",
      [
-      "police",
-      "fire_station",
-      "prison"
+      "supermarket"
      ],
-     "poi-police",
+     "poi-cart",
      [
-      "restaurant",
-      "fast_food"
+      "shoes"
      ],
-     "poi-food",
+     "poi-shoes",
      [
-      "cafe",
-      "bakery",
-      "ice_cream"
+      "tattoo"
      ],
-     "poi-cafe",
+     "poi-tattoo",
      [
-      "bar",
-      "pub",
-      "beer"
+      "beauty",
+      "cosmetics",
+      "perfumery"
      ],
-     "poi-bar",
+     "poi-beauty",
      [
-      "grocery"
+      "mobile_phone",
+      "electronics",
+      "computer"
      ],
-     "poi-grocery",
+     "poi-electronics",
      [
-      "shop",
-      "clothing_store",
-      "butcher",
-      "alcohol_shop",
-      "laundry",
-      "hairdresser"
+      "car_repair"
      ],
-     "poi-shop",
+     "poi-car-repair",
      [
-      "museum",
-      "attraction",
-      "castle",
-      "monument",
-      "theatre",
-      "cinema",
-      "art_gallery",
-      "library"
+      "car_wash"
      ],
-     "poi-culture",
+     "poi-car-wash",
      [
-      "bank",
-      "atm"
+      "charging_station"
      ],
-     "poi-bank",
+     "poi-charging",
      [
-      "lodging"
+      "marina"
      ],
-     "poi-lodging",
+     "poi-marina",
      [
-      "bicycle_parking",
-      "bicycle_rental"
+      "gift"
      ],
-     "poi-bike",
+     "poi-gift",
      [
-      "bus",
-      "railway"
+      "florist"
      ],
-     "poi-transit",
-     "poi-shop"
+     "poi-florist",
+     [
+      "jewelry"
+     ],
+     "poi-jewelry",
+     [
+      "optician"
+     ],
+     "poi-optician",
+     [
+      "books"
+     ],
+     "poi-books",
+     [
+      "match",
+      [
+       "get",
+       "class"
+      ],
+      [
+       "fuel"
+      ],
+      "poi-fuel",
+      [
+       "parking"
+      ],
+      "poi-parking",
+      [
+       "hospital",
+       "doctors"
+      ],
+      "poi-health",
+      [
+       "pharmacy"
+      ],
+      "poi-pharmacy",
+      [
+       "dentist"
+      ],
+      "poi-dentist",
+      [
+       "veterinary"
+      ],
+      "poi-vet",
+      [
+       "police",
+       "prison"
+      ],
+      "poi-police",
+      [
+       "fire_station"
+      ],
+      "poi-fire",
+      [
+       "restaurant"
+      ],
+      "poi-food",
+      [
+       "fast_food"
+      ],
+      "poi-burger",
+      [
+       "cafe"
+      ],
+      "poi-cafe",
+      [
+       "bakery"
+      ],
+      "poi-bakery",
+      [
+       "ice_cream"
+      ],
+      "poi-ice-cream",
+      [
+       "bar",
+       "pub"
+      ],
+      "poi-bar",
+      [
+       "beer"
+      ],
+      "poi-mug",
+      [
+       "grocery"
+      ],
+      "poi-cart",
+      [
+       "shop",
+       "butcher",
+       "laundry"
+      ],
+      "poi-shop",
+      [
+       "clothing_store"
+      ],
+      "poi-clothes",
+      [
+       "alcohol_shop"
+      ],
+      "poi-bottle",
+      [
+       "hairdresser"
+      ],
+      "poi-beauty",
+      [
+       "museum"
+      ],
+      "poi-culture",
+      [
+       "attraction"
+      ],
+      "poi-attraction",
+      [
+       "castle"
+      ],
+      "poi-castle",
+      [
+       "monument"
+      ],
+      "poi-monument",
+      [
+       "theatre"
+      ],
+      "poi-theatre",
+      [
+       "cinema"
+      ],
+      "poi-cinema",
+      [
+       "art_gallery"
+      ],
+      "poi-art",
+      [
+       "library"
+      ],
+      "poi-books",
+      [
+       "bank"
+      ],
+      "poi-coin",
+      [
+       "atm"
+      ],
+      "poi-atm",
+      [
+       "lodging"
+      ],
+      "poi-lodging",
+      [
+       "bicycle_parking",
+       "bicycle_rental"
+      ],
+      "poi-bike",
+      [
+       "bus",
+       "railway"
+      ],
+      "poi-transit",
+      [
+       "car"
+      ],
+      "poi-car",
+      [
+       "harbor"
+      ],
+      "poi-marina",
+      [
+       "ferry_terminal"
+      ],
+      "poi-ferry",
+      [
+       "sports_centre"
+      ],
+      "poi-gym",
+      [
+       "golf"
+      ],
+      "poi-golf",
+      [
+       "post"
+      ],
+      "poi-post",
+      [
+       "music"
+      ],
+      "poi-music",
+      "poi-shop"
+     ]
     ],
     "icon-size": [
      "interpolate",
@@ -6798,11 +7511,11 @@
       "zoom"
      ],
      14.5,
-     0.5,
+     0.65,
      17,
-     0.72,
+     0.936,
      19,
-     0.92
+     1.196
     ],
     "icon-allow-overlap": false,
     "icon-padding": 6,
@@ -7102,91 +7815,256 @@
      "match",
      [
       "get",
-      "class"
+      "subclass"
      ],
      [
-      "fuel"
+      "nightclub"
      ],
-     "poi-fuel",
+     "poi-nightclub",
      [
-      "parking"
+      "pub"
      ],
-     "poi-parking",
+     "poi-mug",
      [
-      "hospital",
-      "pharmacy",
-      "doctors",
-      "dentist",
-      "veterinary"
+      "convenience",
+      "kiosk"
      ],
-     "poi-health",
+     "poi-basket",
      [
-      "police",
-      "fire_station",
-      "prison"
+      "supermarket"
      ],
-     "poi-police",
+     "poi-cart",
      [
-      "restaurant",
-      "fast_food"
+      "shoes"
      ],
-     "poi-food",
+     "poi-shoes",
      [
-      "cafe",
-      "bakery",
-      "ice_cream"
+      "tattoo"
      ],
-     "poi-cafe",
+     "poi-tattoo",
      [
-      "bar",
-      "pub",
-      "beer"
+      "beauty",
+      "cosmetics",
+      "perfumery"
      ],
-     "poi-bar",
+     "poi-beauty",
      [
-      "grocery"
+      "mobile_phone",
+      "electronics",
+      "computer"
      ],
-     "poi-grocery",
+     "poi-electronics",
      [
-      "shop",
-      "clothing_store",
-      "butcher",
-      "alcohol_shop",
-      "laundry",
-      "hairdresser"
+      "car_repair"
      ],
-     "poi-shop",
+     "poi-car-repair",
      [
-      "museum",
-      "attraction",
-      "castle",
-      "monument",
-      "theatre",
-      "cinema",
-      "art_gallery",
-      "library"
+      "car_wash"
      ],
-     "poi-culture",
+     "poi-car-wash",
      [
-      "bank",
-      "atm"
+      "charging_station"
      ],
-     "poi-bank",
+     "poi-charging",
      [
-      "lodging"
+      "marina"
      ],
-     "poi-lodging",
+     "poi-marina",
      [
-      "bicycle_parking",
-      "bicycle_rental"
+      "gift"
      ],
-     "poi-bike",
+     "poi-gift",
      [
-      "bus",
-      "railway"
+      "florist"
      ],
-     "poi-transit",
-     "poi-shop"
+     "poi-florist",
+     [
+      "jewelry"
+     ],
+     "poi-jewelry",
+     [
+      "optician"
+     ],
+     "poi-optician",
+     [
+      "books"
+     ],
+     "poi-books",
+     [
+      "match",
+      [
+       "get",
+       "class"
+      ],
+      [
+       "fuel"
+      ],
+      "poi-fuel",
+      [
+       "parking"
+      ],
+      "poi-parking",
+      [
+       "hospital",
+       "doctors"
+      ],
+      "poi-health",
+      [
+       "pharmacy"
+      ],
+      "poi-pharmacy",
+      [
+       "dentist"
+      ],
+      "poi-dentist",
+      [
+       "veterinary"
+      ],
+      "poi-vet",
+      [
+       "police",
+       "prison"
+      ],
+      "poi-police",
+      [
+       "fire_station"
+      ],
+      "poi-fire",
+      [
+       "restaurant"
+      ],
+      "poi-food",
+      [
+       "fast_food"
+      ],
+      "poi-burger",
+      [
+       "cafe"
+      ],
+      "poi-cafe",
+      [
+       "bakery"
+      ],
+      "poi-bakery",
+      [
+       "ice_cream"
+      ],
+      "poi-ice-cream",
+      [
+       "bar",
+       "pub"
+      ],
+      "poi-bar",
+      [
+       "beer"
+      ],
+      "poi-mug",
+      [
+       "grocery"
+      ],
+      "poi-cart",
+      [
+       "shop",
+       "butcher",
+       "laundry"
+      ],
+      "poi-shop",
+      [
+       "clothing_store"
+      ],
+      "poi-clothes",
+      [
+       "alcohol_shop"
+      ],
+      "poi-bottle",
+      [
+       "hairdresser"
+      ],
+      "poi-beauty",
+      [
+       "museum"
+      ],
+      "poi-culture",
+      [
+       "attraction"
+      ],
+      "poi-attraction",
+      [
+       "castle"
+      ],
+      "poi-castle",
+      [
+       "monument"
+      ],
+      "poi-monument",
+      [
+       "theatre"
+      ],
+      "poi-theatre",
+      [
+       "cinema"
+      ],
+      "poi-cinema",
+      [
+       "art_gallery"
+      ],
+      "poi-art",
+      [
+       "library"
+      ],
+      "poi-books",
+      [
+       "bank"
+      ],
+      "poi-coin",
+      [
+       "atm"
+      ],
+      "poi-atm",
+      [
+       "lodging"
+      ],
+      "poi-lodging",
+      [
+       "bicycle_parking",
+       "bicycle_rental"
+      ],
+      "poi-bike",
+      [
+       "bus",
+       "railway"
+      ],
+      "poi-transit",
+      [
+       "car"
+      ],
+      "poi-car",
+      [
+       "harbor"
+      ],
+      "poi-marina",
+      [
+       "ferry_terminal"
+      ],
+      "poi-ferry",
+      [
+       "sports_centre"
+      ],
+      "poi-gym",
+      [
+       "golf"
+      ],
+      "poi-golf",
+      [
+       "post"
+      ],
+      "poi-post",
+      [
+       "music"
+      ],
+      "poi-music",
+      "poi-shop"
+     ]
     ],
     "icon-size": [
      "interpolate",
@@ -7198,11 +8076,11 @@
       "zoom"
      ],
      14.5,
-     0.5,
+     0.65,
      17,
-     0.72,
+     0.936,
      19,
-     0.92
+     1.196
     ],
     "icon-allow-overlap": false,
     "icon-padding": 6,
@@ -7626,91 +8504,256 @@
      "match",
      [
       "get",
-      "class"
+      "subclass"
      ],
      [
-      "fuel"
+      "nightclub"
      ],
-     "poi-fuel",
+     "poi-nightclub",
      [
-      "parking"
+      "pub"
      ],
-     "poi-parking",
+     "poi-mug",
      [
-      "hospital",
-      "pharmacy",
-      "doctors",
-      "dentist",
-      "veterinary"
+      "convenience",
+      "kiosk"
      ],
-     "poi-health",
+     "poi-basket",
      [
-      "police",
-      "fire_station",
-      "prison"
+      "supermarket"
      ],
-     "poi-police",
+     "poi-cart",
      [
-      "restaurant",
-      "fast_food"
+      "shoes"
      ],
-     "poi-food",
+     "poi-shoes",
      [
-      "cafe",
-      "bakery",
-      "ice_cream"
+      "tattoo"
      ],
-     "poi-cafe",
+     "poi-tattoo",
      [
-      "bar",
-      "pub",
-      "beer"
+      "beauty",
+      "cosmetics",
+      "perfumery"
      ],
-     "poi-bar",
+     "poi-beauty",
      [
-      "grocery"
+      "mobile_phone",
+      "electronics",
+      "computer"
      ],
-     "poi-grocery",
+     "poi-electronics",
      [
-      "shop",
-      "clothing_store",
-      "butcher",
-      "alcohol_shop",
-      "laundry",
-      "hairdresser"
+      "car_repair"
      ],
-     "poi-shop",
+     "poi-car-repair",
      [
-      "museum",
-      "attraction",
-      "castle",
-      "monument",
-      "theatre",
-      "cinema",
-      "art_gallery",
-      "library"
+      "car_wash"
      ],
-     "poi-culture",
+     "poi-car-wash",
      [
-      "bank",
-      "atm"
+      "charging_station"
      ],
-     "poi-bank",
+     "poi-charging",
      [
-      "lodging"
+      "marina"
      ],
-     "poi-lodging",
+     "poi-marina",
      [
-      "bicycle_parking",
-      "bicycle_rental"
+      "gift"
      ],
-     "poi-bike",
+     "poi-gift",
      [
-      "bus",
-      "railway"
+      "florist"
      ],
-     "poi-transit",
-     "poi-shop"
+     "poi-florist",
+     [
+      "jewelry"
+     ],
+     "poi-jewelry",
+     [
+      "optician"
+     ],
+     "poi-optician",
+     [
+      "books"
+     ],
+     "poi-books",
+     [
+      "match",
+      [
+       "get",
+       "class"
+      ],
+      [
+       "fuel"
+      ],
+      "poi-fuel",
+      [
+       "parking"
+      ],
+      "poi-parking",
+      [
+       "hospital",
+       "doctors"
+      ],
+      "poi-health",
+      [
+       "pharmacy"
+      ],
+      "poi-pharmacy",
+      [
+       "dentist"
+      ],
+      "poi-dentist",
+      [
+       "veterinary"
+      ],
+      "poi-vet",
+      [
+       "police",
+       "prison"
+      ],
+      "poi-police",
+      [
+       "fire_station"
+      ],
+      "poi-fire",
+      [
+       "restaurant"
+      ],
+      "poi-food",
+      [
+       "fast_food"
+      ],
+      "poi-burger",
+      [
+       "cafe"
+      ],
+      "poi-cafe",
+      [
+       "bakery"
+      ],
+      "poi-bakery",
+      [
+       "ice_cream"
+      ],
+      "poi-ice-cream",
+      [
+       "bar",
+       "pub"
+      ],
+      "poi-bar",
+      [
+       "beer"
+      ],
+      "poi-mug",
+      [
+       "grocery"
+      ],
+      "poi-cart",
+      [
+       "shop",
+       "butcher",
+       "laundry"
+      ],
+      "poi-shop",
+      [
+       "clothing_store"
+      ],
+      "poi-clothes",
+      [
+       "alcohol_shop"
+      ],
+      "poi-bottle",
+      [
+       "hairdresser"
+      ],
+      "poi-beauty",
+      [
+       "museum"
+      ],
+      "poi-culture",
+      [
+       "attraction"
+      ],
+      "poi-attraction",
+      [
+       "castle"
+      ],
+      "poi-castle",
+      [
+       "monument"
+      ],
+      "poi-monument",
+      [
+       "theatre"
+      ],
+      "poi-theatre",
+      [
+       "cinema"
+      ],
+      "poi-cinema",
+      [
+       "art_gallery"
+      ],
+      "poi-art",
+      [
+       "library"
+      ],
+      "poi-books",
+      [
+       "bank"
+      ],
+      "poi-coin",
+      [
+       "atm"
+      ],
+      "poi-atm",
+      [
+       "lodging"
+      ],
+      "poi-lodging",
+      [
+       "bicycle_parking",
+       "bicycle_rental"
+      ],
+      "poi-bike",
+      [
+       "bus",
+       "railway"
+      ],
+      "poi-transit",
+      [
+       "car"
+      ],
+      "poi-car",
+      [
+       "harbor"
+      ],
+      "poi-marina",
+      [
+       "ferry_terminal"
+      ],
+      "poi-ferry",
+      [
+       "sports_centre"
+      ],
+      "poi-gym",
+      [
+       "golf"
+      ],
+      "poi-golf",
+      [
+       "post"
+      ],
+      "poi-post",
+      [
+       "music"
+      ],
+      "poi-music",
+      "poi-shop"
+     ]
     ],
     "icon-size": [
      "interpolate",
@@ -7722,11 +8765,11 @@
       "zoom"
      ],
      14.5,
-     0.5,
+     0.65,
      17,
-     0.72,
+     0.936,
      19,
-     0.92
+     1.196
     ],
     "icon-allow-overlap": false,
     "icon-padding": 6,
@@ -7941,7 +8984,8 @@
      ],
      [
       "railway",
-      "bus"
+      "bus",
+      "ferry_terminal"
      ],
      true,
      false
@@ -7989,91 +9033,256 @@
      "match",
      [
       "get",
-      "class"
+      "subclass"
      ],
      [
-      "fuel"
+      "nightclub"
      ],
-     "poi-fuel",
+     "poi-nightclub",
      [
-      "parking"
+      "pub"
      ],
-     "poi-parking",
+     "poi-mug",
      [
-      "hospital",
-      "pharmacy",
-      "doctors",
-      "dentist",
-      "veterinary"
+      "convenience",
+      "kiosk"
      ],
-     "poi-health",
+     "poi-basket",
      [
-      "police",
-      "fire_station",
-      "prison"
+      "supermarket"
      ],
-     "poi-police",
+     "poi-cart",
      [
-      "restaurant",
-      "fast_food"
+      "shoes"
      ],
-     "poi-food",
+     "poi-shoes",
      [
-      "cafe",
-      "bakery",
-      "ice_cream"
+      "tattoo"
      ],
-     "poi-cafe",
+     "poi-tattoo",
      [
-      "bar",
-      "pub",
-      "beer"
+      "beauty",
+      "cosmetics",
+      "perfumery"
      ],
-     "poi-bar",
+     "poi-beauty",
      [
-      "grocery"
+      "mobile_phone",
+      "electronics",
+      "computer"
      ],
-     "poi-grocery",
+     "poi-electronics",
      [
-      "shop",
-      "clothing_store",
-      "butcher",
-      "alcohol_shop",
-      "laundry",
-      "hairdresser"
+      "car_repair"
      ],
-     "poi-shop",
+     "poi-car-repair",
      [
-      "museum",
-      "attraction",
-      "castle",
-      "monument",
-      "theatre",
-      "cinema",
-      "art_gallery",
-      "library"
+      "car_wash"
      ],
-     "poi-culture",
+     "poi-car-wash",
      [
-      "bank",
-      "atm"
+      "charging_station"
      ],
-     "poi-bank",
+     "poi-charging",
      [
-      "lodging"
+      "marina"
      ],
-     "poi-lodging",
+     "poi-marina",
      [
-      "bicycle_parking",
-      "bicycle_rental"
+      "gift"
      ],
-     "poi-bike",
+     "poi-gift",
      [
-      "bus",
-      "railway"
+      "florist"
      ],
-     "poi-transit",
-     "poi-shop"
+     "poi-florist",
+     [
+      "jewelry"
+     ],
+     "poi-jewelry",
+     [
+      "optician"
+     ],
+     "poi-optician",
+     [
+      "books"
+     ],
+     "poi-books",
+     [
+      "match",
+      [
+       "get",
+       "class"
+      ],
+      [
+       "fuel"
+      ],
+      "poi-fuel",
+      [
+       "parking"
+      ],
+      "poi-parking",
+      [
+       "hospital",
+       "doctors"
+      ],
+      "poi-health",
+      [
+       "pharmacy"
+      ],
+      "poi-pharmacy",
+      [
+       "dentist"
+      ],
+      "poi-dentist",
+      [
+       "veterinary"
+      ],
+      "poi-vet",
+      [
+       "police",
+       "prison"
+      ],
+      "poi-police",
+      [
+       "fire_station"
+      ],
+      "poi-fire",
+      [
+       "restaurant"
+      ],
+      "poi-food",
+      [
+       "fast_food"
+      ],
+      "poi-burger",
+      [
+       "cafe"
+      ],
+      "poi-cafe",
+      [
+       "bakery"
+      ],
+      "poi-bakery",
+      [
+       "ice_cream"
+      ],
+      "poi-ice-cream",
+      [
+       "bar",
+       "pub"
+      ],
+      "poi-bar",
+      [
+       "beer"
+      ],
+      "poi-mug",
+      [
+       "grocery"
+      ],
+      "poi-cart",
+      [
+       "shop",
+       "butcher",
+       "laundry"
+      ],
+      "poi-shop",
+      [
+       "clothing_store"
+      ],
+      "poi-clothes",
+      [
+       "alcohol_shop"
+      ],
+      "poi-bottle",
+      [
+       "hairdresser"
+      ],
+      "poi-beauty",
+      [
+       "museum"
+      ],
+      "poi-culture",
+      [
+       "attraction"
+      ],
+      "poi-attraction",
+      [
+       "castle"
+      ],
+      "poi-castle",
+      [
+       "monument"
+      ],
+      "poi-monument",
+      [
+       "theatre"
+      ],
+      "poi-theatre",
+      [
+       "cinema"
+      ],
+      "poi-cinema",
+      [
+       "art_gallery"
+      ],
+      "poi-art",
+      [
+       "library"
+      ],
+      "poi-books",
+      [
+       "bank"
+      ],
+      "poi-coin",
+      [
+       "atm"
+      ],
+      "poi-atm",
+      [
+       "lodging"
+      ],
+      "poi-lodging",
+      [
+       "bicycle_parking",
+       "bicycle_rental"
+      ],
+      "poi-bike",
+      [
+       "bus",
+       "railway"
+      ],
+      "poi-transit",
+      [
+       "car"
+      ],
+      "poi-car",
+      [
+       "harbor"
+      ],
+      "poi-marina",
+      [
+       "ferry_terminal"
+      ],
+      "poi-ferry",
+      [
+       "sports_centre"
+      ],
+      "poi-gym",
+      [
+       "golf"
+      ],
+      "poi-golf",
+      [
+       "post"
+      ],
+      "poi-post",
+      [
+       "music"
+      ],
+      "poi-music",
+      "poi-shop"
+     ]
     ],
     "icon-size": [
      "interpolate",
@@ -8085,11 +9294,11 @@
       "zoom"
      ],
      14.5,
-     0.5,
+     0.65,
      17,
-     0.72,
+     0.936,
      19,
-     0.92
+     1.196
     ],
     "icon-allow-overlap": false,
     "icon-padding": 6,
@@ -8881,27 +10090,6 @@
     "text-color": "#ffffff",
     "text-halo-color": "#373c4b",
     "text-halo-width": 2
-   }
-  },
-  {
-   "id": "label-housenumber",
-   "type": "symbol",
-   "source": "openmaptiles",
-   "source-layer": "housenumber",
-   "minzoom": 18,
-   "layout": {
-    "text-field": [
-     "get",
-     "housenumber"
-    ],
-    "text-font": [
-     "Noto Sans Regular"
-    ],
-    "text-size": 10
-   },
-   "paint": {
-    "text-color": "#4e5566",
-    "text-opacity": 0.7
    }
   },
   {

@@ -342,6 +342,17 @@ def build_style(cfg):
          "paint": {"line-color": cfg["route"]["core"],
                    "line-width": interp([(8, 3), (14, 6.5), (18, 14)])}})
 
+    def housenumber_layer():
+        return {"id": "label-housenumber", "type": "symbol", "source": "openmaptiles", "source-layer": "housenumber",
+                "minzoom": 18,
+                "layout": {"text-field": ["get", "housenumber"], "text-font": FONT, "text-size": 10},
+                "paint": {"text-color": p["road_text"], "text-opacity": 0.7}}
+
+    # Números de portal bajo los iconos: MapLibre coloca primero las capas superiores, y si van encima ganan las
+    # colisiones y esconden casi todos los lugares a zoom 18.
+    if cfg.get("housenumbers_below_pois"):
+        add(housenumber_layer())
+
     # ---- POI: una capa por CATEGORÍA (la app las activa o desactiva con «Capas del mapa» cambiando solo su
     # visibilidad, sin recargar el estilo). Orden: abajo lo menos importante; MapLibre coloca primero las capas
     # superiores, así que transporte, gasolineras y salud ganan las colisiones a comida y tiendas.
@@ -393,13 +404,39 @@ def build_style(cfg):
     full_name = ["to-string", ["coalesce", ["get", "name:es"], ["get", "name"], poi_fallback]]
     short_name = ["case", [">", ["length", full_name], 22], ["concat", ["slice", full_name, 0, 21], "\u2026"], full_name]
 
+    def poi_icon_expression():
+        if not cfg.get("poi_class_icons") and not cfg.get("poi_subclass_icons"):
+            return match("class", poi_icons, "poi-shop")
+        by_class = {}
+        for classes, icon in poi_icons + cfg.get("poi_class_icons", []):
+            for c in classes:
+                by_class[c] = icon
+        grouped = {}
+        for c, icon in by_class.items():
+            grouped.setdefault(icon, []).append(c)
+        expression = match("class", [(cls, icon) for icon, cls in grouped.items()], "poi-shop")
+        if cfg.get("poi_subclass_icons"):
+            seen = set()
+            pairs = []
+            for subclasses, icon in cfg["poi_subclass_icons"]:
+                unique = [x for x in subclasses if x not in seen]
+                seen.update(unique)
+                if unique:
+                    pairs.append((unique, icon))
+            expression = match("subclass", pairs, expression)
+        return expression
+
+    poi_icon = poi_icon_expression()
+
     def zooms_for(classes, is_bus_stop):
         if is_bus_stop:
             return {c: bus_stop_zoom for c in classes}
         return {c: extra_zoom.get(c, class_zoom.get(c, default_zooms)) for c in classes}
 
     tiered = bool(cfg.get("poi_tiers"))
+    extra_classes = cfg.get("extra_poi_classes", {})
     for cat_id, classes, extra, fixed_icon in poi_categories:
+        classes = classes + [c for c in extra_classes.get(cat_id, []) if c not in classes]
         zooms = zooms_for(classes, cat_id == "bus-stop")
         icon_min = min(z[0] for z in zooms.values())
         icon_zooms = sorted({z[0] for z in zooms.values()})
@@ -419,10 +456,12 @@ def build_style(cfg):
         for z in label_zooms:
             shown = [c for c, cz in zooms.items() if cz[1] <= z]
             text += [z, short_name if len(shown) == len(classes) else ["case", is_in("class", shown), short_name, ""]]
-        size = interp([(14.5, 0.5), (17, 0.72), (19, 0.92)]) if tiered else interp([(15, 0.55), (17, 0.85), (19, 1.1)])
+        icon_k = cfg.get("poi_icon_scale", 1.0)    # burbujas: el glifo ocupa menos del icono, se dibujan algo mayores
+        size = (interp(scaled([(14.5, 0.5), (17, 0.72), (19, 0.92)], icon_k)) if tiered
+                else interp(scaled([(15, 0.55), (17, 0.85), (19, 1.1)], icon_k)))
         add({"id": f"poi-icon-{cat_id}", "type": "symbol", "source": "openmaptiles", "source-layer": "poi",
              "minzoom": icon_min, "filter": flt,
-             "layout": {"icon-image": fixed_icon or match("class", poi_icons, "poi-shop"),
+             "layout": {"icon-image": fixed_icon or poi_icon,
                         "icon-size": size,
                         "icon-allow-overlap": False, "icon-padding": 6 if tiered else 3,
                         "symbol-sort-key": ["coalesce", ["get", "rank"], 99],
@@ -491,10 +530,8 @@ def build_style(cfg):
                     "text-size": interp([(4, 11), (10, 17), (13, 22)]), "text-max-width": 8,
                     "text-letter-spacing": 0.04},
          "paint": {"text-color": p["city_text"], "text-halo-color": p.get("city_halo", p["halo"]), "text-halo-width": 2}})
-    add({"id": "label-housenumber", "type": "symbol", "source": "openmaptiles", "source-layer": "housenumber",
-         "minzoom": 18,
-         "layout": {"text-field": ["get", "housenumber"], "text-font": FONT, "text-size": 10},
-         "paint": {"text-color": p["road_text"], "text-opacity": 0.7}})
+    if not cfg.get("housenumbers_below_pois"):
+        add(housenumber_layer())
 
     # ---- Resultados de búsqueda / lugares mostrados ------------------------
     add({"id": "results-halo", "type": "circle", "source": "results",
@@ -932,13 +969,39 @@ COSTA = {
         "poi_text": "#3f4656", "cycle": "#4fae86", "transit_line": "#6f7fd8",
     },
     "poi_tiers": [
-        ("a", ["fuel", "hospital", "police", "railway", "bus"], 14.5, 16.5),
+        ("a", ["fuel", "hospital", "police", "railway", "bus", "ferry_terminal", "fire_station"], 14.5, 16.5),
         ("b", ["parking", "pharmacy", "doctors", "dentist", "veterinary", "bank", "atm", "lodging", "grocery",
                "museum", "attraction", "castle", "monument", "theatre", "cinema", "art_gallery", "library",
-               "fire_station", "prison"], 16, 17.2),
+               "prison", "car", "harbor", "sports_centre", "golf", "post"], 16, 17.2),
         ("c", ["restaurant", "fast_food", "cafe", "bakery", "ice_cream", "bar", "pub", "beer", "shop",
-               "clothing_store", "butcher", "alcohol_shop", "laundry", "hairdresser"], 17, 18),
+               "clothing_store", "butcher", "alcohol_shop", "laundry", "hairdresser", "music"], 17, 18),
     ],
+    # Categorías de la referencia con equivalente REAL en OpenStreetMap (clases y subclases de OpenMapTiles comprobadas
+    # en teselas reales). Las que no existen fuera del juego (atracos, coleccionables, armerías…) no tienen icono.
+    "extra_poi_classes": {"shops": ["car", "music"], "other": ["harbor", "sports_centre", "golf", "post"],
+                          "transit": ["ferry_terminal"]},
+    "poi_class_icons": [
+        (["fast_food"], "poi-burger"), (["beer"], "poi-mug"), (["alcohol_shop"], "poi-bottle"),
+        (["grocery"], "poi-cart"), (["clothing_store"], "poi-clothes"), (["hairdresser"], "poi-beauty"),
+        (["car"], "poi-car"), (["harbor"], "poi-marina"), (["ferry_terminal"], "poi-ferry"),
+        (["cinema"], "poi-cinema"), (["theatre"], "poi-theatre"), (["fire_station"], "poi-fire"),
+        (["pharmacy"], "poi-pharmacy"), (["dentist"], "poi-dentist"), (["sports_centre"], "poi-gym"),
+        (["golf"], "poi-golf"), (["bank"], "poi-coin"), (["atm"], "poi-atm"), (["monument"], "poi-monument"),
+        (["castle"], "poi-castle"), (["attraction"], "poi-attraction"), (["post"], "poi-post"),
+        (["library"], "poi-books"), (["ice_cream"], "poi-ice-cream"), (["bakery"], "poi-bakery"),
+        (["music"], "poi-music"), (["art_gallery"], "poi-art"), (["veterinary"], "poi-vet"),
+    ],
+    "poi_subclass_icons": [
+        (["nightclub"], "poi-nightclub"), (["pub"], "poi-mug"), (["convenience", "kiosk"], "poi-basket"),
+        (["supermarket"], "poi-cart"), (["shoes"], "poi-shoes"), (["tattoo"], "poi-tattoo"),
+        (["beauty", "cosmetics", "perfumery"], "poi-beauty"),
+        (["mobile_phone", "electronics", "computer"], "poi-electronics"),
+        (["car_repair"], "poi-car-repair"), (["car_wash"], "poi-car-wash"), (["charging_station"], "poi-charging"),
+        (["marina"], "poi-marina"), (["gift"], "poi-gift"), (["florist"], "poi-florist"),
+        (["jewelry"], "poi-jewelry"), (["optician"], "poi-optician"), (["books"], "poi-books"),
+    ],
+    "poi_icon_scale": 1.3,
+    "housenumbers_below_pois": True,
     "place_upper": False,
     "place_font": FONT_BOLD,
     "place_halo_width": 0.9,

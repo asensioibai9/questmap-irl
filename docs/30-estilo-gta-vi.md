@@ -50,6 +50,46 @@ negro. No son valores oficiales. Comparación píxel a píxel no realizada.
 | Usuario | Flecha blanca en círculo negro | Avatar «Flecha clásica» dibujado dentro de un disco `#16181d`; los demás avatares no cambian |
 | Minimapa | Rectángulo redondeado claro | `roundedRectangle`: apaisado 3:2, radio 18, borde claro de 2 pt |
 
+### Iconos ampliados (categorías de la referencia con equivalente real)
+
+Se han tomado como guía las **categorías** que lista el mapa interactivo de gtabase.com (solo los nombres de categoría:
+no se ha descargado ni copiado ningún icono, ni del juego ni de esa web). Cada una se ha cruzado con las clases y
+subclases reales de OpenMapTiles, comprobadas en teselas de Madrid, Barcelona y Valencia. Los 40 glifos nuevos son
+dibujos propios (`tools/make_poi_icons.py`, `VI_EXTRA`) sobre la misma burbuja.
+
+| Categoría de la referencia | Dato real (clase / subclase) | Icono |
+|---|---|---|
+| Comida rápida | `fast_food` | hamburguesa |
+| Cafés | `cafe` | taza (ya existía) |
+| Comida callejera | `ice_cream`, `bakery` | helado, pan |
+| Bares | `bar` / `beer`, `pub` | copa (ya existía) / jarra |
+| Discoteca | subclase `nightclub` | auriculares |
+| Licorerías | `alcohol_shop` | botella |
+| Tiendas de conveniencia | `convenience`, `kiosk` / `supermarket`, `grocery` | cesta / carro |
+| Ropa · Calzado | `clothing_store` / `shoes` | camiseta / zapatilla |
+| Peluquería y belleza | `hairdresser`, `beauty`, `cosmetics`, `perfumery` | tijeras |
+| Tatuajes | subclase `tattoo` | máquina de tatuar |
+| Electrónica | `mobile_phone`, `electronics`, `computer` | móvil |
+| Gasolineras | `fuel` / `charging_station` | surtidor (ya existía) / rayo |
+| Talleres · Lavaderos · Concesionario | `car_repair` / `car_wash` / `car` | llave inglesa / coche con gotas / coche |
+| Transporte público | `railway`, `bus`, `ferry_terminal` | tren, parada (ya existían), barco |
+| Puertos deportivos | `harbor`, `marina` | ancla |
+| Cine · Teatro | `cinema` / `theatre` | claqueta / máscara |
+| Parques de bomberos | `fire_station` | llama |
+| Hospitales | `hospital` / `pharmacy` / `dentist` / `veterinary` | cruz (ya existía) / cápsula / muela / huella |
+| Comisarías | `police` | escudo (ya existía) |
+| Lugares emblemáticos | `attraction` / `monument` / `castle` / `museum` | estrella / obelisco / castillo / columnas |
+| Gimnasio · Golf | `sports_centre` / `golf` | mancuerna / bandera |
+| Bancos | `bank` / `atm` | moneda / billete |
+| Otros comercios reales | `gift`, `florist`, `jewelry`, `optician`, `books`, `music`, `art_gallery`, `post` | regalo, flor, diamante, gafas, libro, nota, paleta, sobre |
+
+Sin icono porque no existen fuera del juego: atracos, préstamos rápidos, peristas, coleccionables, saltos, complejos de
+banda, eventos aleatorios, armerías, Pay 'n' Spray, armas para recoger y apariciones de vehículos. «Pisos francos» ya
+corresponde a Casa y Trabajo.
+
+Los números de portal (z18) se dibujan **por debajo** de los iconos en este estilo: si van encima, MapLibre los coloca
+primero y esconden casi todos los lugares. (Los demás estilos tienen ese mismo orden antiguo; no se han tocado.)
+
 ### Densidad por zoom
 
 - z ≤ 12: tierra, agua, vegetación, autopistas y principales; nombres de ciudades.

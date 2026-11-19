@@ -24,10 +24,23 @@ enum GameIcons {
         return UIImage(cgImage: cg, scale: 3, orientation: .up)
     }
 
+    /// Iconos que SOLO tiene la familia GTA VI (`gta6-poi-<recurso>`), registrados como `poi-<recurso>`. Cubren las
+    /// categorías de la referencia con equivalente real en OpenStreetMap. Dibujos propios (tools/make_poi_icons.py).
+    static let bubbleOnlyAssets: [String] = [
+        "burger", "mug", "nightclub", "bottle", "basket", "cart", "clothes", "shoes", "beauty", "tattoo", "electronics",
+        "car-repair", "car", "car-wash", "charging", "marina", "ferry", "cinema", "theatre", "fire", "pharmacy",
+        "dentist", "gym", "golf", "coin", "atm", "monument", "castle", "attraction", "post", "books", "ice-cream",
+        "bakery", "music", "art", "vet", "gift", "florist", "jewelry", "optician",
+    ]
+
     /// Registra la familia indicada (`gta-poi` para GTA V, `gta6-poi` para GTA VI) con los nombres `poi-*` del JSON.
     static func register(in style: MLNStyle, prefix: String = "gta-poi") {
         for (styleName, asset) in styleNameToAsset {
             if let image = image(asset: asset, prefix: prefix) { style.setImage(image, forName: styleName) }
+        }
+        guard prefix == PoiIconSet.gameBubbles.assetPrefix else { return }
+        for asset in bubbleOnlyAssets {
+            if let image = image(asset: asset, prefix: prefix) { style.setImage(image, forName: "poi-\(asset)") }
         }
     }
 
@@ -82,6 +95,13 @@ enum PoiClassTitles {
         case "museum": return "Museo"
         case "library": return "Biblioteca"
         case "theatre", "cinema": return "Ocio"
+        case "car": return "Taller o concesionario"
+        case "harbor": return "Puerto deportivo"
+        case "ferry_terminal": return "Terminal de ferri"
+        case "sports_centre": return "Centro deportivo"
+        case "golf": return "Golf"
+        case "post": return "Correos"
+        case "music": return "Tienda de música"
         case "attraction", "monument", "castle", "art_gallery": return "Lugar de interés"
         default: return "Lugar"
         }
