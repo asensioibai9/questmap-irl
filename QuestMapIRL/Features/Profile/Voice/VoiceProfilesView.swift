@@ -19,6 +19,8 @@ struct VoiceProfilesView: View {
 
     private var settings: UserSettings? { settingsRows.first }
     private var store: VoiceProfileStore { VoiceProfileStore(context: context) }
+    private var packs: GeneratedVoicePackLoader { .shared }
+    private var speech: SpeechService { environment.speech }
 
     var body: some View {
         Form {
@@ -33,12 +35,20 @@ struct VoiceProfilesView: View {
                             Text("Lee cualquier indicación, con nombres de calles").font(.caption).foregroundStyle(AppColor.textSecondary)
                         }
                         Spacer()
-                        if settings?.activeVoiceProfileID == nil { selectedMark }
+                        if settings?.usesSystemVoice ?? true { selectedMark }
                     }
                 }
-                .accessibilityAddTraits(settings?.activeVoiceProfileID == nil ? .isSelected : [])
+                .accessibilityAddTraits(settings?.usesSystemVoice ?? true ? .isSelected : [])
             } header: {
                 Text("Voz activa")
+            }
+
+            Section {
+                ForEach(GeneratedVoicePacks.all) { info in packRow(packs.pack(info)) }
+            } header: {
+                Text("Voces disponibles")
+            } footer: {
+                Text("Voces generadas con IA (ElevenLabs) que vienen dentro de la app: funcionan sin conexión y no envían nada durante la ruta. Dicen frases fijas; los nombres de calles y los números de salida se ven en pantalla y, en modo híbrido, se dicen enteros con la voz del sistema.")
             }
 
             Section {
@@ -157,6 +167,60 @@ struct VoiceProfilesView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(profile.name). \(progress.recorded) de \(progress.total) grabaciones. \(progress.isReady ? "Lista para usar" : "Incompleta")\(isActive ? ". Voz activa" : "")")
+    }
+
+    /// Fila de un paquete generado: nombre, idioma, descripción, estado, muestra y selección. Solo se puede elegir si está
+    /// completo; si no, se explica por qué.
+    private func packRow(_ pack: LoadedGeneratedVoicePack) -> some View {
+        let info = pack.info
+        let isActive = settings?.activeGeneratedVoicePackID == info.id
+        let ready = pack.availability.isReady
+        let demo = pack.demoSegments
+        return VStack(alignment: .leading, spacing: 8) {
+            Button {
+                selectPack(info.id)
+            } label: {
+                HStack(spacing: 12) {
+                    avatar(info.gender == .girl ? "person.fill" : "person", color: theme.accent.opacity(ready ? 0.35 : 0.12))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(info.title).font(.body.weight(.semibold))
+                            .foregroundStyle(ready ? AppColor.textPrimary : AppColor.textSecondary)
+                        Text("\(info.languageLabel) · \(info.gender.label)").font(.caption).foregroundStyle(AppColor.textSecondary)
+                        Text(info.summary).font(.caption).foregroundStyle(AppColor.textSecondary)
+                        Text(pack.availability.label).font(.caption.weight(.semibold))
+                            .foregroundStyle(ready ? Color.green : AppColor.textSecondary)
+                    }
+                    Spacer()
+                    if isActive { selectedMark }
+                }
+            }
+            .buttonStyle(.borderless)
+            .disabled(!ready)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(info.title). \(info.languageLabel). \(pack.availability.label)\(isActive ? ". Voz activa" : "")")
+            .accessibilityAddTraits(isActive ? .isSelected : [])
+
+            HStack {
+                Button {
+                    if speech.isPlayingTest { speech.stopImmediately() } else { speech.playRecordedDemo(demo) }
+                } label: {
+                    Label(speech.isPlayingTest ? "Parar" : "Escuchar muestra",
+                          systemImage: speech.isPlayingTest ? "stop.fill" : "play.circle.fill")
+                        .font(.subheadline)
+                }
+                .buttonStyle(.borderless)
+                .disabled(demo.isEmpty)
+                .frame(minHeight: 44)
+                Spacer()
+                Text(info.provenance).font(.caption2).foregroundStyle(AppColor.textSecondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func selectPack(_ id: String) {
+        settings?.activeGeneratedVoicePackID = id
+        PersistenceCommit.saveQuietly(context, operation: "voice-select-pack")
     }
 
     private func avatar(_ symbol: String, color: Color) -> some View {

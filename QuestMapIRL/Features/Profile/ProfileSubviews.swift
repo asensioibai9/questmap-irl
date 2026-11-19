@@ -205,6 +205,10 @@ struct NavigationSettingsView: View {
     }
 
     private func activeVoiceName(_ settings: UserSettings) -> String {
+        if let packID = settings.activeGeneratedVoicePackID {
+            guard let pack = GeneratedVoicePackLoader.shared.pack(id: packID), pack.availability.isReady else { return "Sistema" }
+            return pack.info.title
+        }
         guard let id = settings.activeVoiceProfileID,
               let profile = VoiceProfileStore(context: context).profile(id: id) else { return "Sistema" }
         return profile.name

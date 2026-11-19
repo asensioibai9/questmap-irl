@@ -1,0 +1,64 @@
+{
+  "about": "Frases de navegación para paquetes de voz generados. Los 'id' son los rawValue de VoicePhraseID (QuestMapIRL/Domain/Voice/VoicePromptCatalog.swift) y los textos deben coincidir con ese catálogo: 'python tools/elevenlabs_voice_pack.py check-catalog' lo comprueba. 'previous_text'/'next_text' son contexto de entonación para la API (no se pronuncian).",
+  "catalog_version": 1,
+  "language": "es-ES",
+  "phrases": [
+    {"id": "state.start", "text": "Iniciando ruta", "required": true, "fragment": false},
+    {"id": "state.follow", "text": "Continúa por la ruta indicada", "required": true, "fragment": false},
+    {"id": "state.recalculating", "text": "Recalculando ruta", "required": true, "fragment": false},
+    {"id": "state.back_to_route", "text": "Cuando sea posible, vuelve a la ruta indicada", "required": true, "fragment": false},
+    {"id": "state.arrived", "text": "Has llegado a tu destino", "required": true, "fragment": false},
+    {"id": "state.destination_right", "text": "Tu destino está a la derecha", "required": false, "fragment": false},
+    {"id": "state.destination_left", "text": "Tu destino está a la izquierda", "required": false, "fragment": false},
+
+    {"id": "dir.straight", "text": "Continúa recto", "required": true, "fragment": true},
+    {"id": "dir.right", "text": "Gira a la derecha", "required": true, "fragment": true},
+    {"id": "dir.left", "text": "Gira a la izquierda", "required": true, "fragment": true},
+    {"id": "dir.slight_right", "text": "Gira ligeramente a la derecha", "required": true, "fragment": true},
+    {"id": "dir.slight_left", "text": "Gira ligeramente a la izquierda", "required": true, "fragment": true},
+    {"id": "dir.sharp_right", "text": "Gira pronunciadamente a la derecha", "required": false, "fragment": true},
+    {"id": "dir.sharp_left", "text": "Gira pronunciadamente a la izquierda", "required": false, "fragment": true},
+    {"id": "dir.keep_right", "text": "Mantente a la derecha", "required": false, "fragment": true},
+    {"id": "dir.keep_left", "text": "Mantente a la izquierda", "required": false, "fragment": true},
+    {"id": "dir.uturn", "text": "Realiza un cambio de sentido cuando esté permitido", "required": false, "fragment": true},
+
+    {"id": "road.merge", "text": "Incorpórate a la vía", "required": false, "fragment": true},
+    {"id": "road.on_ramp_right", "text": "Toma la incorporación a la derecha", "required": false, "fragment": true},
+    {"id": "road.on_ramp_left", "text": "Toma la incorporación a la izquierda", "required": false, "fragment": true},
+    {"id": "road.exit_right", "text": "Toma la salida a la derecha", "required": false, "fragment": true},
+    {"id": "road.exit_left", "text": "Toma la salida a la izquierda", "required": false, "fragment": true},
+    {"id": "road.fork_right", "text": "En la bifurcación, mantente a la derecha", "required": false, "fragment": true},
+    {"id": "road.fork_left", "text": "En la bifurcación, mantente a la izquierda", "required": false, "fragment": true},
+
+    {"id": "roundabout.enter", "text": "Entra en la rotonda", "required": false, "fragment": true},
+    {"id": "roundabout.exit1", "text": "En la rotonda, toma la primera salida", "required": true, "fragment": true},
+    {"id": "roundabout.exit2", "text": "En la rotonda, toma la segunda salida", "required": true, "fragment": true},
+    {"id": "roundabout.exit3", "text": "En la rotonda, toma la tercera salida", "required": true, "fragment": true},
+    {"id": "roundabout.exit4", "text": "En la rotonda, toma la cuarta salida", "required": false, "fragment": true},
+    {"id": "roundabout.exit5", "text": "En la rotonda, toma la quinta salida", "required": false, "fragment": true},
+    {"id": "roundabout.exit6", "text": "En la rotonda, toma la sexta salida", "required": false, "fragment": true},
+    {"id": "roundabout.leave", "text": "Sal de la rotonda", "required": false, "fragment": true},
+
+    {"id": "dist.50m", "text": "En cincuenta metros", "required": false, "fragment": true, "kind": "distance"},
+    {"id": "dist.100m", "text": "En cien metros", "required": true, "fragment": true, "kind": "distance"},
+    {"id": "dist.200m", "text": "En doscientos metros", "required": true, "fragment": true, "kind": "distance"},
+    {"id": "dist.300m", "text": "En trescientos metros", "required": false, "fragment": true, "kind": "distance"},
+    {"id": "dist.500m", "text": "En quinientos metros", "required": true, "fragment": true, "kind": "distance"},
+    {"id": "dist.800m", "text": "En ochocientos metros", "required": false, "fragment": true, "kind": "distance"},
+    {"id": "dist.1km", "text": "En un kilómetro", "required": false, "fragment": true, "kind": "distance"},
+    {"id": "dist.2km", "text": "En dos kilómetros", "required": false, "fragment": true, "kind": "distance"}
+  ],
+  "context": {
+    "distance_next_text": "gira a la derecha.",
+    "maneuver_previous_text": "En doscientos metros,"
+  },
+  "sample_phrases": ["dist.200m", "road.merge", "road.fork_right", "roundabout.exit3", "state.recalculating"],
+  "not_included": {
+    "Mantente en el centro": "El motor no da indicaciones de carril (OSRM sin 'lanes' en InstructionBuilder).",
+    "Continúa por la vía principal": "No hay maniobra del motor que la produzca; 'continue' recto usa «Continúa recto».",
+    "La ruta se ha actualizado": "La app no lo anuncia por voz (solo «Recalculando ruta»).",
+    "La ubicación no está disponible temporalmente": "La app no lo anuncia por voz (aviso en pantalla).",
+    "Ahora": "Por debajo de 40 m se dice solo la maniobra, igual que la voz del sistema.",
+    "Después / Y después": "La navegación anuncia una maniobra cada vez; no encadena dos."
+  }
+}

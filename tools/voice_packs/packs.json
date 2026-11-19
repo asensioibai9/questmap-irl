@@ -1,0 +1,39 @@
+{
+  "about": "Configuración FIJA de cada paquete. Todo lo que influye en el audio está aquí y se guarda en el índice del paquete generado. 'voice_id' se rellena solo con un ID real obtenido con 'voices' (API oficial) tras elegir con 'samples'. Cambiar cualquier valor de 'generation' invalida los archivos no aprobados (se regeneran) y NUNCA toca los aprobados.",
+  "packs": [
+    {
+      "id": "elevenlabs-es-masculina",
+      "slug": "elm",
+      "display_name": "Voz generada masculina",
+      "language": "es-ES",
+      "language_label": "Español (España)",
+      "description": "Voz masculina generada con ElevenLabs, tono calmado. Frases fijas: los nombres de calles se ven en pantalla.",
+      "voice_id": null,
+      "voice_name": null,
+      "generation": {
+        "model_id": "eleven_multilingual_v2",
+        "output_format": "pcm_24000",
+        "seed": 4242,
+        "apply_text_normalization": "off",
+        "voice_settings": {"stability": 0.6, "similarity_boost": 0.75, "style": 0.0, "use_speaker_boost": true, "speed": 1.0}
+      }
+    },
+    {
+      "id": "elevenlabs-es-femenina",
+      "slug": "elf",
+      "display_name": "Voz generada femenina",
+      "language": "es-ES",
+      "language_label": "Español (España)",
+      "description": "Voz femenina generada con ElevenLabs, tono calmado. Frases fijas: los nombres de calles se ven en pantalla.",
+      "voice_id": null,
+      "voice_name": null,
+      "generation": {
+        "model_id": "eleven_multilingual_v2",
+        "output_format": "pcm_24000",
+        "seed": 4242,
+        "apply_text_normalization": "off",
+        "voice_settings": {"stability": 0.6, "similarity_boost": 0.75, "style": 0.0, "use_speaker_boost": true, "speed": 1.0}
+      }
+    }
+  ]
+}

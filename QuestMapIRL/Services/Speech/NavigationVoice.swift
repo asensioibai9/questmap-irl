@@ -439,7 +439,7 @@ final class NavigationVoice {
         }
         switch VoicePlaybackPlanner.plan(cue, available: Set(source.segments.keys), strategy: source.strategy) {
         case .recordings(let ids):
-            let fallback = source.strategy == .hybrid ? cue.text : nil
+            let fallback = source.strategy == .hybrid || source.fallbackOnFailure ? cue.text : nil
             speakOrQueue(.recordings(ids.compactMap { source.segments[$0] }, fallback: fallback), interrupt: interrupt)
         case .system(let text):
             speakOrQueue(.system(text), interrupt: interrupt)
@@ -715,6 +715,9 @@ final class NavigationVoice {
 struct RecordedVoiceSource {
     var segments: [VoicePhraseID: VoicePromptSegment]
     var strategy: VoiceFallbackStrategy
+    /// Si un archivo falla al reproducirse, decir la indicación completa con la voz del sistema aunque el respaldo sea
+    /// «solo grabaciones» (paquetes generados: un archivo dañado nunca deja la navegación sin voz).
+    var fallbackOnFailure = false
 }
 
 /// Avisa de que una frase terminó o se canceló, para liberar la sesión de audio.

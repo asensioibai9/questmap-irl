@@ -67,14 +67,22 @@ final class AppEnvironment {
     /// Perfil de voz activo listo para sonar, o nil (voz del sistema) si no hay, se borró o no se puede leer.
     /// Un perfil INCOMPLETO nunca deja sin voz lo esencial: aunque se eligiera «solo grabaciones», lo que falte se dice
     /// con la voz del sistema hasta que estén todas las obligatorias.
-    static func activeRecordedVoice(context: ModelContext, files: VoiceRecordingFiles = .standard) -> RecordedVoiceSource? {
+    static func activeRecordedVoice(context: ModelContext, files: VoiceRecordingFiles = .standard,
+                                    packs: GeneratedVoicePackLoader? = nil) -> RecordedVoiceSource? {
+        let packs = packs ?? .shared
         let settings: UserSettings?
         do {
             settings = try context.fetch(FetchDescriptor<UserSettings>()).first
         } catch {
             return nil
         }
-        guard let settings, let id = settings.activeVoiceProfileID else { return nil }
+        guard let settings else { return nil }
+        // Paquete generado incluido en la app: solo si está COMPLETO; si no, voz del sistema (nunca a medias en silencio).
+        if let packID = settings.activeGeneratedVoicePackID {
+            guard let pack = packs.pack(id: packID), pack.availability.isReady else { return nil }
+            return RecordedVoiceSource(segments: pack.segments, strategy: settings.voiceFallback, fallbackOnFailure: true)
+        }
+        guard let id = settings.activeVoiceProfileID else { return nil }
         let store = VoiceProfileStore(context: context, files: files)
         guard let profile = store.profile(id: id) else { return nil }
         let segments = store.segments(for: id)

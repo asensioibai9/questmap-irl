@@ -10,3 +10,5 @@ DerivedData/
 
 # macOS
 .DS_Store
+tools/voice_packs/work/
+__pycache__/
