@@ -7,6 +7,8 @@ struct GPSIndicator: View {
     let theme: MapTheme
     let status: LocationStatus
     let accuracy: Double?
+    /// Versión discreta (horizontal): solo barras y «±N m»; los estados que requieren atención siguen con su texto.
+    var compact = false
 
     private var quality: GPSQuality {
         guard let accuracy, accuracy >= 0 else { return .none }
@@ -47,17 +49,22 @@ struct GPSIndicator: View {
             } else {
                 Image(systemName: symbol).font(.caption2.weight(.bold)).foregroundStyle(color)
             }
-            Text(label)
+            Text(visibleLabel)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(status.needsAttention ? color : theme.textSecondary)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, compact ? 8 : 10)
         .frame(height: 28)
         .background(theme.panel, in: .capsule)
         .overlay(Capsule().stroke(theme.panelBorder, lineWidth: 1))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
+    }
+
+    private var visibleLabel: String {
+        if compact, case .available = status, let accuracy, accuracy >= 0 { return "±\(Int(accuracy)) m" }
+        return label
     }
 
     private var symbol: String {

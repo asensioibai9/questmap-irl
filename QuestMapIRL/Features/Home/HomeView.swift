@@ -86,10 +86,6 @@ struct HomeView: View {
     private var wantsTraceVerification: Bool { (settings?.showSpeedLimit ?? true) && (settings?.speedLimitVerifyTrace ?? true) }
     private var location: LocationServiceProtocol { environment.locationService }
     private var followMode: FollowMode { viewModel.headingUp ? .headingUp : .northUp }
-    /// Columna lateral de búsqueda visible (horizontal, sin navegación).
-    private var sidePanelActive: Bool { sidePanel && showPanel && navigation == nil }
-    /// Espacio que ocupa la columna lateral a la izquierda, para apartar de ella los demás elementos flotantes.
-    private var sideClearance: CGFloat { sidePanelActive ? layout.sidePanelWidth + 12 : 0 }
     /// El control 2D/3D solo existe en estilos con edificios extruidos.
     private var supports3D: Bool { theme.activeCartography.supportsBuildings3D }
     private var view3D: Bool { supports3D && (settings?.view3D ?? false) }
@@ -304,7 +300,13 @@ struct HomeView: View {
 
     // MARK: - Capa de exploración (sobre el mapa)
 
+    @ViewBuilder
     private var browsingOverlay: some View {
+        if sidePanel { sideBrowsingOverlay } else { portraitBrowsingOverlay }
+    }
+
+    /// Vertical (sin cambios de distribución).
+    private var portraitBrowsingOverlay: some View {
         ZStack {
             VStack(spacing: 8) {
                 HStack(alignment: .top, spacing: 10) {
@@ -316,31 +318,55 @@ struct HomeView: View {
                 banners
                 Spacer()
             }
-            .padding(.leading, 16 + sideClearance)
-            .padding(.trailing, sidePanelActive ? 76 : 16)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
 
-            if sidePanelActive {
-                sideBrowsingExtras
-                HStack(alignment: .top) {
-                    sidePanelCard
-                    Spacer(minLength: 0)
-                }
-                .padding(.leading, 12)
-                .padding(.top, 8)
-                .frame(maxHeight: .infinity, alignment: .top)
-            } else {
-                bottomBrowsingExtras
-            }
+            bottomBrowsingExtras
 
             HStack {
                 Spacer()
                 VStack { Spacer(); sideControls }
             }
             .padding(.trailing, 14)
-            .padding(.bottom, sidePanelActive ? 8 : 14 + 118)
-            .ignoresSafeArea(.container, edges: sidePanelActive ? [] : .bottom)
+            .padding(.bottom, 14 + 118)
+            .ignoresSafeArea(.container, edges: .bottom)
         }
+    }
+
+    /// Horizontal: tres zonas dentro del área segura.
+    /// - Izquierda: panel compacto (buscador, Casa/Trabajo), que crece al buscar.
+    /// - Centro: mapa libre; arriba, un único grupo discreto con GPS y límite; debajo, los avisos; abajo, el reproductor.
+    /// - Derecha: controles agrupados y, en la esquina inferior, el crédito del mapa.
+    private var sideBrowsingOverlay: some View {
+        HStack(alignment: .top, spacing: 12) {
+            if showPanel { sidePanelCard }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 8) {
+                    LiveGPSIndicator(theme: theme, location: location, compact: true)
+                        .fixedSize()
+                    freeDriveSignContent
+                }
+                banners
+                    .frame(maxWidth: 380, alignment: .leading)
+                Spacer(minLength: 0)
+                if environment.music.isVisible {
+                    MiniPlayerCard(model: environment.music)
+                        .frame(maxWidth: 320)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .trailing, spacing: 8) {
+                Spacer(minLength: 0)
+                sideControls
+                MapAttributionLabel(text: theme.activeCartography.attribution) { modal = .credits }
+                    .fixedSize()
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
     }
 
     /// Vertical: crédito y reproductor por ENCIMA del panel inferior (siguen su altura).
@@ -382,71 +408,51 @@ struct HomeView: View {
         }
     }
 
-    /// Horizontal: crédito y reproductor abajo, en la zona del mapa que queda a la derecha de la columna.
-    private var sideBrowsingExtras: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Spacer()
-            if environment.music.isVisible {
-                MiniPlayerCard(model: environment.music)
-                    .frame(maxWidth: max(220, min(340, layout.size.width - sideClearance - 120)))
-            }
-            MapAttributionLabel(text: theme.activeCartography.attribution) { modal = .credits }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.leading, 12 + sideClearance)
-        .padding(.trailing, 76)
-        .padding(.bottom, 6)
-    }
-
-    /// Columna lateral con el mismo contenido que la hoja inferior. Sus tres alturas equivalen a las de la hoja
-    /// (compacta, media y grande) y se cambian con el asa o, como en la hoja, al escribir o ver resultados.
+    /// Columna lateral con el mismo contenido y estado que la hoja inferior. Sin tirador (no se arrastra): su altura es la
+    /// del contenido en estado reducido (buscador + Casa/Trabajo) y la altura útil entera al buscar o ver una ruta, con
+    /// desplazamiento interno. El alto disponible ya descuenta el teclado.
     private var sidePanelCard: some View {
-        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
-        return VStack(spacing: 0) {
-            Button(action: cycleSidePanel) {
-                Capsule()
-                    .fill(AppColor.textSecondary.opacity(0.6))
-                    .frame(width: 36, height: 5)
-                    .frame(maxWidth: .infinity, minHeight: 22)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(detent == .large ? "Reducir el panel" : "Ampliar el panel")
-            panelDecorations(panelContent)
-        }
-        .frame(width: layout.sidePanelWidth, height: layout.sidePanelHeight(for: detent), alignment: .top)
-        .background(AppColor.surface, in: shape)
-        .clipShape(shape)
-        .shadow(color: .black.opacity(0.35), radius: 12, y: 4)
-        .environment(\.colorScheme, .dark)
-        .tint(theme.accent)
-        .animation(.smooth, value: detent)
-    }
-
-    private func cycleSidePanel() {
-        switch detent {
-        case .compactPanel: detent = .medium
-        case .medium: detent = .large
-        default: detent = .compactPanel
-        }
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        return panelDecorations(panelContent)
+            .frame(width: layout.sidePanelWidth)
+            .frame(maxHeight: layout.sidePanelMaxHeight, alignment: .top)
+            .fixedSize(horizontal: false, vertical: detent == .compactPanel)
+            .background(AppColor.surface, in: shape)
+            .clipShape(shape)
+            .shadow(color: .black.opacity(0.35), radius: 12, y: 4)
+            .environment(\.colorScheme, .dark)
+            .tint(theme.accent)
+            .animation(.smooth, value: detent)
     }
 
     /// Señal sin ruta (si está activada). Va en su propia fila bajo el indicador GPS: nunca encima del buscador, los
     /// botones, el reproductor ni la brújula (a la derecha se baja por debajo de la brújula del mapa).
     @ViewBuilder
     private var freeDriveSign: some View {
-        let hub = environment.hub
-        if wantsFreeDriveLimit, !SpeedLimitSign.isEmpty(hub.speedLimit, appearance: speedSign) {
+        if showsFreeDriveSign {
             HStack {
                 if speedSign.position == .topTrailing { Spacer() }
-                VStack(alignment: .leading, spacing: 6) {
-                    if limitDiagnostics { SpeedLimitDiagnosticsCard(diagnostic: hub.speedLimitDiagnostic) }
-                    SpeedLimitSign(display: hub.speedLimit, metric: useMetric, appearance: speedSign,
-                                   countryCode: hub.speedLimitCountry, currentSpeedKmh: hub.currentSpeedKmh)
-                }
+                freeDriveSignContent
                 if speedSign.position != .topTrailing { Spacer() }
             }
             .padding(.top, speedSign.position == .topTrailing && showCompass ? 52 : 0)
+        }
+    }
+
+    private var showsFreeDriveSign: Bool {
+        wantsFreeDriveLimit && !SpeedLimitSign.isEmpty(environment.hub.speedLimit, appearance: speedSign)
+    }
+
+    /// Señal y velocidad actual (misma lógica de siempre: si no hay límite fiable, la señal decide si se ve «—» o nada).
+    @ViewBuilder
+    private var freeDriveSignContent: some View {
+        let hub = environment.hub
+        if showsFreeDriveSign {
+            VStack(alignment: .leading, spacing: 6) {
+                if limitDiagnostics { SpeedLimitDiagnosticsCard(diagnostic: hub.speedLimitDiagnostic) }
+                SpeedLimitSign(display: hub.speedLimit, metric: useMetric, appearance: speedSign,
+                               countryCode: hub.speedLimitCountry, currentSpeedKmh: hub.currentSpeedKmh)
+            }
         }
     }
 
@@ -458,26 +464,44 @@ struct HomeView: View {
 
     // MARK: - Controles flotantes
 
+    /// Controles del mapa. Vertical: botones redondos como siempre. Horizontal: un único grupo compacto que cabe en la
+    /// altura útil incluso en un iPhone pequeño (4 × 44 pt). Orientación (brújula / «N») y recentrar (flecha de ubicación)
+    /// son funciones distintas y ahora también se distinguen por el icono.
+    @ViewBuilder
     private var sideControls: some View {
-        VStack(spacing: 12) {
-            CircleIconButton(systemImage: "square.3.layers.3d", label: "Capas y estilo del mapa",
-                             size: 48, accent: theme.accent, floating: true) { modal = .layers }
-            CircleIconButton(systemImage: viewModel.headingUp ? "location.north.line.fill" : "safari",
-                             label: viewModel.headingUp ? "Rumbo arriba. Cambiar a norte arriba" : "Norte arriba. Cambiar a rumbo arriba",
-                             size: 48, isActive: viewModel.headingUp, accent: theme.accent, floating: true) {
+        if sidePanel {
+            MapControlCluster(items: mapControlItems, accent: theme.accent)
+        } else {
+            VStack(spacing: 12) {
+                ForEach(mapControlItems) { item in
+                    CircleIconButton(systemImage: item.systemImage, label: item.label, size: 48, isActive: item.isActive,
+                                     accent: theme.accent, floating: true, action: item.action)
+                }
+            }
+        }
+    }
+
+    private var mapControlItems: [MapControlItem] {
+        var items = [
+            MapControlItem(id: "layers", systemImage: "square.3.layers.3d", label: "Capas y estilo del mapa") { modal = .layers },
+            MapControlItem(id: "orientation", systemImage: MapOrientationIcon.symbol(headingUp: viewModel.headingUp),
+                           label: viewModel.headingUp ? "El mapa gira con tu rumbo. Cambiar a norte arriba"
+                                                      : "Norte arriba. Cambiar a mapa según tu rumbo",
+                           isActive: viewModel.headingUp) {
                 viewModel.headingUp.toggle()
                 settings?.headingUp = viewModel.headingUp
                 recenter()
-            }
-            if supports3D {
-                CircleIconButton(systemImage: view3D ? "view.3d" : "view.2d",
-                                 label: view3D ? "Vista 3D activa. Cambiar a vista 2D" : "Vista 2D activa. Cambiar a vista 3D con edificios",
-                                 size: 48, isActive: view3D, accent: theme.accent, floating: true) { toggle3D() }
-            }
-            CircleIconButton(systemImage: viewModel.isFollowing ? "location.fill" : "location",
-                             label: "Recentrar en mi ubicación",
-                             size: 48, isActive: viewModel.isFollowing, accent: theme.accent, floating: true) { locationButtonTapped() }
+            },
+        ]
+        if supports3D {
+            items.append(MapControlItem(id: "3d", systemImage: view3D ? "view.3d" : "view.2d",
+                                        label: view3D ? "Vista 3D activa. Cambiar a vista 2D" : "Vista 2D activa. Cambiar a vista 3D con edificios",
+                                        isActive: view3D) { toggle3D() })
         }
+        items.append(MapControlItem(id: "follow", systemImage: viewModel.isFollowing ? "location.fill" : "location",
+                                    label: viewModel.isFollowing ? "Siguiendo tu ubicación" : "Recentrar en mi ubicación",
+                                    isActive: viewModel.isFollowing) { locationButtonTapped() })
+        return items
     }
 
     // MARK: - Avisos
@@ -629,7 +653,8 @@ struct HomeView: View {
                     onShowSaved: { modal = .saved },
                     onPickAddress: { kind in modal = .address(kind == .home ? .home : .work) },
                     onChooseZone: { modal = .address(.zone) },
-                    onDeletePlace: { kind in perform(.delete(kind)) }
+                    onDeletePlace: { kind in perform(.delete(kind)) },
+                    sideLayout: sidePanel
                 )
             }
         }

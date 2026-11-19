@@ -65,8 +65,10 @@ final class HomeLocationFeeder {
 struct LiveGPSIndicator: View {
     let theme: MapTheme
     let location: LocationServiceProtocol
+    var compact = false
 
     var body: some View {
-        GPSIndicator(theme: theme, status: location.status, accuracy: location.currentLocation?.horizontalAccuracy)
+        GPSIndicator(theme: theme, status: location.status, accuracy: location.currentLocation?.horizontalAccuracy,
+                     compact: compact)
     }
 }

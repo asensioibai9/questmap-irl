@@ -22,13 +22,21 @@ final class MapScreenLayoutTests: XCTestCase {
         XCTAssertEqual(portrait.browsingFollowInsets, .zero)
     }
 
-    func testLandscapeUsesASideColumnThatLeavesMostOfTheMapFree() {
+    func testLandscapeUsesACompactLeftPanelThatLeavesMostOfTheMapFree() {
         for layout in [landscapeLeft, landscapeSmall, landscapeLarge] {
             XCTAssertTrue(layout.isSideBySide, "\(layout.size)")
-            XCTAssertGreaterThanOrEqual(layout.sidePanelWidth, 300, "texto y botones no se encogen")
-            XCTAssertLessThanOrEqual(layout.sidePanelWidth, 400)
-            XCTAssertLessThanOrEqual(layout.sidePanelWidth, layout.size.width * 0.5, "el mapa conserva al menos la mitad")
+            XCTAssertGreaterThanOrEqual(layout.sidePanelWidth, min(280, layout.size.width * 0.45), "texto y botones no se encogen")
+            XCTAssertLessThanOrEqual(layout.sidePanelWidth, 380)
+            XCTAssertLessThanOrEqual(layout.sidePanelWidth, layout.size.width * 0.45, "el mapa es la parte principal")
+            XCTAssertGreaterThan(layout.freeMapWidth, 240, "queda un hueco útil entre panel y controles")
         }
+        XCTAssertGreaterThan(landscapeLarge.sidePanelWidth, landscapeSmall.sidePanelWidth - 0.5, "proporcional, no fijo")
+    }
+
+    func testControlsFitInTheUsableHeightOfASmallIPhone() {
+        let fourButtons: CGFloat = 4 * 44 + 3 + 6                    // grupo compacto: 4 botones, separadores, borde
+        let attribution: CGFloat = 30
+        XCTAssertLessThan(fourButtons + 8 + attribution, landscapeSmall.size.height - 14)
     }
 
     func testNavigationCameraCentersTheUserInTheFreeAreaNotBehindTheColumn() {
@@ -54,21 +62,18 @@ final class MapScreenLayoutTests: XCTestCase {
         XCTAssertFalse(MapScreenLayout(size: CGSize(width: 500, height: 400)).isSideBySide, "demasiado estrecho para una columna")
     }
 
-    func testKeyboardShrinksTheColumnButKeepsTheLayout() {
+    func testKeyboardShrinksThePanelButKeepsTheLayout() {
         let keyboard = MapScreenLayout(size: CGSize(width: 734, height: 170),
                                        safeArea: EdgeInsets(top: 0, leading: 59, bottom: 200, trailing: 59))
         XCTAssertTrue(keyboard.isSideBySide, "abrir el teclado no cambia de distribución")
-        XCTAssertLessThanOrEqual(keyboard.sidePanelHeight(for: .large), 170, "campo y resultados por encima del teclado")
+        XCTAssertLessThanOrEqual(keyboard.sidePanelMaxHeight, 170, "campo y resultados por encima del teclado")
+        XCTAssertLessThanOrEqual(landscapeLeft.sidePanelMaxHeight, landscapeLeft.size.height)
     }
 
-    func testSideColumnHeightsMatchTheThreeSheetSizes() {
-        let compact = landscapeLeft.sidePanelHeight(for: .compactPanel)
-        let medium = landscapeLeft.sidePanelHeight(for: .medium)
-        let large = landscapeLeft.sidePanelHeight(for: .large)
-        XCTAssertEqual(compact, 118)
-        XCTAssertLessThan(compact, medium)
-        XCTAssertLessThanOrEqual(medium, large)
-        XCTAssertLessThanOrEqual(large, landscapeLeft.size.height)
+    func testCameraLeavesRoomForTheRightControlsToo() {
+        XCTAssertGreaterThanOrEqual(landscapeLeft.browsingFollowInsets.right, landscapeLeft.safeArea.trailing + MapScreenLayout.controlsWidth)
+        XCTAssertGreaterThanOrEqual(landscapeLeft.navigationFollowInsets.right, landscapeLeft.safeArea.trailing + MapScreenLayout.controlsWidth)
+        XCTAssertEqual(portrait.navigationFollowInsets.right, 0)
     }
 
     func testRotatingBackAndForthGivesTheSameLayout() {

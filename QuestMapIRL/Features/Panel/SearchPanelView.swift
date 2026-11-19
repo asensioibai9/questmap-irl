@@ -34,6 +34,8 @@ struct SearchPanelView: View {
     var onChooseZone: () -> Void
     /// Borra solo Casa o solo Trabajo (la persistencia la hace quien llama, con guardado explícito).
     var onDeletePlace: (PlaceKind) -> Void = { _ in }
+    /// Columna lateral (iPhone en horizontal) en lugar de hoja inferior.
+    var sideLayout = false
 
     @FocusState private var focused: Bool
     @State private var pendingDelete: PlaceKind?
@@ -47,20 +49,34 @@ struct SearchPanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             PanelSearchBar(text: $model.query, focus: $focused, prompt: "Buscar") {
-                CircleIconButton(systemImage: "person.fill", label: "Perfil", size: 48, action: onProfile)
+                if sideLayout {
+                    // Sin hoja que arrastrar: este botón amplía o reduce la columna (recientes, recomendaciones, categorías).
+                    CircleIconButton(systemImage: isCompact ? "chevron.down" : "chevron.up",
+                                     label: isCompact ? "Mostrar recientes y categorías" : "Reducir el panel", size: 44) {
+                        if isCompact { detent = .large } else { focused = false; detent = .compactPanel }
+                    }
+                }
+                CircleIconButton(systemImage: "person.fill", label: "Perfil", size: sideLayout ? 44 : 48, action: onProfile)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 12)
+            .padding(.horizontal, sideLayout ? 12 : 16)
+            .padding(.top, sideLayout ? 12 : 8)
+            .padding(.bottom, sideLayout ? 10 : 12)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) { content }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 40)
+            if sideLayout && isCompact {
+                // Horizontal, reducido: buscador y Casa/Trabajo/Guardados enteros. La altura es la del contenido.
+                adaptiveQuickAccess
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 12)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) { content }
+                        .padding(.horizontal, sideLayout ? 12 : 16)
+                        .padding(.bottom, 40)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .scrollDisabled(isCompact)
+                .scrollIndicators(.hidden)
             }
-            .scrollDismissesKeyboard(.interactively)
-            .scrollDisabled(isCompact)
-            .scrollIndicators(.hidden)
         }
         .background(AppColor.surface)
         .onChange(of: focused) { _, isFocused in
@@ -109,7 +125,7 @@ struct SearchPanelView: View {
 
     @ViewBuilder
     private var browseContent: some View {
-        quickAccess
+        if sideLayout { adaptiveQuickAccess } else { quickAccess }
         if !recents.isEmpty { recentSection }
         recommendations
         categories
@@ -127,15 +143,44 @@ struct SearchPanelView: View {
         }
     }
 
+    /// Accesos rápidos para una columna estrecha: en una fila si caben enteros; si no, Casa y Trabajo en una fila y
+    /// Guardados debajo; y si tampoco, uno por fila a todo el ancho. Nunca se cortan por el borde.
+    private var adaptiveQuickAccess: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                placeChip(.home, icon: "house", set: "Casa", unset: "Añadir casa")
+                placeChip(.work, icon: "briefcase", set: "Trabajo", unset: "Añadir trabajo")
+                savedChip()
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    placeChip(.home, icon: "house", set: "Casa", unset: "Añadir casa")
+                    placeChip(.work, icon: "briefcase", set: "Trabajo", unset: "Añadir trabajo")
+                }
+                savedChip()
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                placeChip(.home, icon: "house", set: "Casa", unset: "Añadir casa", expands: true)
+                placeChip(.work, icon: "briefcase", set: "Trabajo", unset: "Añadir trabajo", expands: true)
+                savedChip(expands: true)
+            }
+        }
+    }
+
+    private func savedChip(expands: Bool = false) -> some View {
+        QuickAccessChip(systemImage: "bookmark", title: "Guardados",
+                        subtitle: favoriteCount == 0 ? nil : "\(favoriteCount)", expands: expands) { onShowSaved() }
+    }
+
     private var favoriteCount: Int {
         saved.filter { $0.kindRawValue == PlaceKind.favorite.rawValue || $0.kindRawValue == PlaceKind.pin.rawValue }.count
     }
 
-    private func placeChip(_ kind: PlaceKind, icon: String, set: String, unset: String) -> some View {
+    private func placeChip(_ kind: PlaceKind, icon: String, set: String, unset: String, expands: Bool = false) -> some View {
         let item = saved.first { $0.kindRawValue == kind.rawValue }
         return QuickAccessChip(systemImage: icon, title: item == nil ? unset : set,
                                subtitle: item.flatMap { $0.note.isEmpty ? nil : $0.note },
-                               isSet: item != nil) {
+                               isSet: item != nil, expands: expands) {
             if let item { onSelect(item.asPlace) } else { onPickAddress(kind) }
         }
         .contextMenu {

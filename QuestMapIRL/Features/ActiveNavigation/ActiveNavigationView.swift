@@ -189,25 +189,42 @@ struct NavigationOverlay: View {
 
     // MARK: - Controles laterales (modo mapa)
 
+    /// Vertical: botones redondos. Horizontal: el mismo grupo compacto que sin ruta.
+    @ViewBuilder
     private var sideButtons: some View {
-        VStack(spacing: 12) {
-            MapRoundButton(theme: theme,
-                           systemImage: headingUp ? "location.north.line.fill" : "safari",
-                           label: headingUp ? "Cambiar a norte arriba" : "Cambiar a vista según rumbo",
+        if isSideBySide {
+            MapControlCluster(items: controlItems, accent: theme.accent, background: theme.panel, border: theme.panelBorder,
+                              iconWeight: theme.iconWeight)
+        } else {
+            VStack(spacing: 12) {
+                ForEach(controlItems) { item in
+                    MapRoundButton(theme: theme, systemImage: item.systemImage, label: item.label, isActive: item.isActive,
+                                   action: item.action)
+                }
+            }
+        }
+    }
+
+    /// Orientación (brújula / «N») y recentrar (flecha de ubicación) son funciones distintas, con iconos distintos.
+    private var controlItems: [MapControlItem] {
+        var items = [
+            MapControlItem(id: "orientation", systemImage: MapOrientationIcon.symbol(headingUp: headingUp),
+                           label: headingUp ? "El mapa gira con tu rumbo. Cambiar a norte arriba" : "Norte arriba. Cambiar a mapa según tu rumbo",
                            isActive: headingUp) {
                 headingUp.toggle()
                 showFullRoute = false
                 onRecenter()
-            }
-            if supports3D {
-                MapRoundButton(theme: theme, systemImage: is3D ? "view.3d" : "view.2d",
-                               label: is3D ? "Cambiar a vista 2D" : "Cambiar a vista 3D", isActive: is3D) { onToggle3D() }
-            }
-            MapRoundButton(theme: theme, systemImage: "location.fill", label: "Recentrar") {
-                showFullRoute = false
-                onRecenter()
-            }
+            },
+        ]
+        if supports3D {
+            items.append(MapControlItem(id: "3d", systemImage: is3D ? "view.3d" : "view.2d",
+                                        label: is3D ? "Cambiar a vista 2D" : "Cambiar a vista 3D", isActive: is3D) { onToggle3D() })
         }
+        items.append(MapControlItem(id: "recenter", systemImage: "location.fill", label: "Recentrar") {
+            showFullRoute = false
+            onRecenter()
+        })
+        return items
     }
 
     // MARK: - Panel inferior
@@ -234,6 +251,7 @@ struct NavigationOverlay: View {
                                isMuted: speech.isMuted,
                                showFullRoute: showFullRoute,
                                isHUD: display == .hud,
+                               stacked: isSideBySide,
                                onMute: { speech.toggleMute() },
                                onToggleRoute: { showFullRoute.toggle() },
                                onSearch: onSearch,
@@ -312,37 +330,53 @@ struct NavControlsBar: View {
     let isMuted: Bool
     let showFullRoute: Bool
     let isHUD: Bool
+    /// Columna estrecha (horizontal): botones de 44 pt (mínimo táctil) en una sola fila, para que el panel quepa en
+    /// poca altura. «Finalizar» muestra el texto si cabe y, si no, solo la «X» (con la misma etiqueta de accesibilidad).
+    var stacked = false
     let onMute: () -> Void
     let onToggleRoute: () -> Void
     let onSearch: () -> Void
     let onToggleDisplay: () -> Void
     let onEnd: () -> Void
 
+    private var side: CGFloat { stacked ? 44 : 52 }
+
     var body: some View {
-        HStack(spacing: 8) {
-            control(isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", isMuted ? "Activar voz" : "Silenciar voz", onMute)
-            if !isHUD {
-                control(showFullRoute ? "location.fill" : "map.fill", showFullRoute ? "Volver a seguirme" : "Ver ruta completa", onToggleRoute)
-            }
-            control("magnifyingglass", "Buscar otro destino", onSearch)
-            control(isHUD ? "map" : "rectangle.inset.filled.bottomleading", isHUD ? "Abrir mapa completo" : "Modo HUD con minimapa", onToggleDisplay)
-            Button(action: onEnd) {
-                Label("Finalizar", systemImage: "xmark")
-                    .font(.headline)
-                    .minimumScaleFactor(0.7)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, minHeight: 52)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.red)
+        HStack(spacing: stacked ? 6 : 8) {
+            controls
+            endButton
         }
+    }
+
+    @ViewBuilder
+    private var controls: some View {
+        control(isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", isMuted ? "Activar voz" : "Silenciar voz", onMute)
+        if !isHUD {
+            control(showFullRoute ? "location.fill" : "map.fill", showFullRoute ? "Volver a seguirme" : "Ver ruta completa", onToggleRoute)
+        }
+        control("magnifyingglass", "Buscar otro destino", onSearch)
+        control(isHUD ? "map" : "rectangle.inset.filled.bottomleading", isHUD ? "Abrir mapa completo" : "Modo HUD con minimapa", onToggleDisplay)
+    }
+
+    private var endButton: some View {
+        Button(action: onEnd) {
+            ViewThatFits(in: .horizontal) {
+                Label("Finalizar", systemImage: "xmark").lineLimit(1)
+                Image(systemName: "xmark")
+            }
+            .font(.headline)
+            .frame(maxWidth: .infinity, minHeight: side)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.red)
+        .accessibilityLabel("Finalizar la navegación")
     }
 
     private func control(_ icon: String, _ label: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 19, weight: theme.iconWeight))
-                .frame(width: 48, height: 52)
+                .frame(width: stacked ? 44 : 48, height: side)
                 .foregroundStyle(theme.accent)
                 .background(theme.background.opacity(0.6), in: RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous))
         }

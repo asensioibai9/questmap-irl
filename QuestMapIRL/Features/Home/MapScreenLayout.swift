@@ -5,8 +5,8 @@ import UIKit
 /// la orientación declarada): se recalcula cada vez que cambia el tamaño (giro, multitarea, teclado).
 ///
 /// - Vertical (o cualquier superficie alta): panel inferior y HUD de navegación arriba y abajo, como hasta ahora.
-/// - Apaisado bajo (iPhone en horizontal): paneles en una columna lateral de ancho limitado y el mapa libre a la
-///   derecha; la cámara coloca al usuario en el centro de ese hueco.
+/// - Apaisado bajo (iPhone en horizontal): panel compacto a la izquierda, controles agrupados a la derecha y el mapa
+///   libre en medio; la cámara coloca al usuario en el centro de ese hueco.
 struct MapScreenLayout: Equatable {
     /// Tamaño del área segura de la pantalla (sin cámara, isla ni indicador de inicio).
     var size: CGSize
@@ -18,58 +18,61 @@ struct MapScreenLayout: Equatable {
         self.safeArea = safeArea
     }
 
+    /// Margen entre los paneles y el borde del área segura.
+    static let edgeMargin: CGFloat = 12
+    /// Ancho del grupo de controles de la derecha (44 pt por botón + borde).
+    static let controlsWidth: CGFloat = 50
+
     /// Más ancho que alto y poco alto: no cabe un panel inferior sin tapar casi todo el mapa.
     var isSideBySide: Bool { size.width > size.height && size.height < 560 && size.width >= 560 }
 
-    /// Ancho de la columna lateral: legible con texto grande y dejando al mapa al menos la mitad del ancho.
+    /// Ancho del panel izquierdo: proporcional al ancho, entre 280 y 380 pt (legible con texto grande) y nunca más del 45 %
+    /// del ancho, para que el mapa quede siempre como la parte principal.
     var sidePanelWidth: CGFloat {
-        let preferred = size.width * 0.40
-        return min(400, max(300, min(preferred, size.width * 0.5)))
+        min(size.width * 0.45, min(380, max(280, size.width * 0.36)))
     }
 
-    /// Espacio que la columna ocupa desde el borde izquierdo de la PANTALLA (para los márgenes de la cámara).
-    private var sideOccupied: CGFloat { safeArea.leading + 12 + sidePanelWidth + 12 }
+    /// Alto máximo del panel izquierdo: el alto útil (ya sin teclado) menos los márgenes. En estado reducido mide solo lo
+    /// que ocupa su contenido.
+    var sidePanelMaxHeight: CGFloat { max(120, size.height - 8 - 6) }
+
+    /// Espacio que el panel izquierdo ocupa desde el borde izquierdo de la PANTALLA.
+    private var leftOccupied: CGFloat { safeArea.leading + Self.edgeMargin + sidePanelWidth + Self.edgeMargin }
+    /// Espacio que los controles ocupan desde el borde derecho de la PANTALLA.
+    private var rightOccupied: CGFloat { safeArea.trailing + Self.edgeMargin + Self.controlsWidth + Self.edgeMargin }
+
+    /// Ancho de mapa que queda libre entre el panel y los controles.
+    var freeMapWidth: CGFloat {
+        size.width + safeArea.leading + safeArea.trailing - leftOccupied - rightOccupied
+    }
 
     /// Márgenes de la cámara de seguimiento durante la navegación.
     var navigationFollowInsets: UIEdgeInsets {
         if isSideBySide {
             // Usuario centrado en el hueco libre, algo bajo para ver más carretera por delante.
-            return UIEdgeInsets(top: 0, left: sideOccupied, bottom: size.height * 0.18, right: 0)
+            return UIEdgeInsets(top: 0, left: leftOccupied, bottom: size.height * 0.18, right: rightOccupied)
         }
         return UIEdgeInsets(top: 0, left: 0, bottom: size.height * 0.22, right: 0)
     }
 
-    /// Márgenes de la cámara de seguimiento sin ruta: con columna lateral, el usuario queda en el centro del mapa libre.
+    /// Márgenes de la cámara de seguimiento sin ruta: con panel lateral, el usuario queda en el centro del mapa libre.
     var browsingFollowInsets: UIEdgeInsets {
-        isSideBySide ? UIEdgeInsets(top: 0, left: sideOccupied, bottom: 0, right: 0) : .zero
+        isSideBySide ? UIEdgeInsets(top: 0, left: leftOccupied, bottom: 0, right: rightOccupied) : .zero
     }
 
     /// Encuadre de la ruta completa durante la navegación.
     var fullRouteInsets: UIEdgeInsets {
-        if isSideBySide {
-            return UIEdgeInsets(top: safeArea.top + 24, left: sideOccupied + 16, bottom: safeArea.bottom + 24,
-                                right: safeArea.trailing + 76)
-        }
+        if isSideBySide { return sideRouteInsets }
         return UIEdgeInsets(top: size.height * 0.18, left: 40, bottom: size.height * 0.38, right: 40)
     }
 
     /// Encuadre de la vista previa de la ruta (panel con alternativas abierto).
     var previewRouteInsets: UIEdgeInsets {
-        if isSideBySide {
-            return UIEdgeInsets(top: safeArea.top + 24, left: sideOccupied + 16, bottom: safeArea.bottom + 24,
-                                right: safeArea.trailing + 76)
-        }
+        if isSideBySide { return sideRouteInsets }
         return UIEdgeInsets(top: size.height * 0.18, left: 40, bottom: size.height * 0.55, right: 40)
     }
 
-    /// Altura de la columna lateral de búsqueda según el «detent» elegido (compacto, medio o grande), sin pasar del alto
-    /// disponible (que ya descuenta el teclado).
-    func sidePanelHeight(for detent: PresentationDetent) -> CGFloat {
-        let available = max(120, size.height - 16)
-        switch detent {
-        case .compactPanel: return min(available, 118)
-        case .medium: return min(available, max(260, size.height * 0.62))
-        default: return available
-        }
+    private var sideRouteInsets: UIEdgeInsets {
+        UIEdgeInsets(top: safeArea.top + 44, left: leftOccupied + 12, bottom: safeArea.bottom + 28, right: rightOccupied + 12)
     }
 }

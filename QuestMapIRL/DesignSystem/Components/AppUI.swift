@@ -165,6 +165,8 @@ struct QuickAccessChip: View {
     let title: String
     var subtitle: String?
     var isSet = true
+    /// Ocupa todo el ancho disponible (columna lateral en horizontal, cuando no caben en fila).
+    var expands = false
     let action: () -> Void
 
     var body: some View {
@@ -175,12 +177,16 @@ struct QuickAccessChip: View {
                     .frame(width: 32, height: 32)
                     .background(AppColor.surfaceRaised, in: .circle)
                 VStack(alignment: .leading, spacing: 1) {
+                    // El título nunca se corta (puede bajar a una segunda línea); la dirección sí se abrevia.
                     Text(title).font(.subheadline.weight(.semibold))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     if let subtitle {
                         Text(subtitle).font(.caption).foregroundStyle(AppColor.textSecondary).lineLimit(1)
                     }
                 }
             }
+            .frame(maxWidth: expands ? .infinity : nil, alignment: .leading)
             .foregroundStyle(isSet ? AppColor.textPrimary : AppColor.textSecondary)
             .padding(.leading, 8)
             .padding(.trailing, 14)
