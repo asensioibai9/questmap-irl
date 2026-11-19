@@ -15,6 +15,8 @@ struct HeadingSourceSelector {
     var enterCourseSpeed: Double = 2.0
     var leaveCourseSpeed: Double = 1.0
     var maxCourseAccuracy: Double = 45
+    /// Brújula con un error mayor (interferencias, sin calibrar) no mueve la flecha: se conserva el último valor fiable.
+    var maxCompassAccuracy: Double = 45
 
     private(set) var source: Source = .compass
     private(set) var heading: Double?
@@ -44,10 +46,16 @@ struct HeadingSourceSelector {
     /// Lectura de la brújula. Solo cambia el rumbo mostrado si la fuente activa es la brújula.
     @discardableResult
     mutating func ingestCompass(_ value: Double, accuracy: Double) -> Double? {
-        guard accuracy >= 0, value >= 0 else { return nil }
+        guard accuracy >= 0, accuracy <= maxCompassAccuracy, value >= 0 else { return nil }
         compass = value
         guard source == .compass else { return nil }
         heading = value
         return value
+    }
+
+    /// Cambió el borde de referencia de la brújula (giro de la interfaz). La última lectura ya no vale como dato nuevo,
+    /// pero el rumbo mostrado se conserva hasta la siguiente lectura (sin saltos ni rumbos inventados).
+    mutating func referenceChanged() {
+        compass = nil
     }
 }

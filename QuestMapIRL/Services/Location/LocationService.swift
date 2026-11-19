@@ -1,5 +1,6 @@
 import CoreLocation
 import Observation
+import UIKit
 
 /// Lo mínimo de `CLLocationManager` que usa el servicio (permite sustituirlo en pruebas).
 protocol LocationManaging: AnyObject {
@@ -13,6 +14,8 @@ protocol LocationManaging: AnyObject {
     var allowsBackgroundLocationUpdates: Bool { get set }
     var showsBackgroundLocationIndicator: Bool { get set }
     var headingFilter: CLLocationDegrees { get set }
+    /// Borde del dispositivo que se toma como «delante» al calcular el rumbo de la brújula (`CLHeading`).
+    var headingOrientation: CLDeviceOrientation { get set }
     func requestWhenInUseAuthorization()
     func startUpdatingLocation()
     func stopUpdatingLocation()
@@ -340,6 +343,19 @@ final class LocationService: NSObject, LocationServiceProtocol {
            heading != displayHeading {
             displayHeading = heading
         }
+    }
+
+    /// Orientación de la INTERFAZ (no la física del dispositivo, ni el rumbo, ni la cámara). La brújula mide hacia dónde
+    /// apunta un borde del iPhone; por defecto el borde superior en VERTICAL. En horizontal ese borde queda a un lado de la
+    /// pantalla y el rumbo salía desviado ±90° hacia donde se había girado el móvil. Aquí se le dice a Core Location qué
+    /// borde es ahora «arriba» en pantalla (API oficial `headingOrientation`), sin sumar ni restar grados a mano.
+    /// No afecta al rumbo de desplazamiento del GPS (`course`), que no depende de cómo se sujete el teléfono.
+    func setInterfaceOrientation(_ orientation: UIInterfaceOrientation) {
+        guard let reference = HeadingReference.deviceOrientation(forInterface: orientation),
+              manager.headingOrientation != reference else { return }
+        manager.headingOrientation = reference
+        headingSelector.referenceChanged()            // la última lectura se midió con el borde anterior: no se reutiliza
+        log("heading-reference", note: "\(reference.rawValue)")
     }
 
     /// Lectura de la brújula (grados verdaderos si los hay). Solo se muestra si la fuente activa es la brújula.

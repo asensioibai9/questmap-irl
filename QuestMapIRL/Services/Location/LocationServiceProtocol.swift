@@ -1,4 +1,5 @@
 import CoreLocation
+import UIKit
 import Observation
 
 enum LocationAuthState: Equatable {
@@ -80,4 +81,11 @@ protocol LocationServiceProtocol: AnyObject {
     func refreshNow()
     /// Solicita ubicación precisa temporal cuando el usuario solo concedió la aproximada.
     func requestTemporaryFullAccuracy()
+    /// La interfaz cambió de orientación (vertical / horizontal a un lado u otro): referencia de la brújula.
+    func setInterfaceOrientation(_ orientation: UIInterfaceOrientation)
+}
+
+extension LocationServiceProtocol {
+    /// Implementaciones sin brújula (pruebas): no hacen nada.
+    func setInterfaceOrientation(_ orientation: UIInterfaceOrientation) {}
 }

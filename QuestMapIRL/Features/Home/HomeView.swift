@@ -137,7 +137,28 @@ struct HomeView: View {
 
     /// Pantalla sin reacciones a cambios de estado (se reparten en tres grupos para que el compilador
     /// pueda comprobar los tipos en un tiempo razonable).
+    /// El espacio disponible se mide con un GeometryReader EXTERIOR, que mide lo que ofrece la pantalla y no lo que ocupa el
+    /// contenido. Antes se medía en el fondo de la ZStack, que crece con su contenido: la interfaz vertical de navegación,
+    /// más alta que la pantalla en horizontal, hacía crecer la medida, la app seguía creyendo estar en vertical y la
+    /// interfaz no cambiaba nunca a horizontal.
     private var screen: some View {
+        GeometryReader { proxy in
+            screenContent
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .onAppear { updateLayout(proxy) }
+                .onChange(of: proxy.size) { _, _ in updateLayout(proxy) }
+                .onChange(of: proxy.safeAreaInsets) { _, _ in updateLayout(proxy) }
+        }
+        .animation(.smooth, value: viewModel.destination != nil)
+        // En vertical, hoja inferior; en horizontal, la MISMA vista en una columna lateral (ver `browsingOverlay`).
+        .sheet(isPresented: Binding(get: { showPanel && !sidePanel }, set: { if !$0 && !sidePanel { showPanel = false } })) {
+            panelSheet
+        }
+        .onChange(of: layout) { old, new in layoutChanged(from: old, to: new) }
+        .onChange(of: modal) { _, open in if open == nil { sidePanel = layout.isSideBySide } }
+    }
+
+    private var screenContent: some View {
         ZStack {
             mapLayer
             if let navigation {
@@ -173,19 +194,6 @@ struct HomeView: View {
                 browsingOverlay
             }
         }
-        .background(GeometryReader { proxy in
-            Color.clear
-                .onAppear { updateLayout(proxy) }
-                .onChange(of: proxy.size) { _, _ in updateLayout(proxy) }
-                .onChange(of: proxy.safeAreaInsets) { _, _ in updateLayout(proxy) }
-        })
-        .animation(.smooth, value: viewModel.destination != nil)
-        // En vertical, hoja inferior; en horizontal, la MISMA vista en una columna lateral (ver `browsingOverlay`).
-        .sheet(isPresented: Binding(get: { showPanel && !sidePanel }, set: { if !$0 && !sidePanel { showPanel = false } })) {
-            panelSheet
-        }
-        .onChange(of: layout) { old, new in layoutChanged(from: old, to: new) }
-        .onChange(of: modal) { _, open in if open == nil { sidePanel = layout.isSideBySide } }
     }
 
     private func locationHandlers<V: View>(_ view: V) -> some View {
@@ -470,7 +478,9 @@ struct HomeView: View {
     @ViewBuilder
     private var sideControls: some View {
         if sidePanel {
-            MapControlCluster(items: mapControlItems, accent: theme.accent)
+            // Mismo grupo y mismos colores que durante la navegación.
+            MapControlCluster(items: mapControlItems, accent: theme.accent, background: theme.panel, border: theme.panelBorder,
+                              iconWeight: theme.iconWeight)
         } else {
             VStack(spacing: 12) {
                 ForEach(mapControlItems) { item in
@@ -866,6 +876,7 @@ struct HomeView: View {
         pushSavedPlaces()
         if let active = environment.hub.session { presentNavigationUI(active) }   // navegación iniciada antes (p. ej. desde CarPlay)
         if startupFinished { afterStartup() } else if environment.hub.session == nil { location.start(mode: .idle) }
+        syncHeadingReference()                 // la app puede abrirse ya en horizontal
         startFeedingMaps()
         pushUser()
         map.setFollow(followMode, zoom: theme.activeCartography.defaultZoom, pitch: explorePitch, insets: layout.browsingFollowInsets)
@@ -946,6 +957,15 @@ struct HomeView: View {
     private func updateLayout(_ proxy: GeometryProxy) {
         let next = MapScreenLayout(size: proxy.size, safeArea: proxy.safeAreaInsets)
         if next != layout { layout = next }
+        syncHeadingReference()
+    }
+
+    /// La brújula toma como «delante» el borde que está ARRIBA en la interfaz actual. Girar el móvil cambia esa referencia;
+    /// no es un giro del vehículo, no toca el modo de cámara, ni la ruta, ni el rumbo de desplazamiento del GPS.
+    private func syncHeadingReference() {
+        if let orientation = HeadingReference.currentInterfaceOrientation() {
+            location.setInterfaceOrientation(orientation)
+        }
     }
 
     /// Giro del iPhone o cambio de tamaño. Solo se adaptan la distribución y los márgenes de la cámara: el mapa, el

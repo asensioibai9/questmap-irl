@@ -29,6 +29,9 @@ struct QuestMapView: UIViewRepresentable {
         mapView.automaticallyAdjustsContentInset = false
         mapView.showsUserLocation = false          // la posición la dibuja la app con su propio servicio
         mapView.compassView.isHidden = !showsCompass
+        // Brújula arriba a la derecha, centrada sobre la columna de controles (que está a 12 pt del área segura).
+        mapView.compassViewPosition = .topRight
+        mapView.compassViewMargins = CGPoint(x: 17, y: 8)
         mapView.minimumZoomLevel = 2
         mapView.maximumZoomLevel = 20
         mapView.isUserInteractionEnabled = interactive

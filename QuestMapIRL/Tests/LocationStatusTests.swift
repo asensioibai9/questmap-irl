@@ -15,6 +15,7 @@ final class FakeLocationManager: LocationManaging {
     var allowsBackgroundLocationUpdates = false
     var showsBackgroundLocationIndicator = false
     var headingFilter: CLLocationDegrees = 0
+    var headingOrientation: CLDeviceOrientation = .portrait
 
     var permissionRequests = 0
     var startCount = 0

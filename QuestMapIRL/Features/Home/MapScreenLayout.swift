@@ -46,18 +46,20 @@ struct MapScreenLayout: Equatable {
         size.width + safeArea.leading + safeArea.trailing - leftOccupied - rightOccupied
     }
 
-    /// Márgenes de la cámara de seguimiento durante la navegación.
+    /// Márgenes de la cámara de seguimiento durante la navegación. Solo a la izquierda (panel) y abajo: MapLibre coloca la
+    /// brújula del mapa respecto a estos márgenes, y un margen derecho la sacaba de la columna de controles al centro del
+    /// mapa. La columna derecha es estrecha (≈ 74 pt): con el panel a la izquierda descontado, el usuario ya queda lejos.
     var navigationFollowInsets: UIEdgeInsets {
         if isSideBySide {
-            // Usuario centrado en el hueco libre, algo bajo para ver más carretera por delante.
-            return UIEdgeInsets(top: 0, left: leftOccupied, bottom: size.height * 0.18, right: rightOccupied)
+            // Usuario en el hueco libre, algo bajo para ver más carretera por delante.
+            return UIEdgeInsets(top: 0, left: leftOccupied, bottom: size.height * 0.18, right: 0)
         }
         return UIEdgeInsets(top: 0, left: 0, bottom: size.height * 0.22, right: 0)
     }
 
     /// Márgenes de la cámara de seguimiento sin ruta: con panel lateral, el usuario queda en el centro del mapa libre.
     var browsingFollowInsets: UIEdgeInsets {
-        isSideBySide ? UIEdgeInsets(top: 0, left: leftOccupied, bottom: 0, right: rightOccupied) : .zero
+        isSideBySide ? UIEdgeInsets(top: 0, left: leftOccupied, bottom: 0, right: 0) : .zero
     }
 
     /// Encuadre de la ruta completa durante la navegación.

@@ -70,10 +70,16 @@ final class MapScreenLayoutTests: XCTestCase {
         XCTAssertLessThanOrEqual(landscapeLeft.sidePanelMaxHeight, landscapeLeft.size.height)
     }
 
-    func testCameraLeavesRoomForTheRightControlsToo() {
-        XCTAssertGreaterThanOrEqual(landscapeLeft.browsingFollowInsets.right, landscapeLeft.safeArea.trailing + MapScreenLayout.controlsWidth)
-        XCTAssertGreaterThanOrEqual(landscapeLeft.navigationFollowInsets.right, landscapeLeft.safeArea.trailing + MapScreenLayout.controlsWidth)
-        XCTAssertEqual(portrait.navigationFollowInsets.right, 0)
+    func testFollowCameraUsesOnlyTheLeftPanelMarginSoTheCompassStaysInTheControlColumn() {
+        // MapLibre coloca la brújula respecto a los márgenes de la cámara: sin margen derecho no se desplaza al centro.
+        XCTAssertEqual(landscapeLeft.browsingFollowInsets.right, 0)
+        XCTAssertEqual(landscapeLeft.navigationFollowInsets.right, 0)
+        // Aun así, el centro del hueco queda lejos de la columna de controles.
+        let screenWidth = landscapeLeft.size.width + landscapeLeft.safeArea.leading + landscapeLeft.safeArea.trailing
+        let center = landscapeLeft.navigationFollowInsets.left + (screenWidth - landscapeLeft.navigationFollowInsets.left) / 2
+        XCTAssertLessThan(center, screenWidth - landscapeLeft.safeArea.trailing - 12 - MapScreenLayout.controlsWidth - 80)
+        // El encuadre de la ruta completa sí deja sitio a los controles (usa márgenes de encuadre, no de la cámara).
+        XCTAssertGreaterThanOrEqual(landscapeLeft.fullRouteInsets.right, landscapeLeft.safeArea.trailing + MapScreenLayout.controlsWidth)
     }
 
     func testRotatingBackAndForthGivesTheSameLayout() {
