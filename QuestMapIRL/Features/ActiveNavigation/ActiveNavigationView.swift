@@ -28,6 +28,8 @@ struct NavigationOverlay: View {
     var is3D = false
     var onToggle3D: () -> Void = {}
     var speedSign: SpeedSignAppearance = .defaults
+    /// Distribución calculada con el espacio real (nil = vertical, como siempre).
+    var layout: MapScreenLayout? = nil
     let onSearch: () -> Void
     let onEnd: () -> Void
 
@@ -43,41 +45,92 @@ struct NavigationOverlay: View {
 
     private var signIsEmpty: Bool { SpeedLimitSign.isEmpty(viewModel.speedLimit, appearance: speedSign) && !limitDiagnostics }
 
+    private var isSideBySide: Bool { layout?.isSideBySide ?? false }
+    private var showsTopSign: Bool { speedSign.position != .automatic && !signIsEmpty }
+
+    /// Vertical: maniobra y estado arriba, panel abajo. Horizontal: maniobra, estado y panel en una columna lateral de ancho
+    /// limitado y el mapa libre a la derecha. La zona central (botones, HUD y minimapa) conserva su identidad al girar,
+    /// así que no se recrea el minimapa ni se pierde nada.
     var body: some View {
+        let outer = isSideBySide ? AnyLayout(HStackLayout(alignment: .top, spacing: 12)) : AnyLayout(VStackLayout(spacing: 10))
+        outer {
+            if isSideBySide {
+                sideColumn.frame(width: layout?.sidePanelWidth ?? 340)
+            } else {
+                header
+            }
+
+            centerArea
+
+            if !isSideBySide {
+                // El reproductor va en su propia fila, encima del panel: no tapa la ruta, la maniobra ni la señal.
+                if let music, music.isVisible {
+                    MiniPlayerCard(model: music)
+                }
+                bottomPanel
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
+        .padding(.bottom, 6)
+    }
+
+    private var header: some View {
         VStack(spacing: 10) {
             ManeuverCard(viewModel: viewModel, theme: theme, useMetric: useMetric)
             statusRow
-
             // Posiciones «arriba»: fila propia bajo la maniobra y el estado, así no tapa nada.
-            if speedSign.position != .automatic, !signIsEmpty {
-                HStack {
-                    if speedSign.position == .topTrailing { Spacer() }
-                    limitSign
-                    if speedSign.position == .topLeading { Spacer() }
+            if showsTopSign, !isSideBySide { topSignRow }
+        }
+    }
+
+    private var topSignRow: some View {
+        HStack {
+            if speedSign.position == .topTrailing { Spacer() }
+            limitSign
+            if speedSign.position == .topLeading { Spacer() }
+        }
+    }
+
+    /// Columna lateral (horizontal). Si con texto grande no cabe entera, se desplaza la columna, nunca el mapa.
+    private var sideColumn: some View {
+        ViewThatFits(in: .vertical) {
+            VStack(spacing: 10) {
+                header
+                Spacer(minLength: 8)
+                bottomPanel
+            }
+            ScrollView {
+                VStack(spacing: 10) {
+                    header
+                    bottomPanel
                 }
             }
+            .scrollIndicators(.hidden)
+        }
+    }
 
+    /// Zona del mapa: botones, señal, reproductor (horizontal) o HUD con minimapa.
+    private var centerArea: some View {
+        VStack(spacing: 10) {
+            if isSideBySide, showsTopSign { topSignRow }
             if display == .hud {
                 hudBody
             } else {
                 Spacer(minLength: 0)
+                if isSideBySide, let music, music.isVisible {
+                    HStack {
+                        MiniPlayerCard(model: music).frame(maxWidth: 340)
+                        Spacer(minLength: 64)
+                    }
+                }
                 HStack(alignment: .bottom) {
                     if speedSign.position == .automatic { limitSign }
                     Spacer()
                     sideButtons
                 }
             }
-
-            // El reproductor va en su propia fila, encima del panel: no tapa la ruta, la maniobra ni la señal de velocidad.
-            if let music, music.isVisible {
-                MiniPlayerCard(model: music)
-            }
-
-            bottomPanel
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 6)
-        .padding(.bottom, 6)
     }
 
     // MARK: - Estado (GPS, conexión, recálculo)

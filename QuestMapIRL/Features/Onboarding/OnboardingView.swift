@@ -58,22 +58,30 @@ struct OnboardingView: View {
         }
     }
 
+    /// Centrado en vertical cuando cabe; si no (horizontal, texto grande), se desplaza en lugar de cortarse.
     private func step(icon: String, title: String, text: String) -> some View {
-        VStack(spacing: 20) {
-            Spacer()
-            Image(systemName: icon)
-                .font(.system(size: 72, weight: theme.iconWeight))
-                .foregroundStyle(theme.accent)
-                .shadow(color: theme.accent.opacity(0.6), radius: 16)
-            Text(title)
-                .font(.system(.title, design: theme.titleDesign).weight(.bold))
-                .multilineTextAlignment(.center)
-            Text(text)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(AppColor.textSecondary)
-            Spacer()
+        GeometryReader { proxy in
+            let short = proxy.size.height < 420
+            ScrollView {
+                VStack(spacing: short ? 12 : 20) {
+                    Image(systemName: icon)
+                        .font(.system(size: short ? 44 : 72, weight: theme.iconWeight))
+                        .foregroundStyle(theme.accent)
+                        .shadow(color: theme.accent.opacity(0.6), radius: 16)
+                    Text(title)
+                        .font(.system(.title, design: theme.titleDesign).weight(.bold))
+                        .multilineTextAlignment(.center)
+                    Text(text)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(AppColor.textSecondary)
+                }
+                .frame(maxWidth: 560)
+                .padding(.horizontal, 32)
+                .padding(.vertical, short ? 16 : 32)
+                .frame(maxWidth: .infinity, minHeight: proxy.size.height)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .foregroundStyle(AppColor.textPrimary)
-        .padding(32)
     }
 }

@@ -48,7 +48,10 @@ final class MapController {
     private var showPlaceNames = true
     /// Nombre original de cada capa de iconos (para restaurarlo al volver a activar los nombres).
     private var originalPOIText: [String: NSExpression] = [:]
-    private var bottomInset: CGFloat = 0
+    /// Márgenes de la cámara de seguimiento: el usuario se coloca en el centro del área que dejan libre los paneles.
+    private var followInsets: UIEdgeInsets = .zero
+    /// Ruta encuadrada entera (vista previa o «ver ruta completa») mientras el usuario no mueva el mapa.
+    private var wholeRoute: [CLLocationCoordinate2D]?
     private var hasCenteredOnUser = false
 
     /// Se llama cuando el usuario mueve el mapa con un gesto y se deja de seguirle.
@@ -166,6 +169,7 @@ final class MapController {
     func focus(on coordinate: CLLocationCoordinate2D, zoom: Double = 16, bottomInset: CGFloat = 0) {
         followMode = .off
         cameraState = nil
+        wholeRoute = nil
         onFollowCancelled?()
         guard let mapView else { return }
         setInset(UIEdgeInsets(top: 0, left: 0, bottom: bottomInset, right: 0), on: mapView)
@@ -175,6 +179,7 @@ final class MapController {
     /// Gesto del usuario sobre el mapa: se deja de seguir al momento (no se lucha contra el gesto). La flecha sigue
     /// moviéndose; la cámara ya no. Se reanuda con el botón de recentrar (`setFollow`).
     func userMovedCamera() {
+        wholeRoute = nil                              // ya no es «la ruta entera»: al girar no se vuelve a encuadrar
         guard followMode != .off else { return }
         followMode = .off
         cameraState = nil
@@ -209,7 +214,7 @@ final class MapController {
         }
         if !hasCenteredOnUser, followMode != .off, let mapView, let shown = motion.displayed {
             // Primera posición: se centra directamente (sin cruzar el mundo desde la vista inicial).
-            setInset(UIEdgeInsets(top: 0, left: 0, bottom: bottomInset, right: 0), on: mapView)
+            setInset(followInsets, on: mapView)
             mapView.setCenter(shown, zoomLevel: followZoom,
                               direction: followMode == .headingUp ? motion.displayedHeading : 0, animated: false)
             hasCenteredOnUser = true
@@ -223,14 +228,20 @@ final class MapController {
     /// Activa (o cambia) el seguimiento. La cámara llega al objetivo con la misma aproximación suave que usa cada
     /// fotograma; si el usuario estaba lejos (había movido el mapa), primero un vuelo corto de MapLibre.
     func setFollow(_ mode: FollowMode, zoom: Double, pitch: Double, bottomInset: CGFloat) {
+        setFollow(mode, zoom: zoom, pitch: pitch, insets: UIEdgeInsets(top: 0, left: 0, bottom: bottomInset, right: 0))
+    }
+
+    /// Igual, con márgenes en los cuatro lados (en horizontal el panel de navegación va a un lado).
+    func setFollow(_ mode: FollowMode, zoom: Double, pitch: Double, insets: UIEdgeInsets) {
         followMode = mode
         followZoom = zoom
         followPitch = pitch
-        self.bottomInset = bottomInset
+        followInsets = insets
+        wholeRoute = nil
         cameraState = nil
         guard let mapView else { return }
         guard mode != .off else { return }
-        setInset(UIEdgeInsets(top: 0, left: 0, bottom: bottomInset, right: 0), on: mapView)
+        setInset(insets, on: mapView)
         if let shown = motion.displayed, !UIAccessibility.isReduceMotionEnabled, isFar(shown, zoom: zoom, in: mapView) {
             flightActive = true
             mapView.setCenter(shown, zoomLevel: zoom, direction: mode == .headingUp ? motion.displayedHeading : 0,
@@ -251,6 +262,26 @@ final class MapController {
         return !mapView.bounds.insetBy(dx: -mapView.bounds.width * 0.5, dy: -mapView.bounds.height * 0.5).contains(point)
     }
 
+    /// La superficie libre cambió (giro del iPhone, panel que aparece): nuevos márgenes SIN tocar el modo, el zoom, la
+    /// inclinación ni el rumbo. Si se sigue al usuario, la cámara se desliza hacia el nuevo centro con el mismo suavizado
+    /// de siempre; si el usuario está explorando a mano, no se mueve nada.
+    func updateFollowInsets(_ insets: UIEdgeInsets) {
+        followInsets = insets
+        guard followMode != .off, let mapView else { return }
+        setInset(insets, on: mapView)
+        cameraState = nil
+        startDisplayLinkIfNeeded()
+    }
+
+    /// Vuelve a encuadrar la ruta entera en la superficie nueva, solo si se estaba viendo entera y el usuario no ha movido
+    /// el mapa desde entonces. Devuelve si lo ha hecho.
+    @discardableResult
+    func refitWholeRoute(insets: UIEdgeInsets) -> Bool {
+        guard followMode == .off, let coordinates = wholeRoute else { return false }
+        fit(coordinates, insets: insets)
+        return true
+    }
+
     private func setInset(_ inset: UIEdgeInsets, on mapView: MLNMapView) {
         guard appliedInset != inset else { return }
         appliedInset = inset
@@ -266,6 +297,7 @@ final class MapController {
         let longitudes = coordinates.map(\.longitude)
         guard let minLat = latitudes.min(), let maxLat = latitudes.max(),
               let minLon = longitudes.min(), let maxLon = longitudes.max() else { return }
+        wholeRoute = coordinates
         setInset(.zero, on: mapView)
         let bounds = MLNCoordinateBounds(
             sw: CLLocationCoordinate2D(latitude: minLat, longitude: minLon),

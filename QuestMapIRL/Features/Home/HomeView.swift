@@ -47,7 +47,12 @@ struct HomeView: View {
     @State private var showTemporaryStorageNotice = false
     @State private var storeSetAside = false
     @State private var locationNotice: LocationNotice?
-    @State private var viewHeight: CGFloat = 800
+    /// Distribución según el espacio real (se actualiza en cada giro o cambio de tamaño).
+    @State private var layout = MapScreenLayout(size: CGSize(width: 390, height: 800))
+    /// Panel de búsqueda como columna lateral (horizontal) en lugar de hoja inferior. Solo cambia cuando no hay una
+    /// ventana abierta encima del panel, para no cerrarla al girar.
+    @State private var sidePanel = false
+    @State private var temporaryNoticeShown = false
     @State private var map = MapController()
     @State private var miniMap = MapController()
     /// Lleva la ubicación al mapa sin redibujar esta pantalla con cada lectura (ver `HomeLocationFeeder`).
@@ -81,7 +86,10 @@ struct HomeView: View {
     private var wantsTraceVerification: Bool { (settings?.showSpeedLimit ?? true) && (settings?.speedLimitVerifyTrace ?? true) }
     private var location: LocationServiceProtocol { environment.locationService }
     private var followMode: FollowMode { viewModel.headingUp ? .headingUp : .northUp }
-    private var navigationBottomInset: CGFloat { viewHeight * 0.22 }
+    /// Columna lateral de búsqueda visible (horizontal, sin navegación).
+    private var sidePanelActive: Bool { sidePanel && showPanel && navigation == nil }
+    /// Espacio que ocupa la columna lateral a la izquierda, para apartar de ella los demás elementos flotantes.
+    private var sideClearance: CGFloat { sidePanelActive ? layout.sidePanelWidth + 12 : 0 }
     /// El control 2D/3D solo existe en estilos con edificios extruidos.
     private var supports3D: Bool { theme.activeCartography.supportsBuildings3D }
     private var view3D: Bool { supports3D && (settings?.view3D ?? false) }
@@ -153,6 +161,7 @@ struct HomeView: View {
                     is3D: view3D,
                     onToggle3D: toggle3D,
                     speedSign: speedSign,
+                    layout: layout,
                     onSearch: { showNavSearch = true },
                     onEnd: { navigation.stop() }
                 )
@@ -170,11 +179,17 @@ struct HomeView: View {
         }
         .background(GeometryReader { proxy in
             Color.clear
-                .onAppear { viewHeight = proxy.size.height }
-                .onChange(of: proxy.size.height) { _, height in viewHeight = height }
+                .onAppear { updateLayout(proxy) }
+                .onChange(of: proxy.size) { _, _ in updateLayout(proxy) }
+                .onChange(of: proxy.safeAreaInsets) { _, _ in updateLayout(proxy) }
         })
         .animation(.smooth, value: viewModel.destination != nil)
-        .sheet(isPresented: $showPanel) { panelSheet }
+        // En vertical, hoja inferior; en horizontal, la MISMA vista en una columna lateral (ver `browsingOverlay`).
+        .sheet(isPresented: Binding(get: { showPanel && !sidePanel }, set: { if !$0 && !sidePanel { showPanel = false } })) {
+            panelSheet
+        }
+        .onChange(of: layout) { old, new in layoutChanged(from: old, to: new) }
+        .onChange(of: modal) { _, open in if open == nil { sidePanel = layout.isSideBySide } }
     }
 
     private func locationHandlers<V: View>(_ view: V) -> some View {
@@ -236,7 +251,7 @@ struct HomeView: View {
         .onChange(of: viewModel.routesVersion) { _, _ in fitSelectedRoute() }
         .onChange(of: showFullRoute) { _, full in
             if full, let navigation {
-                map.fit(navigation.route.coordinates, insets: routeInsets(bottom: viewHeight * 0.38))
+                map.fit(navigation.route.coordinates, insets: layout.fullRouteInsets)
             } else if !full, navigation != nil {
                 recenter()
             }
@@ -301,9 +316,36 @@ struct HomeView: View {
                 banners
                 Spacer()
             }
-            .padding(.horizontal, 16)
+            .padding(.leading, 16 + sideClearance)
+            .padding(.trailing, sidePanelActive ? 76 : 16)
             .padding(.top, 8)
 
+            if sidePanelActive {
+                sideBrowsingExtras
+                HStack(alignment: .top) {
+                    sidePanelCard
+                    Spacer(minLength: 0)
+                }
+                .padding(.leading, 12)
+                .padding(.top, 8)
+                .frame(maxHeight: .infinity, alignment: .top)
+            } else {
+                bottomBrowsingExtras
+            }
+
+            HStack {
+                Spacer()
+                VStack { Spacer(); sideControls }
+            }
+            .padding(.trailing, 14)
+            .padding(.bottom, sidePanelActive ? 8 : 14 + 118)
+            .ignoresSafeArea(.container, edges: sidePanelActive ? [] : .bottom)
+        }
+    }
+
+    /// Vertical: crédito y reproductor por ENCIMA del panel inferior (siguen su altura).
+    private var bottomBrowsingExtras: some View {
+        ZStack {
             // Crédito de los datos del mapa: siempre visible, pequeño, a la izquierda y por ENCIMA del panel
             // (sigue a la altura del panel). Al tocarlo se abren los créditos completos.
             GeometryReader { proxy in
@@ -337,14 +379,55 @@ struct HomeView: View {
                 .ignoresSafeArea()
                 .animation(.smooth, value: detent)
             }
+        }
+    }
 
-            HStack {
-                Spacer()
-                VStack { Spacer(); sideControls }
+    /// Horizontal: crédito y reproductor abajo, en la zona del mapa que queda a la derecha de la columna.
+    private var sideBrowsingExtras: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Spacer()
+            if environment.music.isVisible {
+                MiniPlayerCard(model: environment.music)
+                    .frame(maxWidth: max(220, min(340, layout.size.width - sideClearance - 120)))
             }
-            .padding(.trailing, 14)
-            .padding(.bottom, 14 + 118)
-            .ignoresSafeArea(.container, edges: .bottom)
+            MapAttributionLabel(text: theme.activeCartography.attribution) { modal = .credits }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 12 + sideClearance)
+        .padding(.trailing, 76)
+        .padding(.bottom, 6)
+    }
+
+    /// Columna lateral con el mismo contenido que la hoja inferior. Sus tres alturas equivalen a las de la hoja
+    /// (compacta, media y grande) y se cambian con el asa o, como en la hoja, al escribir o ver resultados.
+    private var sidePanelCard: some View {
+        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
+        return VStack(spacing: 0) {
+            Button(action: cycleSidePanel) {
+                Capsule()
+                    .fill(AppColor.textSecondary.opacity(0.6))
+                    .frame(width: 36, height: 5)
+                    .frame(maxWidth: .infinity, minHeight: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(detent == .large ? "Reducir el panel" : "Ampliar el panel")
+            panelDecorations(panelContent)
+        }
+        .frame(width: layout.sidePanelWidth, height: layout.sidePanelHeight(for: detent), alignment: .top)
+        .background(AppColor.surface, in: shape)
+        .clipShape(shape)
+        .shadow(color: .black.opacity(0.35), radius: 12, y: 4)
+        .environment(\.colorScheme, .dark)
+        .tint(theme.accent)
+        .animation(.smooth, value: detent)
+    }
+
+    private func cycleSidePanel() {
+        switch detent {
+        case .compactPanel: detent = .medium
+        case .medium: detent = .large
+        default: detent = .compactPanel
         }
     }
 
@@ -508,7 +591,23 @@ struct HomeView: View {
 
     // MARK: - Panel inferior
 
+    /// Hoja inferior (vertical).
     private var panelSheet: some View {
+        panelDecorations(
+            panelContent
+                .presentationDetents([.compactPanel, .medium, .large], selection: $detent)
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+                .presentationBackground(AppColor.surface)
+                .interactiveDismissDisabled()
+                .preferredColorScheme(.dark)
+                .tint(theme.accent)
+        )
+    }
+
+    /// Contenido del panel: el mismo en la hoja (vertical) y en la columna lateral (horizontal), con el mismo estado.
+    private var panelContent: some View {
         Group {
             if viewModel.destination != nil {
                 routePanel
@@ -534,14 +633,11 @@ struct HomeView: View {
                 )
             }
         }
-        .presentationDetents([.compactPanel, .medium, .large], selection: $detent)
-        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(28)
-        .presentationBackground(AppColor.surface)
-        .interactiveDismissDisabled()
-        .preferredColorScheme(.dark)
-        .tint(theme.accent)
+    }
+
+    /// Ventanas y avisos que cuelgan del panel, esté donde esté.
+    private func panelDecorations<V: View>(_ content: V) -> some View {
+        content
         .sheet(item: $modal) { modalView($0) }
         .alert("No se pudo guardar", isPresented: Binding(get: { failedPersonalAction != nil },
                                                           set: { if !$0 { failedPersonalAction = nil } })) {
@@ -567,7 +663,10 @@ struct HomeView: View {
             Text("Cierra la app del todo y vuelve a abrirla.")
         }
         .onAppear {
-            if PersistenceStatus.shared.mode == .temporary { showTemporaryStorageNotice = true }
+            if PersistenceStatus.shared.mode == .temporary, !temporaryNoticeShown {
+                temporaryNoticeShown = true
+                showTemporaryStorageNotice = true
+            }
         }
     }
 
@@ -744,7 +843,7 @@ struct HomeView: View {
         if startupFinished { afterStartup() } else if environment.hub.session == nil { location.start(mode: .idle) }
         startFeedingMaps()
         pushUser()
-        map.setFollow(followMode, zoom: theme.activeCartography.defaultZoom, pitch: explorePitch, bottomInset: 0)
+        map.setFollow(followMode, zoom: theme.activeCartography.defaultZoom, pitch: explorePitch, insets: layout.browsingFollowInsets)
     }
 
     /// Después de la animación de inicio: ahora sí se puede pedir el permiso (con contexto) y abrir el panel.
@@ -798,10 +897,10 @@ struct HomeView: View {
         viewModel.isFollowing = true
         let style = theme.activeCartography
         if navigation != nil {
-            map.setFollow(followMode, zoom: style.navigationZoom, pitch: navigationPitch, bottomInset: navigationBottomInset)
+            map.setFollow(followMode, zoom: style.navigationZoom, pitch: navigationPitch, insets: layout.navigationFollowInsets)
             miniMap.setFollow(followMode, zoom: style.minimapZoom, pitch: 0, bottomInset: 0)
         } else {
-            map.setFollow(followMode, zoom: style.defaultZoom, pitch: explorePitch, bottomInset: 0)
+            map.setFollow(followMode, zoom: style.defaultZoom, pitch: explorePitch, insets: layout.browsingFollowInsets)
         }
     }
 
@@ -819,14 +918,30 @@ struct HomeView: View {
         map.setPerspective(navigation != nil ? navigationPitch : explorePitch, animated: animated)
     }
 
-    private func routeInsets(bottom: CGFloat) -> UIEdgeInsets {
-        UIEdgeInsets(top: viewHeight * 0.18, left: 40, bottom: bottom, right: 40)
+    private func updateLayout(_ proxy: GeometryProxy) {
+        let next = MapScreenLayout(size: proxy.size, safeArea: proxy.safeAreaInsets)
+        if next != layout { layout = next }
+    }
+
+    /// Giro del iPhone o cambio de tamaño. Solo se adaptan la distribución y los márgenes de la cámara: el mapa, el
+    /// estilo, la ruta, la navegación, la voz y la música siguen igual (no se recrea ni se recalcula nada).
+    private func layoutChanged(from old: MapScreenLayout, to new: MapScreenLayout) {
+        if modal == nil, sidePanel != new.isSideBySide { sidePanel = new.isSideBySide }
+        if let navigation {
+            if showFullRoute {
+                map.fit(navigation.route.coordinates, insets: new.fullRouteInsets)
+            } else {
+                map.updateFollowInsets(new.navigationFollowInsets)     // sin efecto si el usuario explora a mano
+            }
+        } else if !map.refitWholeRoute(insets: new.previewRouteInsets) {
+            map.updateFollowInsets(new.browsingFollowInsets)
+        }
     }
 
     private func fitSelectedRoute() {
         guard navigation == nil, let route = viewModel.selectedRoute else { return }
         map.setRoute(route.coordinates)
-        map.fit(route.coordinates, insets: routeInsets(bottom: viewHeight * 0.55))
+        map.fit(route.coordinates, insets: layout.previewRouteInsets)
         viewModel.isFollowing = false
     }
 
@@ -900,7 +1015,7 @@ struct HomeView: View {
         miniMap.setRoute(session.route.coordinates)
         miniMap.setDestination(session.destination)
         viewModel.isFollowing = true
-        map.setFollow(followMode, zoom: style.navigationZoom, pitch: navigationPitch, bottomInset: navigationBottomInset)
+        map.setFollow(followMode, zoom: style.navigationZoom, pitch: navigationPitch, insets: layout.navigationFollowInsets)
         miniMap.setFollow(followMode, zoom: style.minimapZoom, pitch: 0, bottomInset: 0)
     }
 
