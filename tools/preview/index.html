@@ -43,11 +43,28 @@ fetch(q.get('url') || `../../QuestMapIRL/Resources/style-${styleName}.json`)
     const GTA = {'poi-fuel':'fuel','poi-parking':'parking','poi-health':'hospital','poi-police':'police','poi-food':'food',
       'poi-cafe':'cafe','poi-bar':'bar','poi-grocery':'shop','poi-shop':'shop','poi-culture':'bank','poi-bank':'bank',
       'poi-lodging':'lodging','poi-transit':'transit','poi-destination':'destination','poi-home':'home','poi-work':'work',
-      'selection-arrows':'selection-arrows'};
+      'selection-arrows':'selection-arrows','poi-bike':'bike','poi-bus-stop':'bus-stop','poi-traffic-signal':'signal'};
+    // Familia de iconos: GTA V (gta-poi) o GTA VI (gta6-poi, estilo costa-tropical).
+    const family = styleName === 'costa-tropical' ? 'gta6-poi' : (styleName === 'ciudad-nocturna' || q.get('icons') === 'gta') ? 'gta-poi' : null;
     map.on('styleimagemissing', async e => {
-      if (GTA[e.id] && (styleName === 'ciudad-nocturna' || q.get('icons') === 'gta')) {
+      if (e.id === 'user-arrow') {
+        // Misma forma que MapAvatar.arrow (con disco oscuro en GTA VI), dibujada en un canvas.
+        const c = document.createElement('canvas'); c.width = c.height = 96; const g = c.getContext('2d'); g.scale(2, 2);
+        if (styleName === 'costa-tropical') {
+          g.beginPath(); g.arc(24, 24, 20, 0, Math.PI * 2); g.fillStyle = '#16181d'; g.fill();
+          g.lineWidth = 2.5; g.strokeStyle = 'rgba(255,255,255,0.9)'; g.stroke();
+          g.beginPath(); g.moveTo(24, 12); g.lineTo(33, 34); g.lineTo(24, 29); g.lineTo(15, 34); g.closePath();
+          g.fillStyle = '#fff'; g.fill();
+        } else {
+          g.beginPath(); g.moveTo(24, 5); g.lineTo(39, 41); g.lineTo(24, 32); g.lineTo(9, 41); g.closePath();
+          g.lineWidth = 3; g.strokeStyle = '#0a0b0d'; g.stroke(); g.fillStyle = '#fff'; g.fill();
+        }
+        if (!map.hasImage(e.id)) map.addImage(e.id, g.getImageData(0, 0, 96, 96), {pixelRatio: 2});
+        return;
+      }
+      if (GTA[e.id] && family) {
         const n = GTA[e.id];
-        const res = await map.loadImage(`../../QuestMapIRL/Resources/Assets.xcassets/gta-poi-${n}.imageset/gta-poi-${n}.png`);
+        const res = await map.loadImage(`../../QuestMapIRL/Resources/Assets.xcassets/${family}-${n}.imageset/${family}-${n}.png`);
         if (!map.hasImage(e.id)) map.addImage(e.id, res.data, {pixelRatio: 3});
         return;
       }

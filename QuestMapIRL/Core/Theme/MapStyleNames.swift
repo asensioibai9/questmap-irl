@@ -13,6 +13,7 @@ import Foundation
 /// - mapaFantasia: «Mapa de fantasía» → Skyrim
 /// - redUrbana: «Red urbana» → Watch Dogs 2
 /// - rutasRally: «Rutas de rally» → Forza Horizon 5
+/// - costaTropical: (nuevo) → GTA VI
 /// - minimalistaPro: «Minimalista Pro» (estilo propio, sin juego de referencia: no cambia)
 /// - retroArcade: placeholder sin cartografía; no aparece en el selector
 enum MapStyleNames {
@@ -26,6 +27,7 @@ enum MapStyleNames {
         case .mapaFantasia: return "Skyrim"
         case .redUrbana: return "Watch Dogs 2"
         case .rutasRally: return "Forza Horizon 5"
+        case .costaTropical: return "GTA VI"
         case .minimalistaPro: return "Minimalista Pro"
         case .retroArcade: return "Retro arcade"
         }

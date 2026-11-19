@@ -2,7 +2,7 @@ import UIKit
 import MapLibre
 import CoreLocation
 
-/// Familia de iconos PROPIA del estilo «Ciudad nocturna» (siluetas con contorno oscuro y un color de
+/// Familias de iconos PROPIAS de los estilos GTA V (`gta-poi-*`) y GTA VI (`gta6-poi-*`). La de «Ciudad nocturna» (siluetas con contorno oscuro y un color de
 /// acento por categoría). Los PNG están en el catálogo de recursos (`gta-poi-*`), generados por
 /// `tools/make_poi_icons.py`. Se registran en el estilo con los mismos nombres `poi-*` que usa el JSON.
 enum GameIcons {
@@ -16,17 +16,18 @@ enum GameIcons {
         "selection-arrows": "selection-arrows",
     ]
 
-    static func assetName(for asset: String) -> String { "gta-poi-\(asset)" }
+    static func assetName(for asset: String, prefix: String = "gta-poi") -> String { "\(prefix)-\(asset)" }
 
     /// Imagen lista para el mapa: los PNG están pensados a @3x.
-    static func image(asset: String) -> UIImage? {
-        guard let cg = UIImage(named: assetName(for: asset))?.cgImage else { return nil }
+    static func image(asset: String, prefix: String = "gta-poi") -> UIImage? {
+        guard let cg = UIImage(named: assetName(for: asset, prefix: prefix))?.cgImage else { return nil }
         return UIImage(cgImage: cg, scale: 3, orientation: .up)
     }
 
-    static func register(in style: MLNStyle) {
+    /// Registra la familia indicada (`gta-poi` para GTA V, `gta6-poi` para GTA VI) con los nombres `poi-*` del JSON.
+    static func register(in style: MLNStyle, prefix: String = "gta-poi") {
         for (styleName, asset) in styleNameToAsset {
-            if let image = image(asset: asset) { style.setImage(image, forName: styleName) }
+            if let image = image(asset: asset, prefix: prefix) { style.setImage(image, forName: styleName) }
         }
     }
 

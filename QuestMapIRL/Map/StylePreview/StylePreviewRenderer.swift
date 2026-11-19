@@ -90,10 +90,10 @@ final class StylePreviewRenderer: NSObject, MLNMapSnapshotterDelegate {
         switch cartography.poiIconSet {
         case .systemSymbols:
             PoiIcons.register(in: style, fillHex: cartography.poiIconHex, outlineHex: cartography.poiOutlineHex)
-        case .gameBadges:
-            GameIcons.register(in: style)
+        case .gameBadges, .gameBubbles:
+            GameIcons.register(in: style, prefix: cartography.poiIconSet.assetPrefix ?? "gta-poi")
         }
-        UserArrowImage.register(in: style, avatar: .arrow, arrowHex: cartography.userArrowHex)
+        UserArrowImage.register(in: style, avatar: .arrow, arrowHex: cartography.userArrowHex, badgeHex: cartography.userArrowBadgeHex)
 
         // Capas de navegación: las mismas fuentes que alimenta MapController en el mapa principal.
         let route = StylePreviewSpec.route

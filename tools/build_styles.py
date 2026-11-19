@@ -479,18 +479,18 @@ def build_style(cfg):
     add({"id": "label-place-small", "type": "symbol", "source": "openmaptiles", "source-layer": "place",
          "minzoom": 12, "maxzoom": 17,
          "filter": is_in("class", ["suburb", "quarter", "neighbourhood", "village", "hamlet"]),
-         "layout": {"text-field": ["coalesce", ["get", "name:es"], ["get", "name"]], "text-font": FONT,
+         "layout": {"text-field": ["coalesce", ["get", "name:es"], ["get", "name"]], "text-font": cfg.get("place_font", FONT),
                     "text-size": interp([(12, 10), (16, 14)]),
                     **({"text-transform": "uppercase"} if cfg.get("place_upper", True) else {}),
                     "text-letter-spacing": 0.14 if cfg.get("place_upper", True) else 0.04, "text-max-width": 8},
-         "paint": {"text-color": p["place_text"], "text-halo-color": p["halo"], "text-halo-width": 1.4,
+         "paint": {"text-color": p["place_text"], "text-halo-color": p.get("place_halo", p["halo"]), "text-halo-width": cfg.get("place_halo_width", 1.4),
                    "text-opacity": interp([(12, 0.65), (16, 0.9)])}})
     add({"id": "label-place-city", "type": "symbol", "source": "openmaptiles", "source-layer": "place",
          "maxzoom": 14, "filter": is_in("class", ["city", "town"]),
          "layout": {"text-field": ["coalesce", ["get", "name:es"], ["get", "name"]], "text-font": FONT_BOLD,
                     "text-size": interp([(4, 11), (10, 17), (13, 22)]), "text-max-width": 8,
                     "text-letter-spacing": 0.04},
-         "paint": {"text-color": p["city_text"], "text-halo-color": p["halo"], "text-halo-width": 2}})
+         "paint": {"text-color": p["city_text"], "text-halo-color": p.get("city_halo", p["halo"]), "text-halo-width": 2}})
     add({"id": "label-housenumber", "type": "symbol", "source": "openmaptiles", "source-layer": "housenumber",
          "minzoom": 18,
          "layout": {"text-field": ["get", "housenumber"], "text-font": FONT, "text-size": 10},
@@ -506,7 +506,7 @@ def build_style(cfg):
     add({"id": "results-label", "type": "symbol", "source": "results", "minzoom": 13,
          "layout": {"text-field": ["get", "name"], "text-font": FONT_BOLD, "text-size": 12,
                     "text-offset": [0, 1.1], "text-anchor": "top", "text-max-width": 8, "text-optional": True},
-         "paint": {"text-color": p["city_text"], "text-halo-color": p["halo"], "text-halo-width": 1.8}})
+         "paint": {"text-color": p["city_text"], "text-halo-color": p.get("city_halo", p["halo"]), "text-halo-width": 1.8}})
 
     # ---- Destino y usuario (siempre encima) -----------------------------
     if cfg.get("saved_places"):
@@ -899,13 +899,71 @@ RALLY = {
 }
 
 
+# Ficha visual (docs/30-estilo-gta-vi.md). Todos los HEX son APROXIMADOS: medidos en capturas comprimidas con
+# cuantización de color y lectura de parches ampliados, descartando las zonas negras sin descubrir. No son valores
+# oficiales.
+COSTA = {
+    "id": "costaTropical",
+    "name": "Costa tropical",
+    "reference": "Mapa de pausa claro de un videojuego de costa tropical. Referencias: cuatro capturas aportadas por el usuario (origen no verificado: no se ha acreditado que sean oficiales) y un fotograma del minimapa del avance oficial «Una mirada extendida» (ruta rosa, flecha blanca en círculo negro, rectángulo redondeado). Se reproduce el tratamiento de las zonas DESCUBIERTAS de las dos capturas claras: suelo urbano gris frío, edificios azul pizarra, agua turquesa con borde claro, vegetación verde agua desaturada, calles casi blancas sin contorno marcado y autopistas crema. Las zonas negras sin descubrir, el cursor, el contorno de selección y los nombres ficticios NO se reproducen. Las dos capturas oscuras (agua violeta, tierra verde oscuro) son otro régimen de luz completo, no un tipo de agua: no se mezclan con este estilo. Ruta, destino, etiquetas de calles y edificios 3D son adaptaciones propias. HEX aproximados medidos a ojo y por cuantización; comparación píxel a píxel NO realizada.",
+    # Autopistas finas como en la referencia: varias calzadas paralelas reales no deben fundirse en una banda que tape
+    # las calles de al lado.
+    "road_k": 1.0,
+    "tier_k": {"motorway": 0.9, "trunk": 0.88, "primary": 0.95, "secondary": 0.85, "tertiary": 0.78, "minor": 0.68, "service": 0.52},
+    # Contorno apenas más oscuro que el suelo: en las capturas las calles no llevan borde; aquí solo separa.
+    "casing_boost": {"motorway": 1.3, "trunk": 1.15},
+    "rail_ties": False,
+    "labels": {"font": FONT, "upper": False, "halo": 1.5, "road_size": 11, "spacing": 340},
+    "palette": {
+        # Suelo base gris frío (zonas urbanas claras de la captura de ciudad); la vegetación y el campo, verde agua.
+        "land": "#b6bcc5", "grass": "#78a892", "wood": "#5f957f", "sand": "#d6d7cf", "farm": "#86ae9b",
+        "rock": "#a4abb3", "residential": "#bbc0c9", "commercial": "#c2c6ce", "industrial": "#b2b8c2",
+        "institution": "#bec3cc", "sports": "#82b29b", "cemetery": "#7caa94", "military": "#b0b5be",
+        "water": "#43aed0", "water_edge": "#b7e6f2", "water_text": "#effaff",
+        "runway": "#dadde3",
+        "building": "#93a5c3", "building_edge": "#7d91b3", "building_opacity": 1.0,
+        "pedestrian": "#cdd1d8", "path": "#eceef1", "rail": "#8b93a4", "tunnel": "#d3d7de",
+        "casing": "#9ba3b1", "casing_min": 0.5, "casing_ratio": 0.1,
+        "road": {"motorway": "#e6e2c6", "trunk": "#e9e6d1", "primary": "#eef0f2", "secondary": "#eceef1",
+                 "tertiary": "#e8eaee", "minor": "#e3e6ea", "service": "#d9dce2"},
+        "road_text": "#4e5566", "halo": "#eef0f3", "ref_text": "#5c6372",
+        # Nombres de lugares: blanco con contorno oscuro (como «Centro» en la captura); barrios gris muy claro.
+        "place_text": "#eef0f4", "place_halo": "#4a5061", "city_text": "#ffffff", "city_halo": "#373c4b",
+        "poi_text": "#3f4656", "cycle": "#4fae86", "transit_line": "#6f7fd8",
+    },
+    "poi_tiers": [
+        ("a", ["fuel", "hospital", "police", "railway", "bus"], 14.5, 16.5),
+        ("b", ["parking", "pharmacy", "doctors", "dentist", "veterinary", "bank", "atm", "lodging", "grocery",
+               "museum", "attraction", "castle", "monument", "theatre", "cinema", "art_gallery", "library",
+               "fire_station", "prison"], 16, 17.2),
+        ("c", ["restaurant", "fast_food", "cafe", "bakery", "ice_cream", "bar", "pub", "beer", "shop",
+               "clothing_store", "butcher", "alcohol_shop", "laundry", "hairdresser"], 17, 18),
+    ],
+    "place_upper": False,
+    "place_font": FONT_BOLD,
+    "place_halo_width": 0.9,
+    "selection": True,
+    "saved_places": True,
+    "boundaries": {"color": "#ffffff", "opacity": 0.4},
+    # Adaptación propia: las referencias son planas. Volúmenes en el mismo azul pizarra, más claros cuanto más altos.
+    "buildings_3d": {"colors": [(0, "#879cbf"), (40, "#97abcc"), (120, "#adbedb")], "max_height": 140,
+                     "light": {"anchor": "viewport", "color": "#ffffff", "intensity": 0.4, "position": [1.15, 210, 40]}},
+    # Ruta: rosa del minimapa del avance oficial (aproximado). Contorno blanco: adaptación para separarla de las calles.
+    "route": {"core": "#f0559e", "casing": "#ffffff", "glow": "#f0559e", "glow_opacity": 0.3},
+    # Destino: pin turquesa como el que aparece en las capturas (su función en el juego no está acreditada).
+    "destination": {"color": "#3fd8c2", "stroke": "#1b1e26", "icon": "poi-destination"},
+    "results": {"color": "#7b6cf0", "stroke": "#ffffff"},
+    "user": {"halo": "#1b1e26", "size": 1.2},
+}
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     for cfg, filename in ((NOIR, "style-ciudad-nocturna.json"), (CLARO, "style-minimalista-pro.json"),
                            (ISLA, "style-isla.json"), (BLOQUES, "style-bloques.json"),
                            (OESTE, "style-salvaje-oeste.json"), (CIBER, "style-ciudad-ciber.json"),
                            (NORDICO, "style-mapa-fantasia.json"), (RED, "style-red-urbana.json"),
-                           (RALLY, "style-rutas-rally.json")):
+                           (RALLY, "style-rutas-rally.json"), (COSTA, "style-costa-tropical.json")):
         style = build_style(cfg)
         path = os.path.join(OUT_DIR, filename)
         with open(path, "w", encoding="utf-8") as f:

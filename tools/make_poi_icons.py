@@ -6,7 +6,8 @@ Dibujados por código; no se ha copiado ningún icono ni archivo de ningún jueg
 Salida:
   QuestMapIRL/Resources/Assets.xcassets/gta-<nombre>.imageset/gta-<nombre>.png   (96x96 px, se registran a @3x)
   docs/branding/poi-icons-contact-sheet.png                                       (hoja para revisar)
-Uso: python tools/make_poi_icons.py   (Pillow)
+Uso: python tools/make_poi_icons.py        (Pillow; familia GTA V)
+     python tools/make_poi_icons.py --vi   (familia GTA VI: gta6-poi-*)
 """
 import json
 from pathlib import Path
@@ -219,12 +220,12 @@ def render(name):
     return canvas.resize((OUT, OUT), Image.LANCZOS)
 
 
-def save(name, image):
-    folder = ASSETS / f"gta-poi-{name}.imageset"
+def save(name, image, prefix="gta-poi"):
+    folder = ASSETS / f"{prefix}-{name}.imageset"
     folder.mkdir(parents=True, exist_ok=True)
-    image.save(folder / f"gta-poi-{name}.png", "PNG")
+    image.save(folder / f"{prefix}-{name}.png", "PNG")
     (folder / "Contents.json").write_text(json.dumps({
-        "images": [{"filename": f"gta-poi-{name}.png", "idiom": "universal"}],
+        "images": [{"filename": f"{prefix}-{name}.png", "idiom": "universal"}],
         "info": {"author": "xcode", "version": 1}}, indent=2), encoding="utf-8")
 
 
@@ -247,6 +248,81 @@ def selection_arrows():
     return canvas.resize((px, px), Image.LANCZOS)
 
 
+# ---- Familia «costa tropical» (estilo GTA VI) -----------------------------------------------------------------
+# Tratamiento de las capturas de referencia: burbuja de esquinas redondeadas color melocotón, glifo oscuro y una
+# punta pequeña abajo. Los glifos son los MISMOS dibujos propios de arriba (no se ha copiado ningún icono del juego);
+# solo cambia el soporte. Casa y Trabajo usan una burbuja azul grisácea para distinguir los lugares personales
+# (adaptación propia).
+VI_BUBBLE = (247, 217, 203, 255)
+VI_GLYPH = (26, 27, 32, 255)
+VI_EDGE = (88, 94, 108, 255)
+VI_PERSONAL = (186, 201, 233, 255)
+VI_PERSONAL_GLYPH = (28, 40, 72, 255)
+VI_NEUTRAL = (206, 210, 218, 255)
+VI_SPECIAL = {"home": (VI_PERSONAL, VI_PERSONAL_GLYPH), "work": (VI_PERSONAL, VI_PERSONAL_GLYPH),
+              "signal": (VI_NEUTRAL, VI_GLYPH)}
+
+
+def render_bubble(name):
+    glyph = ICONS[name][0]
+    bubble_color, glyph_color = VI_SPECIAL.get(name, (VI_BUBBLE, VI_GLYPH))
+    size = OUT * SS
+    shape = Image.new("L", (size, size), 0)
+    sd = ImageDraw.Draw(shape)
+    box(sd, 9, 5, 55, 49, radius=10)
+    poly(sd, [(26, 48), (38, 48), (32, 57)])
+    edge = shape.filter(ImageFilter.MaxFilter(int(S(1.1)) * 2 + 1))
+    # Glifo reducido dentro de la burbuja; el detalle se recorta con el color de la burbuja.
+    base = Image.new("L", (size, size), 0)
+    detail = Image.new("L", (size, size), 0)
+    glyph(ImageDraw.Draw(base), ImageDraw.Draw(detail))
+    inner = int(S(30))
+    base = base.resize((inner, inner), Image.LANCZOS)
+    detail = detail.resize((inner, inner), Image.LANCZOS)
+    glyph_mask = Image.new("L", (size, size), 0)
+    detail_mask = Image.new("L", (size, size), 0)
+    offset = (int(S(17)), int(S(12)))
+    glyph_mask.paste(base, offset)
+    detail_mask.paste(Image.composite(detail, Image.new("L", detail.size, 0), base), offset)
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    canvas.paste(Image.new("RGBA", (size, size), VI_EDGE), mask=edge)
+    canvas.paste(Image.new("RGBA", (size, size), bubble_color), mask=shape)
+    canvas.paste(Image.new("RGBA", (size, size), glyph_color), mask=glyph_mask)
+    canvas.paste(Image.new("RGBA", (size, size), bubble_color), mask=detail_mask)
+    return canvas.resize((OUT, OUT), Image.LANCZOS)
+
+
+def render_vi_destination():
+    """Pin turquesa con contorno oscuro y punto central oscuro (como el pin visible en las capturas)."""
+    glyph, _, _ = ICONS["destination"]
+    size = OUT * SS
+    base = Image.new("L", (size, size), 0)
+    detail = Image.new("L", (size, size), 0)
+    glyph(ImageDraw.Draw(base), ImageDraw.Draw(detail))
+    outline = base.filter(ImageFilter.MaxFilter(int(S(2.4)) * 2 + 1))
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    canvas.paste(Image.new("RGBA", (size, size), (27, 30, 38, 255)), mask=outline)
+    canvas.paste(Image.new("RGBA", (size, size), (63, 216, 194, 255)), mask=base)
+    canvas.paste(Image.new("RGBA", (size, size), (27, 30, 38, 255)), mask=detail)
+    return canvas.resize((OUT, OUT), Image.LANCZOS)
+
+
+def main_vi():
+    names = [n for n in ICONS if n != "destination"]
+    images = {n: render_bubble(n) for n in names}
+    images["destination"] = render_vi_destination()
+    images["selection-arrows"] = selection_arrows()      # mismas mini flechas de selección que el resto
+    sheet = Image.new("RGBA", (OUT * 5 + 60, (OUT + 10) * ((len(images) + 4) // 5) + 10), (182, 188, 197, 255))
+    for i, (name, image) in enumerate(images.items()):
+        save(name, image, prefix="gta6-poi")
+        thumb = image if image.size == (OUT, OUT) else image.resize((OUT, OUT), Image.LANCZOS)
+        sheet.alpha_composite(thumb, (10 + (i % 5) * (OUT + 10), 10 + (i // 5) * (OUT + 10)))
+    out = ROOT / "docs" / "branding"
+    out.mkdir(parents=True, exist_ok=True)
+    sheet.convert("RGB").save(out / "poi-icons-gta6-contact-sheet.png")
+    print("Iconos GTA VI:", ", ".join(images))
+
+
 def main():
     names = list(ICONS)
     rows = (len(names) + 1 + 4) // 5          # +1: flechas de selección
@@ -265,4 +341,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    # --vi: solo la familia del estilo GTA VI (no regenera los iconos del resto de estilos).
+    main_vi() if "--vi" in sys.argv else main()

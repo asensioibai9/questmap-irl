@@ -28,13 +28,28 @@ enum MapAvatar: String, CaseIterable, Identifiable {
 
     var isDirectional: Bool { self != .dot }
 
-    /// Imagen que se registra en el estilo con el nombre `user-arrow`.
-    func image(fill: UIColor, border: UIColor) -> UIImage {
+    /// Imagen que se registra en el estilo con el nombre `user-arrow`. `badge`: círculo de fondo para la flecha
+    /// clásica (estilos que la muestran dentro de un disco); el resto de avatares lo ignoran.
+    func image(fill: UIColor, border: UIColor, badge: UIColor? = nil) -> UIImage {
         let size = CGSize(width: 48, height: 48)
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { context in
             let cg = context.cgContext
             switch self {
+            case .arrow where badge != nil:
+                // Disco oscuro con borde claro y flecha blanca más pequeña dentro.
+                let disc = UIBezierPath(ovalIn: CGRect(x: 4, y: 4, width: 40, height: 40))
+                disc.lineWidth = 2.5
+                badge?.setFill(); disc.fill()
+                UIColor.white.withAlphaComponent(0.9).setStroke(); disc.stroke()
+                let inner = UIBezierPath()
+                inner.move(to: CGPoint(x: 24, y: 12))
+                inner.addLine(to: CGPoint(x: 33, y: 34))
+                inner.addLine(to: CGPoint(x: 24, y: 29))
+                inner.addLine(to: CGPoint(x: 15, y: 34))
+                inner.close()
+                fill.setFill(); inner.fill()
+
             case .arrow:
                 let path = UIBezierPath()
                 path.move(to: CGPoint(x: 24, y: 5))

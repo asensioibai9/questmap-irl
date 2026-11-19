@@ -36,6 +36,7 @@ final class MapController {
     private var savedMarkers: [(coordinate: CLLocationCoordinate2D, icon: String)] = []
     private var avatar: MapAvatar = .arrow
     private var arrowColorHex: UInt32 = 0xFFFFFF
+    private var arrowBadgeHex: UInt32?
 
     private(set) var followMode: FollowMode = .northUp
     private var followZoom: Double = 15.5
@@ -75,10 +76,11 @@ final class MapController {
         stopDisplayLink()
     }
 
-    func styleDidLoad(_ style: MLNStyle, arrowHex: UInt32) {
+    func styleDidLoad(_ style: MLNStyle, arrowHex: UInt32, badgeHex: UInt32? = nil) {
         styleReady = true
         arrowColorHex = arrowHex
-        UserArrowImage.register(in: style, avatar: avatar, arrowHex: arrowHex)
+        arrowBadgeHex = badgeHex
+        UserArrowImage.register(in: style, avatar: avatar, arrowHex: arrowHex, badgeHex: badgeHex)
         pushRoute()
         pushDestination()
         pushMarkers()
@@ -100,7 +102,7 @@ final class MapController {
         guard newAvatar != avatar else { return }
         avatar = newAvatar
         guard styleReady, let style = mapView?.style else { return }
-        UserArrowImage.register(in: style, avatar: avatar, arrowHex: arrowColorHex)
+        UserArrowImage.register(in: style, avatar: avatar, arrowHex: arrowColorHex, badgeHex: arrowBadgeHex)
     }
 
     /// Marcadores de resultados de búsqueda (categorías, lugares guardados mostrados en el mapa).

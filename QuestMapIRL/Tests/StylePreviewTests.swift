@@ -62,7 +62,7 @@ final class StylePreviewTests: XCTestCase {
             .mundoBloques: ("mundoBloques", "Minecraft"), .salvajeOeste: ("salvajeOeste", "Red Dead Redemption 2"),
             .ciudadCiber: ("ciudadCiber", "Cyberpunk 2077"), .mapaFantasia: ("mapaFantasia", "Skyrim"),
             .redUrbana: ("redUrbana", "Watch Dogs 2"), .rutasRally: ("rutasRally", "Forza Horizon 5"),
-            .minimalistaPro: ("minimalistaPro", "Minimalista Pro"),
+            .minimalistaPro: ("minimalistaPro", "Minimalista Pro"), .costaTropical: ("costaTropical", "GTA VI"),
         ]
         for (id, value) in expected {
             XCTAssertEqual(id.rawValue, value.raw, "el identificador guardado en las preferencias no debe cambiar")
@@ -80,7 +80,7 @@ final class StylePreviewTests: XCTestCase {
     func testNoPlaceholderAppearsInTheSelectorAndEveryNameIsUnique() {
         XCTAssertFalse(themes.contains { $0.id == .retroArcade }, "un placeholder no se muestra como estilo terminado")
         XCTAssertEqual(Set(themes.map(\.name)).count, themes.count)
-        XCTAssertEqual(themes.count, 9)
+        XCTAssertEqual(themes.count, 10)
     }
 
     func testDisclaimerStatesNoAffiliationAndAppNameIsUnchanged() {

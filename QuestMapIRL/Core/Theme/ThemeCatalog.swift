@@ -7,7 +7,7 @@ import SwiftUI
 /// Solo los temas con `cartography != nil` tienen mapa propio terminado. El resto conserva su
 /// paleta de HUD pero se muestra como "Próximamente" hasta tener su estilo cartográfico.
 enum ThemeCatalog {
-    static let all: [MapTheme] = [ciudadNocturna, minimalistaPro, islaRoyale, mundoBloques, salvajeOeste, ciudadCiber,
+    static let all: [MapTheme] = [ciudadNocturna, costaTropical, minimalistaPro, islaRoyale, mundoBloques, salvajeOeste, ciudadCiber,
                                   mapaFantasia, redUrbana, rutasRally, retroArcade]
 
     static func theme(for id: MapThemeID) -> MapTheme {
@@ -38,6 +38,31 @@ enum ThemeCatalog {
             defaultZoom: 15.5, navigationZoom: 17, navigationPitch: 35,
             minimapZoom: 16.5, minimapShape: .fadedRectangle, minimapBorderHex: 0x0A0B0D, attribution: attribution,
             poiIconSet: .gameBadges, supportsBuildings3D: true)
+    )
+
+    /// Referencia visual: mapa de pausa claro de GTA VI (capturas del usuario, origen no verificado) y minimapa del avance
+    /// oficial. Ficha y diferencias en docs/30-estilo-gta-vi.md. El HUD es una adaptación propia a juego con el mapa.
+    static let costaTropical = MapTheme(
+        id: .costaTropical, name: MapStyleNames.name(for: .costaTropical),
+        tagline: "Ciudad gris azulada, agua turquesa y una ruta rosa.",
+        isDark: false,
+        background: Color(hex: 0xB6BCC5),
+        panel: Color(hex: 0xF4F5F8, opacity: 0.95),
+        panelBorder: Color(hex: 0xF0559E, opacity: 0.45),
+        accent: Color(hex: 0xE0408C),
+        textPrimary: Color(hex: 0x1B1E26),
+        textSecondary: Color(hex: 0x5A6172),
+        routeCore: Color(hex: 0xF0559E), routeBorder: Color(hex: 0xFFFFFF),
+        destination: Color(hex: 0x3FD8C2), player: Color(hex: 0x1B1E26),
+        titleDesign: .default, iconWeight: .bold, cornerRadius: 16,
+        poiIcons: [.fuel: "fuelpump.fill", .food: "fork.knife", .parking: "parkingsign", .hospital: "cross.fill",
+                   .police: "shield.lefthalf.filled", .shop: "bag.fill", .poi: "mappin", .quest: "flag.fill"],
+        cartography: CartographyStyle(
+            resourceName: "style-costa-tropical", backgroundHex: 0xB6BCC5, userArrowHex: 0xFFFFFF,
+            userArrowBadgeHex: 0x16181D,
+            defaultZoom: 15.5, navigationZoom: 17, navigationPitch: 35,
+            minimapZoom: 16.5, minimapShape: .roundedRectangle, minimapBorderHex: 0xF2F3F5, attribution: attribution,
+            poiIconSet: .gameBubbles, supportsBuildings3D: true)
     )
 
     static let minimalistaPro = MapTheme(

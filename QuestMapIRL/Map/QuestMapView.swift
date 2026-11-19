@@ -127,10 +127,10 @@ struct QuestMapView: UIViewRepresentable {
                 switch parent.style.poiIconSet {
                 case .systemSymbols:
                     PoiIcons.register(in: style, fillHex: parent.style.poiIconHex, outlineHex: parent.style.poiOutlineHex)
-                case .gameBadges:
-                    GameIcons.register(in: style)
+                case .gameBadges, .gameBubbles:
+                    GameIcons.register(in: style, prefix: parent.style.poiIconSet.assetPrefix ?? "gta-poi")
                 }
-                parent.controller.styleDidLoad(style, arrowHex: parent.style.userArrowHex)
+                parent.controller.styleDidLoad(style, arrowHex: parent.style.userArrowHex, badgeHex: parent.style.userArrowBadgeHex)
             }
             report(.ready)
         }

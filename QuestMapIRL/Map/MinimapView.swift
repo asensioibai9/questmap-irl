@@ -11,7 +11,8 @@ struct MinimapView: View {
     var body: some View {
         let style = theme.activeCartography
         let faded = style.minimapShape == .fadedRectangle
-        let width = faded ? size * 1.5 : size
+        let wide = faded || style.minimapShape == .roundedRectangle
+        let width = wide ? size * 1.5 : size
         let shape = shape(for: style.minimapShape)
 
         QuestMapView(controller: controller, style: style, interactive: false)
@@ -27,7 +28,10 @@ struct MinimapView: View {
                 }
             }
             .overlay {
-                if !faded { shape.stroke(Color(hex: style.minimapBorderHex), lineWidth: 4) }
+                if !faded {
+                    shape.stroke(Color(hex: style.minimapBorderHex),
+                                 lineWidth: style.minimapShape == .roundedRectangle ? 2 : 4)
+                }
             }
             .shadow(color: .black.opacity(faded ? 0 : 0.35), radius: 8, y: 3)
             .contentShape(shape)
@@ -43,6 +47,7 @@ struct MinimapView: View {
         case .circle: AnyShape(Circle())
         case .roundedSquare: AnyShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         case .fadedRectangle: AnyShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        case .roundedRectangle: AnyShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
     }
 }

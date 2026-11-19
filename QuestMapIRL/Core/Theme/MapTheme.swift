@@ -12,6 +12,7 @@ enum MapThemeID: String, CaseIterable, Codable, Identifiable {
     case ciudadCiber
     case redUrbana
     case rutasRally
+    case costaTropical
 
     var id: String { rawValue }
 }
@@ -40,13 +41,26 @@ enum MinimapShape: Equatable {
     case roundedSquare
     /// Rectángulo apaisado con los bordes desvanecidos (radar rectangular de estilo videojuego).
     case fadedRectangle
+    /// Rectángulo apaisado de esquinas redondeadas con un borde claro fino, sin desvanecer.
+    case roundedRectangle
 }
 
 /// Qué iconos se registran en el estilo para los puntos de interés.
 enum PoiIconSet: Equatable {
     case systemSymbols
-    /// Familia propia con contorno marcado (`GameIcons`).
+    /// Familia propia con contorno marcado (`GameIcons`, recursos `gta-poi-*`).
     case gameBadges
+    /// Familia propia en burbuja con punta (`GameIcons`, recursos `gta6-poi-*`).
+    case gameBubbles
+
+    /// Prefijo de los recursos del catálogo para las familias propias.
+    var assetPrefix: String? {
+        switch self {
+        case .systemSymbols: return nil
+        case .gameBadges: return "gta-poi"
+        case .gameBubbles: return "gta6-poi"
+        }
+    }
 }
 
 /// Cómo se dibuja el MAPA REAL de este tema. El estilo vectorial vive en un JSON (capas, colores,
@@ -58,6 +72,8 @@ struct CartographyStyle: Equatable {
     /// Color de fondo mientras cargan los tiles (evita destellos blancos).
     let backgroundHex: UInt32
     let userArrowHex: UInt32
+    /// Si no es nil, la flecha del usuario (avatar «Flecha clásica») va dentro de un círculo de este color.
+    var userArrowBadgeHex: UInt32? = nil
     let defaultZoom: Double
     let navigationZoom: Double
     let navigationPitch: Double
