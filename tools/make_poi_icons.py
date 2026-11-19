@@ -479,7 +479,7 @@ def g_glasses(b, d):
     box(b, 26, 28, 38, 32)
 
 
-# nombre de recurso -> glifo (todos en burbuja melocotón)
+# nombre de recurso -> glifo (el color de la burbuja depende del grupo: VI_ICON_GROUP)
 VI_EXTRA = {
     "burger": g_burger, "mug": g_mug, "nightclub": g_headphones, "bottle": g_bottle, "basket": g_basket,
     "cart": g_cart, "clothes": g_tshirt, "shoes": g_shoe, "beauty": g_scissors, "tattoo": g_tattoo,
@@ -565,17 +565,56 @@ def selection_arrows():
 
 # ---- Familia «costa tropical» (estilo GTA VI) -----------------------------------------------------------------
 # Tratamiento de las capturas de referencia: burbuja de esquinas redondeadas color melocotón, glifo oscuro y una
-# punta pequeña abajo. Los glifos son los MISMOS dibujos propios de arriba (no se ha copiado ningún icono del juego);
-# solo cambia el soporte. Casa y Trabajo usan una burbuja azul grisácea para distinguir los lugares personales
-# (adaptación propia).
+# punta pequeña abajo. Los glifos son dibujos propios (no se ha copiado ningún icono del juego ni de ninguna web); el
+# color de cada burbuja sale del grupo de su categoría (VI_GROUPS / VI_ICON_GROUP).
 VI_BUBBLE = (247, 217, 203, 255)
 VI_GLYPH = (26, 27, 32, 255)
 VI_EDGE = (88, 94, 108, 255)
 VI_PERSONAL = (186, 201, 233, 255)
 VI_PERSONAL_GLYPH = (28, 40, 72, 255)
 VI_NEUTRAL = (206, 210, 218, 255)
-VI_SPECIAL = {"home": (VI_PERSONAL, VI_PERSONAL_GLYPH), "work": (VI_PERSONAL, VI_PERSONAL_GLYPH),
-              "signal": (VI_NEUTRAL, VI_GLYPH)}
+# Color de burbuja POR GRUPO, tomado de la leyenda del mapa interactivo de gtabase.com (solo el color: los glifos son
+# propios). Colores planos de la web: actividades #7b1fa2, propiedades #00897b, concesionario #1565c0, lugares
+# #ef6c00. Colores medidos (aprox.) en el relleno de sus burbujas: tiendas ≈ #f6dcdc, comida y bebida ≈ #e2e8f6,
+# comida callejera ≈ #f7f6fd, vehículos y transporte ≈ #e4eaf6, garajes ≈ #3ce4d2, bancos ≈ #87db8a.
+WHITE_GLYPH = (255, 255, 255, 255)
+VI_GROUPS = {
+    "shops": ((246, 220, 220, 255), VI_GLYPH),
+    "food": ((226, 232, 246, 255), VI_GLYPH),
+    "street_food": ((247, 246, 253, 255), VI_GLYPH),
+    "vehicles": ((228, 234, 248, 255), VI_GLYPH),
+    "garages": ((60, 228, 210, 255), VI_GLYPH),
+    "banks": ((135, 219, 138, 255), VI_GLYPH),
+    "dealer": ((21, 101, 192, 255), WHITE_GLYPH),
+    "activities": ((123, 31, 162, 255), WHITE_GLYPH),
+    "properties": ((0, 137, 123, 255), WHITE_GLYPH),
+    "places": ((239, 108, 0, 255), WHITE_GLYPH),
+    "neutral": (VI_NEUTRAL, VI_GLYPH),
+}
+VI_ICON_GROUP = {
+    # Tiendas (incluye talleres de tuneo, mismo color en la web)
+    "shop": "shops", "clothes": "shops", "shoes": "shops", "beauty": "shops", "tattoo": "shops",
+    "electronics": "shops", "gift": "shops", "florist": "shops", "jewelry": "shops", "optician": "shops",
+    "books": "shops", "music": "shops", "art": "shops", "car-repair": "shops",
+    # Comida y bebida (tiendas de conveniencia y licorerías están en este grupo en la web)
+    "food": "food", "cafe": "food", "bar": "food", "mug": "food", "burger": "food", "bottle": "food",
+    "basket": "food", "cart": "food",
+    "ice-cream": "street_food", "bakery": "street_food",
+    # Vehículos y transporte
+    "fuel": "vehicles", "charging": "vehicles", "car-wash": "vehicles", "transit": "vehicles",
+    "bus-stop": "vehicles", "ferry": "vehicles", "bike": "vehicles",
+    "parking": "garages", "car": "dealer",
+    "bank": "places", "coin": "banks", "atm": "banks",
+    "gym": "activities", "golf": "activities",
+    "home": "properties", "work": "properties",
+    # Lugares (cine, bomberos, hospitales, emblemáticos, discoteca, comisarías, puertos deportivos)
+    "marina": "places", "cinema": "places", "theatre": "places", "fire": "places", "hospital": "places",
+    "pharmacy": "places", "dentist": "places", "vet": "places", "monument": "places", "castle": "places",
+    "attraction": "places", "nightclub": "places", "police": "places",
+    "signal": "neutral",
+}
+# Sin categoría equivalente en la web (alojamiento, correos): se quedan en el melocotón de las capturas.
+VI_SPECIAL = {name: VI_GROUPS[group] for name, group in VI_ICON_GROUP.items()}
 
 
 def render_bubble(name):

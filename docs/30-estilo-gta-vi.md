@@ -43,7 +43,7 @@ negro. No son valores oficiales. Comparación píxel a píxel no realizada.
 | Zonas / ciudades | Blanco en negrita con contorno oscuro | Ciudades `#ffffff` con halo `#373c4b`; barrios `#eef0f4` en negrita con halo fino |
 | Calles (nombres) | No se ven en la pausa | Texto `#4e5566` con halo claro (adaptación, para navegar) |
 | Iconos | Burbuja melocotón con glifo negro y punta | Familia propia `gta6-poi-*` (mismos glifos propios que GTA V, nuevo soporte) |
-| Casa / Trabajo | No hay equivalente | Burbuja azul grisácea (adaptación) |
+| Casa / Trabajo | «Pisos francos» en la leyenda de gtabase.com | Burbuja verde azulado `#00897b` con glifo blanco |
 | Destino | Pin turquesa en las capturas (función no acreditada) | Pin turquesa propio `gta6-poi-destination` |
 | Selección | No se ve | Mismas mini flechas de selección que el resto |
 | Ruta | Rosa en el minimapa oficial | `#f0559e` con contorno blanco (el contorno es adaptación) |
@@ -89,6 +89,15 @@ corresponde a Casa y Trabajo.
 
 Los números de portal (z18) se dibujan **por debajo** de los iconos en este estilo: si van encima, MapLibre los coloca
 primero y esconden casi todos los lugares. (Los demás estilos tienen ese mismo orden antiguo; no se han tocado.)
+
+### Colores por grupo
+
+A petición del usuario, cada burbuja usa el color de su grupo en la leyenda de gtabase.com (solo el color; glifos
+propios). Colores planos de la web: actividades `#7b1fa2`, propiedades `#00897b`, concesionario `#1565c0`, lugares
+`#ef6c00`. Medidos (aprox.) en el relleno de sus burbujas: tiendas ≈ `#f6dcdc`, comida y bebida ≈ `#e2e8f6`, comida
+callejera ≈ `#f7f6fd`, vehículos y transporte ≈ `#e4eaf6`, garajes ≈ `#3ce4d2`, bancos ≈ `#87db8a`. Glifo oscuro sobre
+los claros y blanco sobre los oscuros. Alojamiento y correos no tienen grupo en la web y conservan el melocotón de las
+capturas. Asignación completa en `VI_ICON_GROUP` (`tools/make_poi_icons.py`).
 
 ### Densidad por zoom
 
