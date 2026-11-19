@@ -30,7 +30,7 @@ struct SpeedLimitSign: View {
         switch display {
         case .hidden: return true
         case .limit: return false
-        case .unavailable, .insufficientLocation: return appearance.noData == .hide
+        case .unavailable, .insufficientLocation, .uncertainRoad, .providerError: return appearance.noData == .hide
         }
     }
 
@@ -62,7 +62,7 @@ struct SpeedLimitSign: View {
             case .minimal: minimal(number)
             case .european, .automatic: european(number)
             }
-        case .unavailable, .insufficientLocation:
+        case .unavailable, .insufficientLocation, .uncertainRoad, .providerError:
             neutral
         case .hidden:
             EmptyView()

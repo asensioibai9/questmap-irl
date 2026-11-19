@@ -52,6 +52,7 @@ struct HomeView: View {
     @State private var miniMap = MapController()
     /// Lleva la ubicación al mapa sin redibujar esta pantalla con cada lectura (ver `HomeLocationFeeder`).
     @State private var feeder = HomeLocationFeeder()
+    @AppStorage(SpeedLimitDiagnosticsCard.storageKey) private var limitDiagnostics = false
 
     let environment: AppEnvironment
     /// false mientras se muestra la animación de inicio: no se pide ningún permiso ni se abre el panel.
@@ -76,6 +77,8 @@ struct HomeView: View {
     private var speedSign: SpeedSignAppearance { settings?.speedSignAppearance ?? .defaults }
     /// Límite sin ruta: requiere «Mostrar señal» y «También sin ruta».
     private var wantsFreeDriveLimit: Bool { (settings?.showSpeedLimit ?? true) && (settings?.speedLimitWithoutRoute ?? false) }
+    /// Comprobación de la vía real durante la navegación.
+    private var wantsTraceVerification: Bool { (settings?.showSpeedLimit ?? true) && (settings?.speedLimitVerifyTrace ?? true) }
     private var location: LocationServiceProtocol { environment.locationService }
     private var followMode: FollowMode { viewModel.headingUp ? .headingUp : .northUp }
     private var navigationBottomInset: CGFloat { viewHeight * 0.22 }
@@ -120,10 +123,12 @@ struct HomeView: View {
         .onChange(of: settings?.showSpeedLimit) { _, value in
             navigation?.setShowsSpeedLimit(value ?? true)
             environment.hub.setFreeDriveSpeedLimit(wantsFreeDriveLimit)
+            environment.hub.setTraceVerification(wantsTraceVerification)
         }
         .onChange(of: settings?.speedLimitWithoutRoute) { _, _ in
             environment.hub.setFreeDriveSpeedLimit(wantsFreeDriveLimit)
         }
+        .onChange(of: settings?.speedLimitVerifyTrace) { _, _ in environment.hub.setTraceVerification(wantsTraceVerification) }
     }
 
     /// Pantalla sin reacciones a cambios de estado (se reparten en tres grupos para que el compilador
@@ -351,8 +356,11 @@ struct HomeView: View {
         if wantsFreeDriveLimit, !SpeedLimitSign.isEmpty(hub.speedLimit, appearance: speedSign) {
             HStack {
                 if speedSign.position == .topTrailing { Spacer() }
-                SpeedLimitSign(display: hub.speedLimit, metric: useMetric, appearance: speedSign,
-                               countryCode: hub.speedLimitCountry, currentSpeedKmh: hub.currentSpeedKmh)
+                VStack(alignment: .leading, spacing: 6) {
+                    if limitDiagnostics { SpeedLimitDiagnosticsCard(diagnostic: hub.speedLimitDiagnostic) }
+                    SpeedLimitSign(display: hub.speedLimit, metric: useMetric, appearance: speedSign,
+                                   countryCode: hub.speedLimitCountry, currentSpeedKmh: hub.currentSpeedKmh)
+                }
                 if speedSign.position != .topTrailing { Spacer() }
             }
             .padding(.top, speedSign.position == .topTrailing && showCompass ? 52 : 0)
@@ -728,6 +736,7 @@ struct HomeView: View {
         }
         applyMusicSettings()
         environment.hub.setFreeDriveSpeedLimit(wantsFreeDriveLimit)
+        environment.hub.setTraceVerification(wantsTraceVerification)
         applyMapLayers()
         apply3D(animated: false)
         pushSavedPlaces()

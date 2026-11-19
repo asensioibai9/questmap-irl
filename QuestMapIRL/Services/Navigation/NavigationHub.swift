@@ -28,6 +28,8 @@ final class NavigationHub {
     @ObservationIgnored private var trackingToken = 0
     @ObservationIgnored private var freeDriveToken = 0
     @ObservationIgnored private var wantsFreeDrive = false
+    /// Comprobar durante la navegación la vía real con el recorrido (ajuste «Comprobar la vía con tu recorrido»).
+    @ObservationIgnored private var wantsTraceVerification = false
     @ObservationIgnored private var lastFedTimestamp: Date?
 
     init(location: LocationServiceProtocol, routeService: RouteServiceProtocol, speech: SpeechService,
@@ -52,6 +54,14 @@ final class NavigationHub {
     var speedLimit: SpeedLimitDisplay { session?.speedLimit ?? freeDrive?.display ?? .hidden }
     var speedLimitCountry: String? { session != nil ? session?.speedLimitCountry : freeDrive?.countryCode }
     var currentSpeedKmh: Double? { session != nil ? session?.currentSpeedKmh : freeDrive?.currentSpeedKmh }
+    /// Modo diagnóstico de desarrollo (sin coordenadas).
+    var speedLimitDiagnostic: SpeedLimitDiagnostic? { session != nil ? session?.speedLimitDiagnostic : freeDrive?.diagnostic }
+
+    /// Activa o desactiva la comprobación de la vía real durante la navegación. Aplicación inmediata.
+    func setTraceVerification(_ enabled: Bool) {
+        wantsTraceVerification = enabled
+        updateFreeDrive()
+    }
 
     /// Activa o desactiva el límite sin ruta (ajustes «Mostrar señal» + «También sin ruta»). Aplicación inmediata.
     func setFreeDriveSpeedLimit(_ enabled: Bool) {
@@ -59,12 +69,16 @@ final class NavigationHub {
         updateFreeDrive()
     }
 
+    /// El mismo identificador de vía sirve sin ruta y, si se pide, para comprobar la vía durante la navegación. Sin ruta lo
+    /// alimenta su propio seguimiento; navegando lo alimenta el seguimiento de la sesión (una sola fuente de lecturas).
     private func updateFreeDrive() {
         guard let freeDrive else { return }
-        let active = wantsFreeDrive && session == nil
+        let navigating = session != nil
+        let active = navigating ? wantsTraceVerification : wantsFreeDrive
+        freeDrive.metric = settings().useMetric
         freeDrive.setEnabled(active)
         freeDriveToken += 1
-        if active { trackFreeDrive(token: freeDriveToken) }
+        if active && !navigating { trackFreeDrive(token: freeDriveToken) }
     }
 
     private func trackFreeDrive(token: Int) {
@@ -107,6 +121,7 @@ final class NavigationHub {
         destination = place
         updateFreeDrive()                       // la navegación tiene su propia fuente: el modo sin ruta se para
         location.start(mode: .navigating)
+        new.liveRoad = { [weak self] reading in self?.freeDrive?.evidence(at: reading) }
         new.start()
         if let reading = location.currentLocation { new.update(with: reading) }
         startToken += 1
@@ -153,6 +168,7 @@ final class NavigationHub {
                 guard let self, token == self.trackingToken, let session = self.session else { return }
                 if let reading = self.location.currentLocation, reading.timestamp != self.lastFedTimestamp {
                     self.lastFedTimestamp = reading.timestamp
+                    if let freeDrive = self.freeDrive, freeDrive.isEnabled { freeDrive.ingest(reading) }
                     session.update(with: reading)
                 }
                 session.checkLocationFreshness()

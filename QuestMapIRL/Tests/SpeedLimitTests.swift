@@ -158,11 +158,12 @@ final class SpeedLimitTests: XCTestCase {
     func testUntrustworthyPositionSaysInsufficientLocationNotALimit() {
         var tracker = SpeedLimitTracker()
         XCTAssertEqual(step(&tracker, 500), .limit(kmh: 90))
-        XCTAssertEqual(step(&tracker, 500, off: true), .insufficientLocation, "fuera de ruta se abandona el tramo")
+        XCTAssertEqual(step(&tracker, 500, off: true), .uncertainRoad, "fuera de ruta: la vía de la ruta ya no vale")
         XCTAssertEqual(step(&tracker, 500, accuracy: 60), .insufficientLocation, "precisión que no distingue una paralela")
         XCTAssertEqual(step(&tracker, 500, accuracy: -1), .insufficientLocation, "lectura inválida")
         XCTAssertEqual(step(&tracker, 500, age: 30), .insufficientLocation, "ubicación antigua")
-        XCTAssertEqual(step(&tracker, 500, distance: 40), .insufficientLocation, "a 40 m de la ruta: quizá la vía paralela")
+        XCTAssertEqual(step(&tracker, 500, distance: 40), .uncertainRoad, "a 40 m de la ruta: quizá la vía paralela")
+        XCTAssertEqual(step(&tracker, 500, distance: 15), .uncertainRoad, "sin comprobar el recorrido, 15 m ya es dudoso")
     }
 
     func testRecoveryAfterLosingTheLocationShowsTheCurrentSegmentAtOnce() {
@@ -449,7 +450,7 @@ final class SpeedLimitNavigationTests: XCTestCase {
         navigation.start()
         await settle()
         navigation.update(with: reading(points[0]))
-        XCTAssertEqual(navigation.speedLimit, .unavailable)
+        XCTAssertEqual(navigation.speedLimit, .providerError, "E: falló el proveedor; sin cifra")
         XCTAssertEqual(service.calls, 1)
         now = now.addingTimeInterval(5)
         navigation.update(with: reading(points[0]))
@@ -563,7 +564,7 @@ final class FreeDriveSpeedLimitTests: XCTestCase {
         let far = FakeMatcher(.success(SpeedLimitMatch(edges: [edge(500, 30)], points: [point(0, 0), point(0, 0.5, offset: 26)], countryCode: nil)))
         let b = make(far)
         await drive(b, meters: 160)
-        XCTAssertEqual(b.display, .insufficientLocation, "vía elegida a 26 m: no se muestra el 30")
+        XCTAssertEqual(b.display, .uncertainRoad, "vía elegida a 26 m: tramo incierto, no se muestra el 30")
     }
 
     func testLateAnswerFromAnOlderRequestIsDiscarded() async {
@@ -583,7 +584,7 @@ final class FreeDriveSpeedLimitTests: XCTestCase {
         XCTAssertEqual(limiter.display, .limit(kmh: 50))
         matcher.answer = .failure(URLError(.notConnectedToInternet))     // sin red a partir de aquí
         await drive(limiter, from: 174, meters: 700)
-        XCTAssertEqual(limiter.display, .insufficientLocation, "no se arrastra el 50 indefinidamente")
+        XCTAssertEqual(limiter.display, .uncertainRoad, "no se arrastra el 50 indefinidamente")
     }
 
     func testNothingIsSentNearHomeOrWorkOrWhenThePlacesCannotBeRead() async {
@@ -592,7 +593,7 @@ final class FreeDriveSpeedLimitTests: XCTestCase {
         limiter.excludedAreas = { [self] in [self.start] }
         await drive(limiter, meters: 250)
         XCTAssertTrue(matcher.traces.isEmpty)
-        XCTAssertEqual(limiter.display, .insufficientLocation)
+        XCTAssertEqual(limiter.display, .uncertainRoad)
 
         let other = FakeMatcher(.success(onRoad50))
         let blind = make(other)

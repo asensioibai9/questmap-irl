@@ -93,7 +93,7 @@ struct ValhallaSpeedLimitService: SpeedLimitProviding, SpeedLimitTraceMatching {
     // MARK: - Piezas puras (probadas sin red)
 
     static let requestedAttributes = [
-        "edge.speed_limit", "edge.length", "node.admin_index", "admin.country_code",
+        "edge.speed_limit", "edge.length", "edge.way_id", "edge.names", "node.admin_index", "admin.country_code",
         "matched.type", "matched.edge_index", "matched.distance_along_edge", "matched.distance_from_trace_point",
     ]
 

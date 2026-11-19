@@ -22,6 +22,8 @@ final class UserSettings {
     var showSpeedLimit: Bool = true
     /// Señal también sin ruta (envía el recorrido reciente al proveedor de límites). Desactivado por defecto.
     var speedLimitWithoutRoute: Bool = false
+    /// Navegando, comprobar la vía real con el recorrido (map matching) antes de fiarse de la ruta. Activado por defecto.
+    var speedLimitVerifyTrace: Bool = true
     /// Aspecto de la señal (ver `SpeedSignAppearance`).
     var speedSignStyleRaw: String = "automatic"
     var speedSignSizeRaw: String = "medium"

@@ -8,6 +8,8 @@ struct SpeedSignSettingsView: View {
     @Environment(\.modelContext) private var context
     @Bindable var settings: UserSettings
     @State private var previewHasData = true
+    @State private var previewTaps = 0
+    @AppStorage(SpeedLimitDiagnosticsCard.storageKey) private var diagnosticsMode = false
     @State private var confirmReset = false
 
     /// Valor de demostración de la vista previa (no es un dato real).
@@ -40,10 +42,14 @@ struct SpeedSignSettingsView: View {
                     get: { settings.speedLimitWithoutRoute },
                     set: { settings.speedLimitWithoutRoute = $0; save("speed-limit-free-drive") }))
                     .disabled(!settings.showSpeedLimit)
+                Toggle("Comprobar la vía con tu recorrido", isOn: Binding(
+                    get: { settings.speedLimitVerifyTrace },
+                    set: { settings.speedLimitVerifyTrace = $0; save("speed-limit-verify") }))
+                    .disabled(!settings.showSpeedLimit)
             } header: {
                 Text("Mostrar")
             } footer: {
-                Text("Los límites vienen de OpenStreetMap a través del servidor público de demostración de Valhalla (gratuito, sin garantías). Navegando se envía la geometría de la ruta. «También sin ruta» (desactivado por defecto) envía tus últimos ~400 m recorridos mientras te mueves, nunca puntos a menos de 300 m de Casa o Trabajo. Con «Mostrar señal» desactivado no se hace ninguna consulta. La señalización real siempre prevalece.")
+                Text("Los límites vienen de OpenStreetMap (etiqueta maxspeed) a través del servidor público de demostración de Valhalla (gratuito, sin garantías); la app no ve señales físicas ni paneles variables. Navegando se envía la geometría de la ruta. «Comprobar la vía con tu recorrido» (recomendado) envía además tus últimos ~400 m para saber por qué vía vas de verdad: si vas por una paralela, una salida o te has desviado, no se usa el límite de la ruta. «También sin ruta» hace lo mismo sin navegación. Nunca se envían puntos a menos de 300 m de Casa o Trabajo. Si no se puede saber la vía con seguridad, se muestra «—». La señalización real siempre prevalece.")
             }
 
             Section {
@@ -88,6 +94,16 @@ struct SpeedSignSettingsView: View {
                 LabeledContent("Unidades", value: settings.useMetricUnits ? "km/h" : "mph (convertido)")
             } footer: {
                 Text("Se usa el ajuste general de unidades (Ajustes de navegación › Rutas). Los límites llegan en km/h; en mph la cifra es una conversión redondeada y debajo de la señal pone «≈ mph».")
+            }
+
+            if diagnosticsMode {
+                Section {
+                    Toggle("Diagnóstico del límite en el mapa", isOn: $diagnosticsMode)
+                } header: {
+                    Text("Desarrollo")
+                } footer: {
+                    Text("Muestra junto a la señal la fuente, la vía (identificador de OpenStreetMap y nombre), el valor recibido, el interpretado, su antigüedad, la precisión del GPS y el motivo. Sin coordenadas y sin guardar nada. Míralo con el coche parado o que lo mire un acompañante.")
+                }
             }
 
             Section {
@@ -135,6 +151,12 @@ struct SpeedSignSettingsView: View {
                         .background(.black.opacity(0.55), in: Capsule())
                         .foregroundStyle(.white)
                         .padding(8)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    // Acceso oculto al modo diagnóstico de desarrollo: 7 toques seguidos.
+                    previewTaps += 1
+                    if previewTaps >= 7 { previewTaps = 0; diagnosticsMode.toggle() }
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Vista previa de la señal, valor de demostración")

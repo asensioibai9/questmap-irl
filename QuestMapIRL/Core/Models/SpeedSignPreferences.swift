@@ -121,6 +121,7 @@ extension UserSettings {
     func resetSpeedSignSettings() {
         showSpeedLimit = true
         speedLimitWithoutRoute = false
+        speedLimitVerifyTrace = true
         speedSignAppearance = .defaults
     }
 }

@@ -1,7 +1,9 @@
 import CoreLocation
 import Observation
 
-/// Límite de velocidad SIN ruta activa (opcional, desactivado por defecto). Envía al proveedor el recorrido REAL reciente
+/// Identificación de la vía REAL por map matching del recorrido reciente. Se usa sin ruta («También sin ruta») y, si está
+/// activado «Comprobar la vía con tu recorrido», también durante la navegación para no dar por buena la vía de la ruta
+/// cuando vas por una paralela, una salida o un desvío. Envía al proveedor el recorrido REAL reciente
 /// (los últimos ~400 m) para que haga map matching: así la vía se elige teniendo en cuenta la continuidad del recorrido y
 /// el sentido de circulación, no solo la calle más cercana.
 ///
@@ -18,7 +20,7 @@ final class FreeDriveSpeedLimit {
         var minSpeed: Double = 4                 // m/s
         var maxAccuracy: Double = 30
         var maxAge: TimeInterval = 6
-        var minQueryInterval: TimeInterval = 12
+        var minQueryInterval: TimeInterval = 8
         var minQueryDistance: Double = 200
         var traceSpan: Double = 400
         var minTraceSpan: Double = 120
@@ -27,7 +29,23 @@ final class FreeDriveSpeedLimit {
         var privacyRadius: Double = 300
         var maxSnapMeters: Double = 20
         var resultMaxAge: TimeInterval = 180
-        var extraValidMeters: Double = 200
+        /// Margen tras el final de la vía identificada. Pequeño a propósito: una salida o un cruce terminan la arista y el
+        /// límite de esa vía deja de valer (no se arrastra a la siguiente).
+        var extraValidMeters: Double = 40
+        /// Un resultado dudoso («no sé por qué vía vas») se mantiene poco.
+        var uncertainValidMeters: Double = 60
+    }
+
+    /// Último resultado del proveedor para el último punto enviado.
+    struct LiveResult {
+        var limit: Int?
+        var raw: String
+        var wayID: Int64?
+        var roadName: String?
+        var confident: Bool
+        var location: CLLocation
+        var validMeters: Double
+        var at: Date
     }
 
     private(set) var display: SpeedLimitDisplay = .hidden
@@ -35,6 +53,9 @@ final class FreeDriveSpeedLimit {
     private(set) var currentSpeedKmh: Double?
     /// Estado para el diagnóstico (sin coordenadas).
     private(set) var status = "desactivado"
+    /// Modo diagnóstico de desarrollo (sin coordenadas; no se registra).
+    private(set) var diagnostic: SpeedLimitDiagnostic?
+    @ObservationIgnored var metric = true
 
     @ObservationIgnored var config = Config()
     /// Lugares personales (Casa/Trabajo) cerca de los cuales NO se envía nada. nil = no se pudieron leer: no se envía nada.
@@ -47,7 +68,7 @@ final class FreeDriveSpeedLimit {
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var sequence = 0
     @ObservationIgnored private var appliedSequence = 0
-    @ObservationIgnored private var result: (limit: Int?, location: CLLocation, validMeters: Double, at: Date)?
+    @ObservationIgnored private var result: LiveResult?
     @ObservationIgnored private var failures = 0
     @ObservationIgnored private var retryAt: Date?
     @ObservationIgnored private(set) var requestCount = 0
@@ -92,10 +113,10 @@ final class FreeDriveSpeedLimit {
             return
         }
         if isNearExcludedArea(location.coordinate) {
-            // Cerca de Casa/Trabajo: no se guarda ni se envía nada.
+            // Cerca de Casa/Trabajo: no se guarda ni se envía nada (la vía queda sin identificar).
             buffer.removeAll()
             result = nil
-            display = .insufficientLocation
+            display = .uncertainRoad
             status = "en pausa cerca de un lugar personal"
             return
         }
@@ -137,13 +158,24 @@ final class FreeDriveSpeedLimit {
         return zip(buffer, buffer.dropFirst()).reduce(0) { $0 + $1.1.distance(from: $1.0) }
     }
 
+    /// Evidencia de la vía real para una posición (la usa también la navegación). nil si no hay resultado.
+    func evidence(at location: CLLocation, now: Date? = nil) -> LiveRoadEvidence? {
+        guard isEnabled, let result else { return nil }
+        let at = now ?? clock()
+        let age = at.timeIntervalSince(result.at)
+        let inside = location.distance(from: result.location) <= result.validMeters && age <= config.resultMaxAge
+        return LiveRoadEvidence(wayID: result.wayID, limitKmh: result.limit, raw: result.raw, roadName: result.roadName,
+                                confident: result.confident, stillOnIdentifiedRoad: inside, ageSeconds: age)
+    }
+
     private func currentDisplay(at location: CLLocation, now: Date) -> SpeedLimitDisplay {
-        guard let result else { return .insufficientLocation }
-        let moved = location.distance(from: result.location)
-        guard moved <= result.validMeters, now.timeIntervalSince(result.at) <= config.resultMaxAge else {
-            return .insufficientLocation
-        }
-        return result.limit.map { .limit(kmh: $0) } ?? .unavailable
+        let live = evidence(at: location, now: now)
+        let decision = SpeedLimitResolver.resolve(route: nil, live: live,
+                                                  location: LocationEvidence(accuracy: location.horizontalAccuracy,
+                                                                             age: now.timeIntervalSince(location.timestamp)))
+        diagnostic = SpeedLimitDiagnostic.make(decision, previous: diagnostic, dataAge: live?.ageSeconds,
+                                               accuracy: location.horizontalAccuracy, metric: metric)
+        return decision.display
     }
 
     private func queryIfNeeded(at location: CLLocation, now: Date) {
@@ -191,11 +223,14 @@ final class FreeDriveSpeedLimit {
             retryAt = nil
             countryCode = match.countryCode
             if let identified = Self.currentEdge(of: match, maxSnapMeters: config.maxSnapMeters) {
-                let speed = max(0, anchor.speed)
-                result = (identified.limit, anchor, identified.remainingMeters + max(config.extraValidMeters, speed * 15), now)
-                status = identified.limit == nil ? "vía identificada, sin dato" : "vía identificada"
+                let edge = identified.edge
+                result = LiveResult(limit: edge.limitKmh, raw: edge.raw, wayID: edge.wayID, roadName: edge.roadName,
+                                    confident: true, location: anchor,
+                                    validMeters: identified.remainingMeters + config.extraValidMeters, at: now)
+                status = edge.limitKmh == nil ? "vía identificada, sin dato" : "vía identificada"
             } else {
-                result = nil
+                result = LiveResult(limit: nil, raw: "—", wayID: nil, roadName: nil, confident: false, location: anchor,
+                                    validMeters: config.uncertainValidMeters, at: now)
                 status = "no se pudo identificar la vía con seguridad"
             }
         }
@@ -203,12 +238,12 @@ final class FreeDriveSpeedLimit {
     }
 
     /// Vía del ÚLTIMO punto enviado, si el proveedor la asoció con seguridad.
-    static func currentEdge(of match: SpeedLimitMatch, maxSnapMeters: Double) -> (limit: Int?, remainingMeters: Double)? {
+    static func currentEdge(of match: SpeedLimitMatch, maxSnapMeters: Double) -> (edge: SpeedLimitEdge, remainingMeters: Double)? {
         guard let point = match.points.last, point.kind != .unmatched, let index = point.edgeIndex,
               index >= 0, index < match.edges.count else { return nil }
         if let offset = point.distanceFromTrace, offset > maxSnapMeters { return nil }
         let edge = match.edges[index]
         let remaining = (1 - min(1, max(0, point.distanceAlongEdge ?? 1))) * edge.lengthMeters
-        return (edge.limitKmh, remaining)
+        return (edge, remaining)
     }
 }

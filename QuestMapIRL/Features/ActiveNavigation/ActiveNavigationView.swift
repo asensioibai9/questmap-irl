@@ -31,12 +31,17 @@ struct NavigationOverlay: View {
     let onSearch: () -> Void
     let onEnd: () -> Void
 
+    @AppStorage(SpeedLimitDiagnosticsCard.storageKey) private var limitDiagnostics = false
+
     private var limitSign: some View {
-        SpeedLimitSign(display: viewModel.speedLimit, metric: useMetric, appearance: speedSign,
-                       countryCode: viewModel.speedLimitCountry, currentSpeedKmh: viewModel.currentSpeedKmh)
+        VStack(alignment: .leading, spacing: 6) {
+            if limitDiagnostics { SpeedLimitDiagnosticsCard(diagnostic: viewModel.speedLimitDiagnostic) }
+            SpeedLimitSign(display: viewModel.speedLimit, metric: useMetric, appearance: speedSign,
+                           countryCode: viewModel.speedLimitCountry, currentSpeedKmh: viewModel.currentSpeedKmh)
+        }
     }
 
-    private var signIsEmpty: Bool { SpeedLimitSign.isEmpty(viewModel.speedLimit, appearance: speedSign) }
+    private var signIsEmpty: Bool { SpeedLimitSign.isEmpty(viewModel.speedLimit, appearance: speedSign) && !limitDiagnostics }
 
     var body: some View {
         VStack(spacing: 10) {

@@ -21,6 +21,12 @@ final class ActiveNavigationViewModel {
     private(set) var currentSpeedKmh: Double?
     /// Estado de la consulta de límites, para el diagnóstico (sin coordenadas).
     private(set) var speedLimitStatus = "sin consultar"
+    /// Modo diagnóstico de desarrollo: de dónde sale la cifra y por qué se muestra u oculta (sin coordenadas).
+    private(set) var speedLimitDiagnostic: SpeedLimitDiagnostic?
+    /// Vía REAL según el map matching del recorrido reciente (la conecta el centro de navegación). nil = sin comprobación:
+    /// solo se usa la ruta y con criterio estricto.
+    @ObservationIgnored var liveRoad: ((CLLocation) -> LiveRoadEvidence?)?
+    @ObservationIgnored private var speedProfileFailed = false
     var finished = false
 
     let destinationName: String
@@ -210,6 +216,7 @@ final class ActiveNavigationViewModel {
                 break
             }
             speedProfile = profile
+            speedProfileFailed = false
             speedLimitCountry = profile.countryCode
             speedLimitStatus = "cobertura \(Int((profile.coverage * 100).rounded())) %" + (profile.isComplete ? "" : " (incompleta)")
             if profile.isComplete {
@@ -220,6 +227,7 @@ final class ActiveNavigationViewModel {
             }
         case .failure(let error):
             if error is CancellationError { return }
+            speedProfileFailed = speedProfile == nil
             speedLimitStatus = "error: \(error is SpeedLimitError ? "sin datos del servidor" : "\(type(of: error))")"
             scheduleSpeedRetry()
         }
@@ -233,13 +241,25 @@ final class ActiveNavigationViewModel {
 
     private func updateSpeedLimit(with location: CLLocation) {
         if speedLimitTask == nil { refreshSpeedProfile() }      // reintento pendiente, si ya toca
+        guard showsSpeedLimit else {
+            speedTracker.reset()
+            speedLimit = .hidden
+            return
+        }
         let progress = engine.totalMeters - snapshot.remainingMeters
-        speedLimit = speedTracker.update(enabled: showsSpeedLimit, profile: speedProfileRouteID == route.id ? speedProfile : nil,
-                                         progressMeters: progress,
-                                         isOffRoute: offRouteCount > 0 || snapshot.isOffRoute,
-                                         distanceFromRoute: snapshot.distanceFromRoute,
-                                         accuracy: location.horizontalAccuracy,
-                                         age: clock().timeIntervalSince(location.timestamp))
+        let profile = speedProfileRouteID == route.id ? speedProfile : nil
+        let state: RouteSpeedEvidence.ProfileState = profile != nil ? .loaded : (speedProfileFailed ? .failed : .loading)
+        let routeEvidence = RouteSpeedEvidence(segment: profile?.segment(atMeters: progress), profileState: state,
+                                               distanceFromRoute: snapshot.distanceFromRoute,
+                                               isOffRoute: offRouteCount > 0 || snapshot.isOffRoute)
+        let live = liveRoad?(location)
+        let age = clock().timeIntervalSince(location.timestamp)
+        let decision = SpeedLimitResolver.resolve(route: routeEvidence, live: live,
+                                                  location: LocationEvidence(accuracy: location.horizontalAccuracy, age: age))
+        speedLimit = speedTracker.applyDecision(decision.display)
+        speedLimitDiagnostic = SpeedLimitDiagnostic.make(decision, previous: speedLimitDiagnostic,
+                                                         dataAge: decision.source == .liveTrace ? live?.ageSeconds : nil,
+                                                         accuracy: location.horizontalAccuracy, metric: useMetric)
     }
 
     func summary() -> TripSummary {
