@@ -44,6 +44,17 @@ struct MapScreenLayout: Equatable {
     /// Espacio que los controles ocupan desde el borde derecho de la PANTALLA.
     private var rightOccupied: CGFloat { safeArea.trailing + Self.edgeMargin + controlsWidth + Self.edgeMargin }
 
+    /// Zona del mapa que queda libre entre el panel izquierdo y los controles (en coordenadas del área segura). En vertical,
+    /// toda la anchura por encima del panel inferior de navegación.
+    var freeMapRect: CGRect {
+        if isSideBySide {
+            let x = Self.edgeMargin + sidePanelWidth + Self.edgeMargin
+            return CGRect(x: x, y: 0, width: max(0, size.width - x - (Self.edgeMargin + controlsWidth + Self.edgeMargin)),
+                          height: size.height)
+        }
+        return CGRect(x: 0, y: 0, width: size.width, height: max(0, size.height - navigationFollowInsets.bottom))
+    }
+
     /// Ancho de mapa que queda libre entre el panel y los controles.
     var freeMapWidth: CGFloat {
         size.width + safeArea.leading + safeArea.trailing - leftOccupied - rightOccupied

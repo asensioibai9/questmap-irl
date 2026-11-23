@@ -178,6 +178,7 @@ struct AvatarPickerView: View {
 struct NavigationSettingsView: View {
     @Query private var settingsRows: [UserSettings]
     @State private var confirmSpotify = false
+    @State private var showScreenPreview = false
     @Environment(\.modelContext) private var context
     @Environment(\.openURL) private var openURL
     @Environment(\.mapTheme) private var theme
@@ -370,9 +371,25 @@ struct NavigationSettingsView: View {
             } footer: {
                 Text("La app solo usa tu ubicación mientras está abierta, para situarte en el mapa y guiarte.")
             }
+
+            Section {
+                Button {
+                    showScreenPreview = true
+                } label: {
+                    Label("Vista de pruebas de pantalla", systemImage: "rectangle.on.rectangle")
+                }
+            } header: {
+                Text("Pruebas")
+            } footer: {
+                Text("Muestra la distribución horizontal de la app en otras proporciones de pantalla con un recorrido simulado. No es CarPlay, no usa tu GPS ni inicia una navegación real, y la voz está muda.")
+            }
         }
         .scrollContentBackground(.hidden)
         .preferredColorScheme(.dark)
+        .fullScreenCover(isPresented: $showScreenPreview) {
+            CarScreenPreviewView(environment: environment)
+                .environment(\.mapTheme, theme)
+        }
     }
 
     @ViewBuilder
