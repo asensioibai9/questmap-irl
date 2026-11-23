@@ -49,7 +49,14 @@ jobs:
             grep -E "Test Case .* skipped" test.log || echo "(ninguno)"
             echo "--- Fallidos ---"
             grep -E "Test Case .* failed" test.log || echo "(ninguno)"
+            echo "--- Asserts fallidos ---"
+            grep -E "error: -\[" test.log | head -n 30 || echo "(ninguno)"
             echo "--- Tests de voz ---"
             grep -E "Test Case .*NavigationVoice.* (passed|skipped|failed)" test.log || echo "(no aparecen)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          # Cada assert fallido también como anotación (visible en la ejecución sin abrir el registro completo).
+          # Solo nombres de test y mensajes de XCTest: no hay datos personales en ellos.
+          grep -E "error: -\[" test.log | head -n 20 | while IFS= read -r line; do
+            echo "::error title=Test fallido::$(printf '%s' "$line" | sed -E 's/^.*error: //' | cut -c1-400)"
+          done || true
