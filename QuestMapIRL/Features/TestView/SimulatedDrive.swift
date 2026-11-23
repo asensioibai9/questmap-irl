@@ -46,7 +46,7 @@ enum SimulatedRouteFactory {
                                   steps: [(String, String, String, ManeuverInfo)]) -> Route {
         var coordinates: [CLLocationCoordinate2D] = []
         var legLengths: [Double] = []
-        for (start, end) in zip(points, points.dropLast()) {
+        for (start, end) in zip(points, points.dropFirst()) {
             let length = distance(start, end)
             legLengths.append(length)
             let count = max(1, Int(length / 20))

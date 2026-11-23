@@ -22,7 +22,8 @@ final class CarScreenPreviewTests: XCTestCase {
         XCTAssertEqual(route.steps.count, 4)
         XCTAssertTrue(route.name.contains("simulado"))
         XCTAssertEqual(route.steps.map { $0.maneuver?.type }, ["depart", "turn", "turn", "arrive"])
-        XCTAssertEqual(route.distanceMeters, 1400, accuracy: 5)
+        XCTAssertEqual(route.distanceMeters, 1400, accuracy: 15, "600 + 450 + 350 m (desplazamientos aproximados)")
+        XCTAssertEqual(route.steps[0].distanceMeters, 600, accuracy: 10, "cada paso mide su tramo, no cero")
         let long = SimulatedRouteFactory.demoRoute(longNames: true)
         XCTAssertGreaterThan(long.steps[1].instruction.count, 50, "variante para comprobar textos largos")
     }
