@@ -1,59 +1,93 @@
 # 21 · CarPlay (navegación)
 
-## Estado honesto
+## Estado (23-11-2026)
 
-| Nivel | Estado |
+### A. Implementado en código
+- **Escena principal:** declarada en el `Info.plist` (`CPTemplateApplicationSceneSessionRoleApplication` → `CarPlaySceneDelegate`).
+- **Delegado:** implementa los métodos de navegación con la firma de Apple (`CPWindow`).
+- **Interfaz:** `CPMapTemplate` como plantilla principal, búsqueda, listas, vista previa de rutas, `CPNavigationSession` y estado compartido con el iPhone.
+
+### B. Compilado y probado
+- **Comprobación estática en CI** (commit `954c049`):
+  - La app compila y los tests pasan.
+  - Tests de configuración: el `Info.plist` declara la escena, el delegado existe y sus métodos coinciden con la firma del protocolo.
+  - El paso de empaquetado del IPA sin firmar falla si la escena no está en el `Info.plist` compilado, y ha pasado.
+- **No probado en ejecución:**
+  - Las plantillas de CarPlay (no hay Mac ni simulador de CarPlay).
+  - Conexión y desconexión reales, el mapa en un coche y la ausencia de voz duplicada en un coche.
+
+### C. Bloqueado por la aprobación de Apple
+- Falta que Apple conceda `com.apple.developer.carplay-maps` (CarPlay Navigation) a tu cuenta de desarrollador.
+- Apple: sin un permiso de CarPlay, el sistema no muestra la app en CarPlay.
+- Escribir la clave en un archivo de entitlements no equivale a tenerla concedida.
+
+### D. Pendiente de firma
+- Falta un App ID con la capacidad CarPlay Navigation y un perfil de aprovisionamiento manual generado después de activarla.
+- También falta una build firmada con ese perfil y con `QuestMapIRL-CarPlay.entitlements`.
+- El workflow «iOS CarPlay (firmada)» está preparado, pero no se ha ejecutado nunca.
+
+### E. Pendiente de prueba en un coche
+Todo lo que depende de CarPlay en ejecución:
+- Que aparezca en Ajustes › General › CarPlay › tu coche › Personalizar.
+- Mapa, búsqueda, rutas, guiado y voz.
+- Conexión y desconexión.
+
+## Diagnóstico de firma en TU flujo actual
+
+| Qué | Cómo lo sé |
 |---|---|
-| Implementado | Sí (escena, plantillas, mapa, destinos, vista previa, navegación guiada, límite de velocidad) |
-| Compilado | Sí (CI) |
-| Probado con tests | La lógica compartida (centro de navegación, textos, configuración). **No** las plantillas de CarPlay |
-| Probado en simulador de CarPlay | **No** (no hay Mac) |
-| Probado en iPhone | **No** |
-| Probado en coche real | **No** |
-| Autorización de Apple | **Pendiente. Sin ella CarPlay no se conecta.** |
+| El IPA de GitHub se compila con `CODE_SIGNING_ALLOWED=NO`: no está firmado y no lleva ningún entitlement | **Configuración del workflow** (`ios-ipa.yml`). El registro del paso que lo muestra solo se ve con sesión iniciada en GitHub |
+| Sideloadly firma ese IPA con un certificado y un perfil que obtiene a través de tu Apple ID | Así funciona la herramienta. **No he inspeccionado** el perfil que generó ni la app instalada en tu iPhone |
+| Ningún perfil puede incluir `com.apple.developer.carplay-maps` si Apple no ha concedido antes ese permiso a la cuenta | Documentación de Apple: el permiso se añade a la cuenta tras aprobarlo y después al App ID y al perfil |
+| Apple: con firma automática, iOS no instala la app en CarPlay. Hace falta un perfil manual | Documentación de Apple |
+| No sé si Sideloadly puede firmar con un certificado y un perfil manual tuyos que incluyan CarPlay | **No comprobado** |
 
-## Diagnóstico (23-11-2026): por qué no aparece en Ajustes › General › CarPlay
+En resumen, en tu flujo faltan:
+1. La autorización de Apple en tu cuenta.
+2. Un App ID con la capacidad activada.
+3. Un perfil manual que la incluya.
+4. Una firma que use ese perfil y el archivo de entitlements de CarPlay.
 
-Fuente: documentación de Apple «Preparing your iOS app for CarPlay development» y «Building your app's initial CarPlay
-interface».
+Si algún día comprobamos que Sideloadly puede firmar con tu certificado y tu perfil manual, se podría seguir usando. Si no, el camino es el workflow firmado y TestFlight.
 
-| Tipo | Problema | Estado |
-|---|---|---|
-| A. Código | El delegado de escena recibía `UIWindow` en vez de `CPWindow`. Son métodos opcionales de Objective-C: con otro tipo, CarPlay no los llama nunca | **Corregido** |
-| B. Configuración | El `Info.plist` no declaraba la escena `CPTemplateApplicationSceneSessionRoleApplication`. Apple: CarPlay toma la escena y su delegado de este manifiesto | **Corregido** |
-| C. Permiso de Apple | Hace falta que Apple conceda `com.apple.developer.carplay-maps` a una cuenta de pago. Apple: sin ese permiso, el sistema no muestra la app en CarPlay | **Pendiente (bloqueo externo)** |
-| D. Firma | El IPA de CI va sin firmar y no lleva entitlements. Sideloadly lo firma con un perfil automático de tu Apple ID, sin CarPlay. Apple: con firma automática, iOS no instala la app en CarPlay | **Confirmado por la configuración**: este flujo no puede dar una build para CarPlay |
-| E. Ejecución | Requiere logs del dispositivo con una build ya firmada correctamente | No comprobable todavía |
+Fuentes de Apple:
+- https://developer.apple.com/documentation/carplay/preparing-your-ios-app-for-carplay-development
+- https://developer.apple.com/documentation/carplay/building-your-apps-initial-carplay-interface
 
-Escribir la clave en un archivo de entitlements **no** equivale a la autorización.
+## Pasos externos, en orden
 
-## Pasos externos (los haces tú en la web de Apple; sin Mac)
-
-1. **Programa de desarrolladores de pago.**
-2. **Solicitud del permiso:** https://developer.apple.com/contact/carplay/
-   - Datos de tu organización.
-   - Tipo de app: **Navigation** (indicaciones giro a giro).
+1. **Solicitar el permiso** en https://developer.apple.com/contact/carplay/ (pide iniciar sesión con tu Apple ID).
+   - Información de tu organización.
+   - Tipo de app: **Navigation**.
    - Aceptar los términos.
    - Apple revisa cada solicitud con sus criterios y, si la aprueba, añade el permiso a tu cuenta.
-3. **App ID:** Certificates, Identifiers & Profiles › Identifiers › tu App ID › Capabilities › activar **CarPlay Navigation**. El Bundle ID del proyecto es `com.questmapirl.app`; si no está libre en tu cuenta, hay que decidir otro antes de seguir.
-4. **Certificado de firma, sin Mac:** crea la clave y la solicitud (CSR) en tu PC con OpenSSL, sube el CSR en «Certificates» y convierte el `.cer` descargado a `.p12`. La clave privada no sale de tu PC.
-5. **Perfil MANUAL** con ese App ID:
-   - App Store, para TestFlight. Es la forma de instalar sin Mac.
-   - O Development, con el UDID de tu iPhone registrado.
-6. **Secretos en GitHub** (Settings › Secrets and variables › Actions):
-   - `IOS_DIST_CERT_P12_BASE64`, `IOS_DIST_CERT_PASSWORD`, `IOS_PROFILE_BASE64` e `IOS_TEAM_ID`.
-   - Para TestFlight, además: `ASC_KEY_ID`, `ASC_ISSUER_ID` y `ASC_KEY_P8_BASE64`.
-7. **Build:** Actions › **iOS CarPlay (firmada)** › Run workflow. El workflow se detiene con un error claro si el perfil no incluye `com.apple.developer.carplay-maps`, si es de otro App ID o si la app firmada no lleva el permiso.
-8. **Instalación:** por TestFlight (método `app-store`, con la casilla de subida marcada). Sideloadly no sirve: vuelve a firmar con su propio perfil y quita el permiso.
+   - No he podido confirmar si el formulario exige estar ya en el programa de pago. Sí es seguro que para crear App IDs con capacidades y perfiles manuales hace falta el **Apple Developer Program** (99 USD al año): https://developer.apple.com/programs/enroll/
+2. **App ID**, solo tras la aprobación: Certificates, Identifiers & Profiles › Identifiers › App ID › Capabilities › **CarPlay Navigation**. El Bundle ID es `com.questmapirl.app`; si no está disponible en tu cuenta, se decide otro contigo antes de cambiar nada.
+3. **Certificado de firma:** la clave privada y la solicitud de certificado (CSR) se crean en tu PC; Apple firma el certificado.
+4. **Perfil manual:** de tipo App Store para TestFlight, o Development con el UDID de tu iPhone.
+5. **Secretos en GitHub y ejecución del workflow:** consulta la sección «Seguridad de la firma en GitHub Actions». Subir a TestFlight solo con tu autorización expresa: la casilla está desactivada por defecto.
 
-## Comprobación en el coche (solo con la build firmada del paso 7)
+## Seguridad de la firma en GitHub Actions
 
-1. Instala esa build y ábrela una vez en el iPhone.
-2. Conecta el coche y mira Ajustes › General › CarPlay › tu coche › Personalizar.
-3. Si no aparece, recoge las pruebas:
-   - El registro de la ejecución del paso 7, con los entitlements firmados.
-   - La versión instalada que muestra TestFlight.
-   - Ajustes › Privacidad y seguridad › Análisis y mejoras › Datos de análisis, buscando entradas de QuestMap o CarPlay.
+**Al guardar el `.p12` como secreto, la clave privada del certificado SALE de tu PC.** GitHub la guarda cifrada y la descifra
+en un Mac temporal suyo en cada ejecución del workflow. Cualquiera con permiso para modificar los workflows de este
+repositorio podría usarla. Si sospechas una filtración, revoca el certificado en Apple Developer.
+
+| Secreto | Qué contiene | Sensibilidad |
+|---|---|---|
+| `IOS_DIST_CERT_P12_BASE64` | Certificado de firma **y su clave privada**, en base64 | Alta |
+| `IOS_DIST_CERT_PASSWORD` | Contraseña del `.p12` | Alta |
+| `IOS_PROFILE_BASE64` | Perfil `.mobileprovision`: App ID, Team ID, permisos y, si es de desarrollo, los UDID de tus dispositivos | Media (datos de cuenta) |
+| `IOS_TEAM_ID` | Identificador de tu equipo de Apple Developer | Baja |
+| `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8_BASE64` | Clave de API de App Store Connect, solo para TestFlight. La `.p8` es privada | Alta |
+
+Medidas del workflow (`.github/workflows/ios-carplay-signed.yml`):
+- **Ejecución:** solo a mano, con permisos de solo lectura sobre el repositorio y en un Mac alojado por GitHub (`macos-15-intel`), que es lo que exigen `xcodebuild` y `codesign`. La máquina se destruye al terminar.
+- **Llavero temporal** con contraseña aleatoria. El `.p12` se borra justo después de importarlo.
+- **Limpieza siempre, también si falla:** al final se borran el llavero, el perfil, la clave `.p8`, el archivo de exportación, el archivo de compilación y el IPA.
+- **Registros mínimos**, porque el repositorio es público y sus registros también: comprobaciones de sí o no, solo los nombres de los entitlements y no los valores. El UUID del perfil se enmascara. No se imprimen el perfil, el Team ID ni el App ID.
+- **Sin artefacto por defecto:** el IPA firmado lleva el perfil embebido, así que solo se guarda si lo marcas (durante 3 días).
+- **Ningún certificado, clave ni perfil se publica nunca como artefacto.**
 
 ## Qué se ha construido
 
