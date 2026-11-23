@@ -34,10 +34,28 @@
         <string>LaunchMark</string>
     </dict>
 
+    <!-- Escenas. La del iPhone la gestiona SwiftUI (WindowGroup). La de CarPlay se declara aquí porque CarPlay lee de este
+         manifiesto qué escena y qué delegado crear (documentación de Apple: «Building your app's initial CarPlay interface»).
+         Aun así, el sistema solo la conecta si la app FIRMADA lleva el entitlement com.apple.developer.carplay-maps
+         concedido por Apple y un perfil de aprovisionamiento manual que lo incluya (ver docs/21-carplay.md). -->
     <key>UIApplicationSceneManifest</key>
     <dict>
         <key>UIApplicationSupportsMultipleScenes</key>
         <true/>
+        <key>UISceneConfigurations</key>
+        <dict>
+            <key>CPTemplateApplicationSceneSessionRoleApplication</key>
+            <array>
+                <dict>
+                    <key>UISceneClassName</key>
+                    <string>CPTemplateApplicationScene</string>
+                    <key>UISceneDelegateClassName</key>
+                    <string>$(PRODUCT_MODULE_NAME).CarPlaySceneDelegate</string>
+                    <key>UISceneConfigurationName</key>
+                    <string>CarPlay</string>
+                </dict>
+            </array>
+        </dict>
     </dict>
 
     <key>UISupportedInterfaceOrientations</key>

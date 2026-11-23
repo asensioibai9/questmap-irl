@@ -51,6 +51,13 @@ jobs:
           ls -la Payload/*.app/Frameworks || echo "SIN CARPETA Frameworks (MapLibre no está embebido)"
           echo "--- Estilos de mapa en el bundle ---"
           ls -la Payload/*.app/*.json
+          echo "--- CarPlay: escena declarada en el Info.plist ---"
+          /usr/libexec/PlistBuddy -c "Print :UIApplicationSceneManifest:UISceneConfigurations:CPTemplateApplicationSceneSessionRoleApplication" Payload/*.app/Info.plist \
+            || { echo "::error::Falta la escena de CarPlay en el Info.plist"; exit 1; }
+          echo "--- CarPlay: entitlements de este IPA ---"
+          # Este IPA va SIN FIRMAR: no lleva entitlements. Sideloadly lo firma con un perfil de tu Apple ID que no incluye
+          # com.apple.developer.carplay-maps, así que la app instalada así NO aparece en CarPlay (ver docs/21-carplay.md).
+          codesign -d --entitlements :- Payload/*.app 2>&1 || echo "Sin firma: sin entitlements (esperado en este IPA)."
 
       - name: Upload .ipa
         uses: actions/upload-artifact@v4
