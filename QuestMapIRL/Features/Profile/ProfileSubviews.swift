@@ -180,6 +180,7 @@ struct NavigationSettingsView: View {
     @State private var confirmSpotify = false
     @Environment(\.modelContext) private var context
     @Environment(\.openURL) private var openURL
+    @Environment(\.mapTheme) private var theme
 
     let environment: AppEnvironment
     @Bindable private var speech: SpeechService
@@ -255,6 +256,8 @@ struct NavigationSettingsView: View {
                     }
                     Slider(value: Binding(get: { Double(speech.volume) }, set: { speech.volume = Float($0) }), in: 0.2...1)
                 }
+                // La voz sale por donde indique el sistema (Bluetooth o cable del coche, auriculares, altavoz).
+                AudioOutputRow(accent: theme.accent)
                 Button { speech.toggleTest() } label: {
                     if speech.isPlayingTest {
                         Label("Reproduciendo… (toca para parar)", systemImage: "waveform")
@@ -406,7 +409,7 @@ struct NavigationSettingsView: View {
         } header: {
             Text("Música")
         } footer: {
-            Text(MusicServiceNotes.requirements(for: music.service) + " Las indicaciones de voz bajan el volumen de la música y luego lo recuperan; no se pausa la música por cada indicación.")
+            Text(MusicServiceNotes.requirements(for: music.service) + " Las indicaciones de voz bajan el volumen de la música y luego lo recuperan; no se pausa la música por cada indicación (un pódcast o audiolibro sí se pausa durante el aviso y continúa después).")
         }
         .confirmationDialog("Conectar Spotify", isPresented: $confirmSpotify, titleVisibility: .visible) {
             Button("Abrir Spotify y conectar") { Task { await music.connect() } }

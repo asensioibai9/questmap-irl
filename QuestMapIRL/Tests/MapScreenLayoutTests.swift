@@ -33,6 +33,15 @@ final class MapScreenLayoutTests: XCTestCase {
         XCTAssertGreaterThan(landscapeLarge.sidePanelWidth, landscapeSmall.sidePanelWidth - 0.5, "proporcional, no fijo")
     }
 
+    func testControlButtonsAreBiggerWhenThereIsRoomAndNeverBelowTheMinimum() {
+        XCTAssertEqual(landscapeSmall.controlButtonSize, 44)
+        XCTAssertEqual(landscapeLarge.controlButtonSize, 52)
+        for layout in [landscapeLeft, landscapeSmall, landscapeLarge] {
+            let column = 4 * layout.controlButtonSize + 3 + 6 + 8 + 30        // botones, separadores, borde, crédito
+            XCTAssertLessThan(column, layout.size.height - 14, "\(layout.size)")
+        }
+    }
+
     func testControlsFitInTheUsableHeightOfASmallIPhone() {
         let fourButtons: CGFloat = 4 * 44 + 3 + 6                    // grupo compacto: 4 botones, separadores, borde
         let attribution: CGFloat = 30
@@ -77,9 +86,9 @@ final class MapScreenLayoutTests: XCTestCase {
         // Aun así, el centro del hueco queda lejos de la columna de controles.
         let screenWidth = landscapeLeft.size.width + landscapeLeft.safeArea.leading + landscapeLeft.safeArea.trailing
         let center = landscapeLeft.navigationFollowInsets.left + (screenWidth - landscapeLeft.navigationFollowInsets.left) / 2
-        XCTAssertLessThan(center, screenWidth - landscapeLeft.safeArea.trailing - 12 - MapScreenLayout.controlsWidth - 80)
+        XCTAssertLessThan(center, screenWidth - landscapeLeft.safeArea.trailing - 12 - landscapeLeft.controlsWidth - 80)
         // El encuadre de la ruta completa sí deja sitio a los controles (usa márgenes de encuadre, no de la cámara).
-        XCTAssertGreaterThanOrEqual(landscapeLeft.fullRouteInsets.right, landscapeLeft.safeArea.trailing + MapScreenLayout.controlsWidth)
+        XCTAssertGreaterThanOrEqual(landscapeLeft.fullRouteInsets.right, landscapeLeft.safeArea.trailing + landscapeLeft.controlsWidth)
     }
 
     func testRotatingBackAndForthGivesTheSameLayout() {

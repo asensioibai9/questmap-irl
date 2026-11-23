@@ -255,7 +255,7 @@ struct NavigationOverlay: View {
     private var sideButtons: some View {
         if isSideBySide {
             MapControlCluster(items: controlItems, accent: theme.accent, background: theme.panel, border: theme.panelBorder,
-                              iconWeight: theme.iconWeight)
+                              iconWeight: theme.iconWeight, buttonSize: layout?.controlButtonSize ?? 44)
         } else {
             VStack(spacing: 12) {
                 ForEach(controlItems) { item in

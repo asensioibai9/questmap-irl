@@ -89,6 +89,44 @@ Medidas del workflow (`.github/workflows/ios-carplay-signed.yml`):
 - **Sin artefacto por defecto:** el IPA firmado lleva el perfil embebido, así que solo se guarda si lo marcas (durante 3 días).
 - **Ningún certificado, clave ni perfil se publica nunca como artefacto.**
 
+## Uso sin cuenta de desarrollador propia
+
+Hay que distinguir dos cosas:
+1. **El usuario de la app no necesita cuenta de desarrollador.** Nadie la necesita para usar una app ya publicada.
+2. **La app sí tiene que estar autorizada y firmada por un desarrollador** con el permiso de CarPlay para que iOS la muestre en el coche. Ningún cambio de código elimina este requisito.
+
+### Lo que puedes usar ahora con tu instalación actual (IPA sin firmar más Sideloadly)
+
+Todo lo del iPhone, incluido el uso en el coche con el iPhone en un soporte:
+- **Horizontal a ambos lados**, con la flecha y la cámara orientadas según la marcha. La brújula usa la referencia de la interfaz.
+- **En navegación:** panel lateral con la maniobra, la hora de llegada, el tiempo y la distancia restantes, y los botones. Los botones de la derecha miden 52 pt si hay altura suficiente y 44 pt como mínimo.
+- **Voz:** configuración de audio de navegación (`.playback` y `.voicePrompt`). La música baja durante el aviso y los pódcasts se pausan.
+- **Salida de audio:** sale por donde indique el sistema (Bluetooth o cable del coche, auriculares, altavoz). Ajustes de navegación › «Salida de audio» muestra la salida actual y el selector del sistema (`AVRoutePickerView`).
+
+Este modo es la pantalla del iPhone: **no es CarPlay** y no aparece en la pantalla del coche.
+
+### Lo que seguirá sin aparecer en CarPlay
+
+La app entera, mientras no exista una build firmada con `com.apple.developer.carplay-maps` concedido por Apple. La escena y las plantillas de CarPlay quedan en el código, preparadas, pero iOS no las usa.
+
+### Distribución futura por otro desarrollador u organización
+
+Un desarrollador o una organización con cuenta del Apple Developer Program puede encargarse legítimamente de:
+- solicitar el permiso de CarPlay;
+- registrar el App ID;
+- firmar la app y distribuirla por TestFlight o la App Store bajo **su** cuenta.
+
+Esto **no elimina los requisitos ni garantiza la aprobación**: solo cambia quién tiene la cuenta, quién firma y quién responde ante Apple de la app y su distribución.
+
+Qué tendría que aportar esa persona u organización:
+- **Su cuenta de pago** y la **solicitud del permiso** CarPlay Navigation (https://developer.apple.com/contact/carplay/) a su nombre, con sus datos de organización y la aceptación de los términos.
+- **Bundle ID:** un App ID con la capacidad activada y su propio Bundle ID registrado en su cuenta. Cambiar `com.questmapirl.app` solo se hará si tú lo decides.
+- **Firma:** su certificado y un perfil manual, usados con el workflow «iOS CarPlay (firmada)» o con su propio proceso. Los secretos se guardarían en el repositorio que ellos controlen.
+- **TestFlight o App Store:** su App Store Connect para distribuir, con las obligaciones de privacidad y revisión que eso implica.
+- **Un acuerdo contigo** sobre el código, la marca y los datos. Este repositorio no gestiona nada de eso.
+
+No es aceptable usar permisos, perfiles o identidades de otra app para que esta pase por una app autorizada.
+
 ## Qué se ha construido
 
 - **Escena**: declarada en el `Info.plist` (`CPTemplateApplicationSceneSessionRoleApplication` → `CarPlaySceneDelegate`) y también en `AppDelegate`, que elige la escena de CarPlay o la del iPhone. `UIApplicationSupportsMultipleScenes` pasa a `true` (CarPlay es una segunda escena). Sin entitlement el sistema nunca crea la escena de CarPlay, así que el iPhone no cambia.

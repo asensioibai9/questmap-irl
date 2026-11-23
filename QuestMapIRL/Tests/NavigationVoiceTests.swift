@@ -271,8 +271,10 @@ final class NavigationVoiceTests: XCTestCase {
 
     func testAudioSessionConstants() {
         XCTAssertEqual(NavigationVoice.audioCategory, .playback)
-        XCTAssertEqual(NavigationVoice.audioMode, .spokenAudio)
-        XCTAssertTrue(NavigationVoice.audioOptions.contains(.duckOthers))
+        XCTAssertEqual(NavigationVoice.audioMode, .voicePrompt, "modo de Apple para avisos de navegación")
+        XCTAssertTrue(NavigationVoice.audioOptions.contains(.duckOthers), "la música baja y vuelve")
+        XCTAssertTrue(NavigationVoice.audioOptions.contains(.interruptSpokenAudioAndMixWithOthers), "pódcasts en pausa durante el aviso")
+        XCTAssertFalse(NavigationVoice.audioOptions.contains(.defaultToSpeaker), "no se fuerza el altavoz: manda la salida del sistema")
     }
 
     /// No depende de que el simulador deje modificar la sesión real: comprueba qué se le pide.
@@ -281,7 +283,7 @@ final class NavigationVoiceTests: XCTestCase {
         let session = SystemAudioSession(driver: driver)
         try session.activate()
         XCTAssertEqual(driver.categories, [.playback])
-        XCTAssertEqual(driver.modes, [.spokenAudio])
+        XCTAssertEqual(driver.modes, [.voicePrompt])
         XCTAssertTrue(driver.options.first?.contains(.duckOthers) ?? false)
         XCTAssertEqual(driver.activations, [true])
 

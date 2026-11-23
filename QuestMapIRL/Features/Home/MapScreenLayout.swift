@@ -20,8 +20,11 @@ struct MapScreenLayout: Equatable {
 
     /// Margen entre los paneles y el borde del área segura.
     static let edgeMargin: CGFloat = 12
-    /// Ancho del grupo de controles de la derecha (44 pt por botón + borde).
-    static let controlsWidth: CGFloat = 50
+    /// Botones del grupo de controles: 52 pt cuando hay alto de sobra (iPhone grande en horizontal) y 44 pt, el mínimo
+    /// táctil de Apple, si no. Cuatro botones caben así en la altura útil de cualquier iPhone.
+    var controlButtonSize: CGFloat { size.height >= 390 ? 52 : 44 }
+    /// Ancho del grupo de controles de la derecha (botón + borde).
+    var controlsWidth: CGFloat { controlButtonSize + 6 }
 
     /// Más ancho que alto y poco alto: no cabe un panel inferior sin tapar casi todo el mapa.
     var isSideBySide: Bool { size.width > size.height && size.height < 560 && size.width >= 560 }
@@ -39,7 +42,7 @@ struct MapScreenLayout: Equatable {
     /// Espacio que el panel izquierdo ocupa desde el borde izquierdo de la PANTALLA.
     private var leftOccupied: CGFloat { safeArea.leading + Self.edgeMargin + sidePanelWidth + Self.edgeMargin }
     /// Espacio que los controles ocupan desde el borde derecho de la PANTALLA.
-    private var rightOccupied: CGFloat { safeArea.trailing + Self.edgeMargin + Self.controlsWidth + Self.edgeMargin }
+    private var rightOccupied: CGFloat { safeArea.trailing + Self.edgeMargin + controlsWidth + Self.edgeMargin }
 
     /// Ancho de mapa que queda libre entre el panel y los controles.
     var freeMapWidth: CGFloat {

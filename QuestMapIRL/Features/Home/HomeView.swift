@@ -480,7 +480,7 @@ struct HomeView: View {
         if sidePanel {
             // Mismo grupo y mismos colores que durante la navegación.
             MapControlCluster(items: mapControlItems, accent: theme.accent, background: theme.panel, border: theme.panelBorder,
-                              iconWeight: theme.iconWeight)
+                              iconWeight: theme.iconWeight, buttonSize: layout.controlButtonSize)
         } else {
             VStack(spacing: 12) {
                 ForEach(mapControlItems) { item in

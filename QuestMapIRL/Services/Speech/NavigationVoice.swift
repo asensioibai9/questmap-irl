@@ -221,10 +221,16 @@ final class NavigationVoice {
     static let testPhrase = "Prueba de voz. En doscientos metros, gira a la derecha."
     static let defaultRate: Float = 0.48
 
-    /// Sesión de audio: suena aunque el iPhone esté en silencio y baja la música mientras habla.
+    /// Sesión de audio para indicaciones de navegación (configuración que Apple documenta para este uso):
+    /// - `.playback`: suena aunque el iPhone esté en silencio y por la salida activa (altavoz, auriculares, Bluetooth del
+    ///   coche, cable…); el sistema elige la ruta, la app no la fuerza.
+    /// - `.voicePrompt`: modo pensado para avisos de voz breves como los de navegación.
+    /// - `.duckOthers`: la música baja mientras se habla y vuelve después.
+    /// - `.interruptSpokenAudioAndMixWithOthers`: un pódcast o audiolibro se pausa durante el aviso (para no hablar encima)
+    ///   y se reanuda al terminar; la música no se pausa.
     static let audioCategory: AVAudioSession.Category = .playback
-    static let audioMode: AVAudioSession.Mode = .spokenAudio
-    static let audioOptions: AVAudioSession.CategoryOptions = [.duckOthers]
+    static let audioMode: AVAudioSession.Mode = .voicePrompt
+    static let audioOptions: AVAudioSession.CategoryOptions = [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
 
     static let genderKey = "questmap.navigationVoiceGender"
     static let volumeKey = "questmap.voiceVolume"

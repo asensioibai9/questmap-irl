@@ -30,6 +30,8 @@ struct MapControlCluster: View {
     var background: Color = AppColor.surface
     var border: Color = AppColor.separator
     var iconWeight: Font.Weight = .semibold
+    /// Lado de cada botón (mínimo 44 pt).
+    var buttonSize: CGFloat = 44
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,9 +39,9 @@ struct MapControlCluster: View {
                 if index > 0 { Rectangle().fill(border).frame(width: 28, height: 1) }
                 Button(action: item.action) {
                     Image(systemName: item.systemImage)
-                        .font(.system(size: 18, weight: iconWeight))
+                        .font(.system(size: buttonSize * 0.41, weight: iconWeight))
                         .foregroundStyle(item.isActive ? Color.black : accent)
-                        .frame(width: 44, height: 44)
+                        .frame(width: max(44, buttonSize), height: max(44, buttonSize))
                         .background(item.isActive ? accent : .clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                         .contentShape(Rectangle())
                 }
