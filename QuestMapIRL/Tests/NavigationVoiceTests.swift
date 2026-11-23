@@ -305,9 +305,10 @@ final class NavigationVoiceTests: XCTestCase {
     func testRealSessionAppliesPlaybackSpokenAudioDuckOthers() throws {
         do { try SystemAudioSession().configure() } catch { throw XCTSkip("AVAudioSession real no disponible: \(error)") }
         let session = AVAudioSession.sharedInstance()
-        XCTAssertEqual(session.category, .playback)
-        XCTAssertEqual(session.mode, .spokenAudio)
+        XCTAssertEqual(session.category, NavigationVoice.audioCategory)
+        XCTAssertEqual(session.mode, NavigationVoice.audioMode)
         XCTAssertTrue(session.categoryOptions.contains(.duckOthers))
+        XCTAssertTrue(session.categoryOptions.contains(.interruptSpokenAudioAndMixWithOthers))
     }
 
     // MARK: Selección de voz y avisos
